@@ -1,14 +1,79 @@
 # TODO — Setup manuel restant (pivot-collaboratif-ui)
 
-Ce repo a été bootstrappé avec :
-- Branch protection classique sur `main` (1 review requise, 3 status checks **self-contained**
-  requis — voir liste ci-dessous)
-- Ruleset `protect-main` (deletion / non-fast-forward / historique linéaire) — identique à
-  `pivot-ui`/`pivot-core`
+## ⚠️ BLOQUANT #1 — Branch protection / rulesets PAS appliqués (à faire en premier)
 
-**Volontairement PAS activé** : le ruleset complet (13 checks incluant SonarCloud, Lighthouse,
-E2E, Docker preview, style `protect-main` comprehensive sur `pivot-ui`) — il rendrait `main`
-définitivement non mergeable tant que les items ci-dessous ne sont pas faits.
+Le code, la CI/CD, la sécurité et la documentation sont bootstrappés et pushés sur `main`. **Mais
+ni la branch protection classique, ni AUCUN ruleset n'ont pu être créés depuis cette session** —
+l'API GitHub a refusé toute tentative de création (PUT `branches/main/protection` **et** POST
+`/rulesets`) avec :
+
+```
+403 — "Upgrade to GitHub Pro or make this repository public to enable this feature."
+```
+
+Même blocage exact rencontré sur `pivot-collaboratif-core` (voir son `TODO-SETUP.md`) — la
+lecture des rulesets existants de `pivot-ui`/`pivot-core` fonctionne, mais toute écriture sur ces
+deux nouveaux repos échoue avec le message de restriction de plan/billing (pas le message
+générique de manque de scope observé ailleurs dans cette session). `PATCH default_branch` et
+suppression de refs ont fonctionné avec le même token, ce qui exclut un problème de token trop
+restrictif pour l'administration générale du repo.
+
+**Action requise du mainteneur** : vérifier le plan GitHub de l'organisation PIVOT-PLATFORM
+(Settings → Billing), puis exécuter les commandes ci-dessous une fois débloqué.
+
+### Commandes prêtes à l'emploi une fois débloqué
+
+**1. Branch protection classique** (1 review, 3 checks self-contained) :
+```bash
+cat > /tmp/protection-collaboratif-ui.json << 'EOF'
+{
+  "required_status_checks": {
+    "strict": false,
+    "contexts": [
+      "Code Quality - Angular",
+      "Tests (Vitest)",
+      "Build Angular (production)"
+    ]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "dismiss_stale_reviews": false,
+    "require_code_owner_reviews": false,
+    "required_approving_review_count": 1,
+    "require_last_push_approval": false
+  },
+  "restrictions": null,
+  "required_linear_history": false,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "block_creations": false,
+  "required_conversation_resolution": false,
+  "lock_branch": false,
+  "allow_fork_syncing": false
+}
+EOF
+gh api repos/PIVOT-PLATFORM/pivot-collaboratif-ui/branches/main/protection -X PUT --input /tmp/protection-collaboratif-ui.json
+```
+
+**2. Ruleset `protect-main`** (deletion / non-fast-forward / historique linéaire) :
+```bash
+cat > /tmp/ruleset-protect-main-collaboratif-ui.json << 'EOF'
+{
+  "name": "protect-main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["refs/heads/main"], "exclude": [] } },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "required_linear_history" }
+  ]
+}
+EOF
+gh api repos/PIVOT-PLATFORM/pivot-collaboratif-ui/rulesets -X POST --input /tmp/ruleset-protect-main-collaboratif-ui.json
+```
+
+---
 
 ## À faire avant d'activer le ruleset complet (tous les checks)
 
