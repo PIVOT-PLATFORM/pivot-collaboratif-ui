@@ -1,0 +1,91 @@
+skill:
+  id: pivot-angular-architecture
+  version: "1.0"
+  name: "Angular Architecture"
+  description: >
+    Patterns Angular 18+ pour PIVOT : OnPush, RxJS, SCSS BEM, WCAG 2.1 AA,
+    routing lazy-loaded par module. Chargé pour tout fichier .ts/.html/.scss modifié.
+  loaded_by:
+    - Architecte_Angular
+    - Expert_UX_UI
+    - Dev_Agent
+
+---
+
+components:
+
+  change_detection:
+    rule: "OnPush sur tous les composants — pas de Default sauf justification documentée"
+    pattern: |
+      @Component({
+        selector: 'pivot-module-card',
+        templateUrl: './module-card.component.html',
+        changeDetection: ChangeDetectionStrategy.OnPush
+      })
+
+  typescript:
+    rules:
+      - "Strict mode activé — pas de any"
+      - "Typer explicitement les retours de méthodes publiques"
+      - "Interfaces pour les contrats de données, types pour les unions"
+
+  rxjs:
+    rules:
+      - "Pas de Promise sauf interop avec API tierce"
+      - "takeUntilDestroyed() pour unsubscribe dans les composants"
+      - "AsyncPipe dans le template — éviter les subscriptions manuelles"
+    pattern: |
+      modules$ = this.moduleService.findAll().pipe(
+        catchError(err => { this.error.set(err.message); return EMPTY; })
+      );
+
+---
+
+modules:
+
+  routing:
+    rule: "Routes lazy-loaded par module PIVOT via loadChildren"
+    pattern: |
+      {
+        path: 'whiteboard',
+        loadChildren: () =>
+          import('./modules/whiteboard/whiteboard.routes').then(m => m.WHITEBOARD_ROUTES)
+      }
+
+  disabled_module:
+    rule: "Module désactivé = route non chargée + 403 guard côté Angular"
+    pattern: |
+      export const moduleGuard: CanActivateFn = (route) => {
+        const modules = inject(ModuleRegistryService);
+        return modules.isEnabled(route.data['moduleId'])
+          ? true
+          : inject(Router).createUrlTree(['/403']);
+      };
+
+---
+
+styles:
+
+  scss:
+    rules:
+      - "BEM ou tokens centralisés — pas de styles inline"
+      - "Variables dans _tokens.scss, pas de valeurs magiques"
+      - "Pas de !important sauf override de bibliothèque tierce justifié"
+
+  accessibility:
+    rules:
+      - "WCAG 2.1 AA sur tous les éléments interactifs"
+      - "aria-label sur les boutons sans texte visible"
+      - "Focus visible sur tous les éléments focusables (outline jamais supprimé)"
+      - "Ratio de contraste ≥ 4.5:1 pour le texte normal"
+
+---
+
+gate_checklist:
+  gate_2:
+    - "OnPush activé sur tous les nouveaux composants"
+    - "Pas de any TypeScript"
+    - "Subscriptions gérées via takeUntilDestroyed() ou AsyncPipe"
+    - "Pas de styles inline"
+    - "aria-label présent sur les éléments interactifs sans texte visible"
+    - "Module désactivé = route non accessible (guard implémenté)"

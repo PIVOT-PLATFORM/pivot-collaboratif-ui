@@ -1,0 +1,75 @@
+skill:
+  id: pivot-oidc-angular
+  version: "1.0"
+  name: "OIDC & Auth Angular"
+  description: >
+    OIDC PKCE S256 côté Angular : gestion tokens, silent refresh, guards, intercepteurs.
+    Chargé pour tout fichier auth/, guard, intercepteur ou AC sécurité.
+  loaded_by:
+    - Expert_OIDC_IAM
+    - Expert_Blue_Team
+    - Dev_Agent
+
+---
+
+tokens:
+
+  storage:
+    rule: "Access token en mémoire uniquement — jamais localStorage, sessionStorage, Cookie"
+    reason: "localStorage vulnérable XSS — token volable par script injecté"
+
+  refresh:
+    rule: "Silent refresh via iframe OIDC ou rotating refresh token"
+    pattern: |
+      // angular-oauth2-oidc — silent refresh
+      this.oauthService.setupAutomaticSilentRefresh();
+
+  pkce:
+    rule: "PKCE S256 obligatoire — pas de implicit flow"
+    config: |
+      authConfig: AuthConfig = {
+        responseType: 'code',
+        scope: 'openid profile email',
+        useSilentRefresh: true,
+        pkce: true,
+      };
+
+---
+
+guards:
+
+  auth_guard:
+    rule: "canActivate vérifie token valide avant toute navigation protégée"
+    pattern: |
+      export const authGuard: CanActivateFn = () => {
+        const auth = inject(AuthService);
+        const router = inject(Router);
+        return auth.isAuthenticated()
+          ? true
+          : router.createUrlTree(['/login']);
+      };
+
+---
+
+interceptors:
+
+  bearer:
+    rule: "Intercepteur ajoute Authorization: Bearer sur toutes les requêtes API"
+    pattern: |
+      export const authInterceptor: HttpInterceptorFn = (req, next) => {
+        const token = inject(AuthService).getAccessToken();
+        if (!token) return next(req);
+        return next(req.clone({
+          setHeaders: { Authorization: `Bearer ${token}` }
+        }));
+      };
+
+---
+
+gate_checklist:
+  gate_2:
+    - "Token en mémoire uniquement (pas localStorage)"
+    - "PKCE S256 configuré"
+    - "Guard auth sur toutes les routes protégées"
+    - "Intercepteur Bearer présent et testé"
+    - "Silent refresh configuré"

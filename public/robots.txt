@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Pages authentifiées et API non indexables
+Disallow: /dashboard
+Disallow: /api/

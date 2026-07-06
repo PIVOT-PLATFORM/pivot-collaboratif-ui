@@ -1,0 +1,43 @@
+name: DAST - Baseline Scan (prod)
+
+# Scan ZAP sur l'URL de production PIVOT deployee.
+# Non bloquant - cree une issue GitHub si des alertes sont trouvees.
+#
+# NOTE bootstrap : pivot-collaboratif-ui est charge en lazy-loading DANS le shell pivot-ui
+# (pas de domaine/URL public autonome) — `secrets.PIVOT_PROD_URL` ici pointe donc soit sur
+# la meme URL shell que pivot-ui (scan redondant), soit doit etre reconsidere/retire une fois
+# l'integration reelle dans le shell decidee. Voir TODO-SETUP.md.
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'  # 1er de chaque mois, 03h00 UTC
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  zap-baseline:
+    name: ZAP Baseline - prod PIVOT
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Grant ZAP container write access to workspace
+        run: chmod a+w "$GITHUB_WORKSPACE"
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
+        with:
+          target: ${{ secrets.PIVOT_PROD_URL }}
+          rules_file_name: '.github/workflows/configuration/zap-rules.tsv'
+          fail_action: false
+          issue_title: '[DAST] ZAP Baseline - alertes de securite PIVOT (collaboratif-ui)'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifact_name: zap-baseline-${{ github.run_number }}

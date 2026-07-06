@@ -1,0 +1,23 @@
+// Reset minimal, self-contained (aucune dépendance à des tokens CSS non encore définis —
+// contrairement au reset.scss de pivot-ui qui référence déjà les tokens de son propre stub).
+// À remplacer par les tokens `@pivot/design-system` une fois ce repo publié (voir CLAUDE.md).
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 { margin: 0; font-weight: 600; }
+p { margin: 0; }
+button, input, select, textarea { font-family: inherit; font-size: inherit; }
+img, svg { display: block; max-width: 100%; }
+ul, ol { margin: 0; padding: 0; list-style: none; }

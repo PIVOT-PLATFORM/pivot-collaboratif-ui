@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  # -----------------------------------------
+  # 1. PREPARE — calcule la version SANS créer la release (dry-run), avec des permissions
+  #    MINIMALES (contents: read). ISO pivot-core.
+  # -----------------------------------------
+  prepare:
+    name: Compute release version
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.actor != 'dependabot[bot]'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install Semantic Release
+        run: npm install --save-dev semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/exec
+
+      - name: Compute next version (dry-run)
+        id: version
+        env:
+          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
+        run: npx semantic-release --dry-run
+
+  # -----------------------------------------
+  # 2. RELEASE — build à la version finale, scan AVANT push, publie l'image,
+  #    PUIS crée la release/tag. Ne tourne que si `prepare` a déterminé une version.
+  #
+  #    SLSA L3 : id-token et attestations sont ABSENTS de ce job (le build ne peut
+  #    pas forger sa propre provenance). Ils sont accordés uniquement au job
+  #    provenance-container.
+  # -----------------------------------------
+  release:
+    name: Build, scan, publish & release
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    if: needs.prepare.outputs.version != ''
+    timeout-minutes: 30
+    outputs:
+      image:  ${{ steps.build-docker.outputs.image_name }}
+      digest: ${{ steps.push.outputs.digest }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      packages: write
+      security-events: write
+      # id-token et attestations : accordés UNIQUEMENT au job de provenance (SLSA L3).
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Semantic Release
+        run: npm install --save-dev semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/exec
+
+      - name: Build Angular (production)
+        run: npm run build -- --configuration production
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & load Docker image (amd64)
+        id: build-docker
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/pivot-collaboratif-ui"
+          echo "IMAGE_REF=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "IMAGE_LATEST=${IMAGE}:latest" >> "$GITHUB_ENV"
+          echo "image_name=${IMAGE}" >> "$GITHUB_OUTPUT"
+          docker buildx build --platform linux/amd64 --load \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            .
+
+      - name: Scan Docker image - Trivy (gate avant push)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          format: sarif
+          output: trivy-ui.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-ui.sarif') != ''
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
+        with:
+          sarif_file: trivy-ui.sarif
+          category: trivy-container
+
+      - name: Push Docker image (scan OK)
+        id: push
+        run: |
+          docker push "${IMAGE_REF}"
+          PUSH_OUT=$(docker push "${IMAGE_LATEST}" 2>&1)
+          printf '%s\n' "${PUSH_OUT}"
+          DIGEST=$(printf '%s\n' "${PUSH_OUT}" | grep -oE 'sha256:[a-f0-9]{64}' | tail -1)
+          if [ -z "${DIGEST}" ]; then
+            echo "::error::Digest introuvable après push — impossible d'attester l'image (SLSA L3)."
+            exit 1
+          fi
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Semantic Release (create tag + release)
+        env:
+          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
+        run: npx semantic-release
+
+  # -----------------------------------------
+  # 3. PROVENANCE CONTAINER — génère et signe la provenance SLSA L3 pour l'image Docker.
+  #    id-token: write est ici, pas dans `release` → le build ne peut pas forger sa
+  #    propre provenance (différence clé L2 → L3).
+  #    Attache l'attestation en tant qu'artefact OCI dans GHCR via cosign.
+  #
+  # -----------------------------------------
+  provenance-container:
+    name: SLSA provenance — Docker (L3)
+    needs: [release]
+    permissions:
+      id-token: write
+      packages: write
+      actions: read
+    # Réf en TAG (@v2.1.0) et NON en SHA : avec compile-generator: false le binaire est
+    # téléchargé depuis la Release au ref détecté par detect-env (via OIDC job_workflow_ref).
+    # builder-fetch.sh exige refs/tags/vX.Y.Z ; un SHA brut → exit 2 → binaire absent →
+    # exit 127 → upload-artifact sans chemin → SUCCESS=false → échec final 27.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ${{ needs.release.outputs.image }}
+      digest: ${{ needs.release.outputs.digest }}
+    secrets:
+      # registry-username + registry-password : noms attendus par generator_container_slsa3.yml
+      # (slsa-framework/slsa-github-generator v2.1.0, utilise docker/login-action en interne).
+      registry-username: ${{ github.actor }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  # Le déploiement prod vit dans deploy.yml, déclenché `on: release: published` (event-based)
+  # → jamais "skipped", et conserve `environment: production`.

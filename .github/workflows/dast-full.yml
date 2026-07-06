@@ -1,0 +1,290 @@
+name: DAST - Full Scan (ISO prod)
+
+# ZAP Full Scan sur stack complete du module Collaboratif (pivot-collaboratif-core image GHCR
+# + Angular build). Copie structurelle du dast-full.yml de pivot-ui (memes noms de job, pour
+# parite de status-check si jamais requis un jour) — ADAPTATION INCOMPLETE, bootstrap only :
+# le flux d'authentification ci-dessous (POST /api/auth/login, JWT_SECRET) suppose un login
+# local qui n'existe pas dans ce module (l'auth vit exclusivement dans pivot-core, consommee
+# via fr.pivot:pivot-core-starter une fois publie — voir CLAUDE.md). A reecrire une fois
+# l'integration reelle avec les opaque tokens pivot-core decidee.
+# Credentials seed (donnees mock - jamais en production) :
+#   user  : dast-user@pivot.local  / Pivot@DastTest1!
+#   admin : dast-admin@pivot.local / Pivot@DastTest1!
+
+# DESACTIVE - necessite pivot-collaboratif-core image publiee sur GHCR + secrets configures.
+on:
+  workflow_dispatch:
+
+permissions: read-all
+
+env:
+  CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core:latest
+
+jobs:
+  #
+  # JOB 1 - Scan ROLE_USER
+  #
+  zap-full-user:
+    name: ZAP Full Scan - ROLE_USER
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: true
+    permissions:
+      issues: write
+      actions: write
+      packages: read
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: pivot_dast
+          POSTGRES_USER: pivot
+          POSTGRES_PASSWORD: pivot_dast
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U pivot -d pivot_dast"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Login to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve host IP for pivot-collaboratif-core container
+        id: host-ip
+        run: echo "ip=$(ip route show default | awk '/default/{print $3}')" >> $GITHUB_OUTPUT
+
+      - name: Start pivot-collaboratif-core (DAST seed profile)
+        run: |
+          docker run -d --name pivot-collaboratif-core \
+            -p 8083:8083 \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://${{ steps.host-ip.outputs.ip }}:5432/pivot_dast \
+            -e SPRING_DATASOURCE_USERNAME=pivot \
+            -e SPRING_DATASOURCE_PASSWORD=pivot_dast \
+            -e SPRING_DATA_REDIS_HOST=${{ steps.host-ip.outputs.ip }} \
+            -e SPRING_DATA_REDIS_PORT=6379 \
+            -e JWT_SECRET=ci-dast-full-scan-secret-key-for-pivot-application-zap-testing-must-be-64-chars-xxxx \
+            -e SPRING_PROFILES_ACTIVE=test,dast-seed \
+            ${{ env.CORE_IMAGE }}
+
+      - name: Wait for pivot-collaboratif-core
+        run: curl --retry 25 --retry-delay 3 --retry-connrefused --silent --output /dev/null http://localhost:8083/api/collaboratif/actuator/health
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Angular (CI config — apiUrl http://localhost:8083)
+        run: npm run build -- --configuration ci
+
+      - name: Serve Angular build
+        run: |
+          npx --yes serve dist/frontend/browser -p 4200 --single &
+          sleep 3
+
+      - name: Authenticate - ROLE_USER
+        id: auth-user
+        run: |
+          RESPONSE=$(curl -s -X POST http://localhost:8083/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"dast-user@pivot.local","password":"Pivot@DastTest1!"}')
+          TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken // .token // empty')
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          if [ -n "$TOKEN" ]; then
+            echo "OK ROLE_USER auth OK"
+          else
+            echo " ROLE_USER auth KO - scan anonyme"
+            echo "DEBUG response: $RESPONSE"
+          fi
+
+      - name: Set ZAP auth env - ROLE_USER
+        run: |
+          echo "ZAP_AUTH_HEADER=Authorization" >> $GITHUB_ENV
+          echo "ZAP_AUTH_HEADER_VALUE=Bearer ${{ steps.auth-user.outputs.token }}" >> $GITHUB_ENV
+          echo "ZAP_AUTH_HEADER_SITE=http://localhost:4200" >> $GITHUB_ENV
+
+      - name: Grant ZAP container write access to workspace
+        run: chmod a+w "$GITHUB_WORKSPACE"
+
+      - name: ZAP Full Scan - ROLE_USER
+        uses: zaproxy/action-full-scan@75ee1686750ab1511a73b26b77a2aedd295053ed # v0.12.0
+        with:
+          target: 'http://localhost:4200'
+          rules_file_name: '.github/workflows/configuration/zap-rules.tsv'
+          cmd_options: '-j -z "-config scanner.threadPerHost=2"'
+          fail_action: false
+          issue_title: '[DAST] ZAP Full Scan (ROLE_USER) - alertes'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifact_name: zap-full-user-${{ github.run_number }}
+
+      - name: Upload ZAP report - ROLE_USER
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zap-report-user-${{ github.run_number }}
+          path: |
+            report_html.html
+            report_json.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  #
+  # JOB 2 - Scan ROLE_ADMIN
+  #
+  zap-full-admin:
+    name: ZAP Full Scan - ROLE_ADMIN
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: true
+    permissions:
+      issues: write
+      actions: write
+      packages: read
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: pivot_dast_admin
+          POSTGRES_USER: pivot
+          POSTGRES_PASSWORD: pivot_dast_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U pivot -d pivot_dast_admin"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Login to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve host IP for pivot-collaboratif-core container
+        id: host-ip
+        run: echo "ip=$(ip route show default | awk '/default/{print $3}')" >> $GITHUB_OUTPUT
+
+      - name: Start pivot-collaboratif-core (DAST seed profile)
+        run: |
+          docker run -d --name pivot-collaboratif-core \
+            -p 8083:8083 \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://${{ steps.host-ip.outputs.ip }}:5432/pivot_dast_admin \
+            -e SPRING_DATASOURCE_USERNAME=pivot \
+            -e SPRING_DATASOURCE_PASSWORD=pivot_dast_admin \
+            -e SPRING_DATA_REDIS_HOST=${{ steps.host-ip.outputs.ip }} \
+            -e SPRING_DATA_REDIS_PORT=6379 \
+            -e JWT_SECRET=ci-dast-full-scan-secret-key-for-pivot-application-zap-testing-must-be-64-chars-xxxx \
+            -e SPRING_PROFILES_ACTIVE=test,dast-seed \
+            ${{ env.CORE_IMAGE }}
+
+      - name: Wait for pivot-collaboratif-core
+        run: curl --retry 25 --retry-delay 3 --retry-connrefused --silent --output /dev/null http://localhost:8083/api/collaboratif/actuator/health
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Angular (CI config — apiUrl http://localhost:8083)
+        run: npm run build -- --configuration ci
+
+      - name: Serve Angular build
+        run: |
+          npx --yes serve dist/frontend/browser -p 4200 --single &
+          sleep 3
+
+      - name: Authenticate - ROLE_ADMIN
+        id: auth-admin
+        run: |
+          RESPONSE=$(curl -s -X POST http://localhost:8083/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"dast-admin@pivot.local","password":"Pivot@DastTest1!"}')
+          TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken // .token // empty')
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          if [ -n "$TOKEN" ]; then
+            echo "OK ROLE_ADMIN auth OK"
+          else
+            echo " ROLE_ADMIN auth KO - scan anonyme"
+            echo "DEBUG response: $RESPONSE"
+          fi
+
+      - name: Set ZAP auth env - ROLE_ADMIN
+        run: |
+          echo "ZAP_AUTH_HEADER=Authorization" >> $GITHUB_ENV
+          echo "ZAP_AUTH_HEADER_VALUE=Bearer ${{ steps.auth-admin.outputs.token }}" >> $GITHUB_ENV
+          echo "ZAP_AUTH_HEADER_SITE=http://localhost:4200" >> $GITHUB_ENV
+
+      - name: Grant ZAP container write access to workspace
+        run: chmod a+w "$GITHUB_WORKSPACE"
+
+      - name: ZAP Full Scan - ROLE_ADMIN
+        uses: zaproxy/action-full-scan@75ee1686750ab1511a73b26b77a2aedd295053ed # v0.12.0
+        with:
+          target: 'http://localhost:4200'
+          rules_file_name: '.github/workflows/configuration/zap-rules.tsv'
+          cmd_options: '-j -z "-config scanner.threadPerHost=2"'
+          fail_action: false
+          issue_title: '[DAST] ZAP Full Scan (ROLE_ADMIN) - alertes'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifact_name: zap-full-admin-${{ github.run_number }}
+
+      - name: Upload ZAP report - ROLE_ADMIN
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zap-report-admin-${{ github.run_number }}
+          path: |
+            report_html.html
+            report_json.json
+          if-no-files-found: warn
+          retention-days: 30

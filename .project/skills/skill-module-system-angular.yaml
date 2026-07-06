@@ -1,0 +1,66 @@
+skill:
+  id: pivot-module-system-angular
+  version: "1.0"
+  name: "Module System Angular"
+  description: >
+    Lazy-loading Angular par module PIVOT activable. Guards d'activation,
+    isolation des routes, communication inter-modules via services core.
+  loaded_by:
+    - Architecte_Modules
+    - Architecte_Angular
+    - Dev_Agent
+
+---
+
+lazy_loading:
+
+  rule: "Chaque module PIVOT = feature module lazy-loaded"
+  pattern: |
+    // app.routes.ts
+    {
+      path: 'whiteboard',
+      canActivate: [moduleGuard],
+      data: { moduleId: 'whiteboard' },
+      loadChildren: () =>
+        import('./features/whiteboard/whiteboard.routes')
+          .then(m => m.WHITEBOARD_ROUTES)
+    }
+
+  disabled_module:
+    rule: "Module désactivé = 403 guard + bundle non chargé"
+    pattern: |
+      export const moduleGuard: CanActivateFn = (route) => {
+        const modules = inject(ModuleRegistryService);
+        const router = inject(Router);
+        const moduleId = route.data['moduleId'] as string;
+        return modules.isEnabled(moduleId)
+          ? true
+          : router.createUrlTree(['/403']);
+      };
+
+---
+
+inter_module:
+
+  rule: "Aucune logique inter-module directe — services core partagés uniquement"
+  forbidden: "Import direct d'un feature module depuis un autre feature module"
+  allowed: "Services dans src/app/core/ injectables partout"
+
+---
+
+api_check:
+
+  endpoint: "GET /api/modules/{id}/status"
+  response_enabled: "{ enabled: true }"
+  response_disabled: "HTTP 403 ou { enabled: false }"
+  caching: "Mettre en cache la réponse 60s — ne pas appeler à chaque navigation"
+
+---
+
+gate_checklist:
+  gate_2:
+    - "Route lazy-loaded via loadChildren"
+    - "Guard moduleGuard sur toutes les routes de feature modules"
+    - "Appel API status mis en cache"
+    - "Module désactivé = bundle non chargé (vérifier Network tab)"
+    - "Pas d'import direct inter-feature"

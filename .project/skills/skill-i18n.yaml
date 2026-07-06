@@ -1,0 +1,151 @@
+skill:
+  id: pivot-i18n-frontend
+  version: "1.0"
+  name: "i18n Frontend — Transloco, fr/en, langue utilisateur"
+  description: >
+    Internationalisation côté Angular : Transloco, fichiers fr.json/en.json,
+    pipe translate, service getActiveLang(), persistance langue via localStorage,
+    conventions de clés, lazy loading des fichiers de traduction.
+  loaded_by:
+    - Architecte_Angular
+    - Dev_Agent
+
+---
+
+setup:
+
+  library: "Transloco (@jsverse/transloco)"
+  config:
+    defaultLang: "fr"
+    availableLangs: ["fr", "en"]
+    reRenderOnLangChange: true
+    prodMode: "!isDevMode()"
+    loader: "TranslocoHttpLoader (fichiers /assets/i18n/*.json)"
+
+  language_persistence:
+    key: "pivot_lang"
+    storage: "localStorage"
+    pattern: |
+      // detect-lang.ts ou app.config.ts
+      export function detectInitialLang(): string {
+        return localStorage.getItem('pivot_lang') ?? 'fr';
+      }
+    on_change: |
+      translocoService.langChanges$.subscribe(lang => {
+        localStorage.setItem('pivot_lang', lang);
+      });
+
+---
+
+file_structure:
+
+  location: "src/assets/i18n/"
+  files:
+    fr: "src/assets/i18n/fr.json"
+    en: "src/assets/i18n/en.json"
+
+  key_conventions:
+    pattern: "feature.component.element"
+    examples:
+      - "auth.login.title"
+      - "auth.login.email_placeholder"
+      - "contact.form.submit"
+      - "contact.form.success_message"
+      - "nav.menu.home"
+      - "errors.required"
+      - "errors.email_invalid"
+    rule: "Tous les libellés externalisés — zéro texte hardcodé dans les templates"
+
+  structure_example: |
+    // fr.json
+    {
+      "auth": {
+        "login": {
+          "title": "Connexion",
+          "email_placeholder": "Adresse e-mail",
+          "password_placeholder": "Mot de passe",
+          "submit": "Se connecter"
+        }
+      },
+      "contact": {
+        "form": {
+          "title": "Nous contacter",
+          "submit": "Envoyer",
+          "success_message": "Votre message a bien été envoyé.",
+          "error_message": "Une erreur est survenue. Veuillez réessayer."
+        }
+      }
+    }
+
+---
+
+usage:
+
+  pipe_in_template:
+    pattern: |
+      <!-- préférer le pipe pour les valeurs statiques -->
+      <h1>{{ 'contact.form.title' | transloco }}</h1>
+      <button>{{ 'contact.form.submit' | transloco }}</button>
+
+      <!-- avec paramètres -->
+      <p>{{ 'auth.welcome' | transloco : { name: userName() } }}</p>
+
+  service_in_ts:
+    pattern: |
+      // service ou composant
+      private readonly transloco = inject(TranslocoService);
+
+      getActiveLanguage(): string {
+        return this.transloco.getActiveLang(); // 'fr' ou 'en'
+      }
+
+      translateSync(key: string): string {
+        return this.transloco.translate(key);
+      }
+
+      setLanguage(lang: 'fr' | 'en'): void {
+        this.transloco.setActiveLang(lang);
+        localStorage.setItem('pivot_lang', lang);
+      }
+
+  directive:
+    pattern: |
+      <!-- alternative au pipe pour les attributs -->
+      <input [placeholder]="'auth.login.email_placeholder' | transloco" />
+      <img [alt]="'nav.logo_alt' | transloco" />
+
+---
+
+sync_with_backend:
+
+  lang_field_in_dto:
+    rule: "Formulaire Angular envoie `lang: getActiveLang()` dans le payload — email backend utilise cette locale"
+    example: |
+      // contact.service.ts
+      private readonly transloco = inject(TranslocoService);
+
+      sendContact(form: ContactForm): Observable<void> {
+        return this.http.post<void>('/api/contact', {
+          ...form,
+          lang: this.transloco.getActiveLang(),
+        });
+      }
+
+---
+
+missing_key_policy:
+
+  dev: "Transloco logue les clés manquantes en console — surveiller en dev"
+  prod: "missingHandler configuré pour retourner la clé brute — jamais de crash"
+  rule: "Toujours ajouter la clé dans fr.json ET en.json simultanément"
+
+---
+
+gate_checklist:
+  gate_2:
+    - "Zéro texte hardcodé dans les templates HTML — tout via pipe transloco ou service"
+    - "Clé présente dans fr.json ET en.json"
+    - "lang field envoyé dans les payloads API concernés (contact, profile...)"
+    - "Langue persistée dans localStorage key 'pivot_lang'"
+    - "getActiveLang() utilisé dans les services (pas de langue hardcodée)"
+    - "Test Vitest couvre le changement de langue si composant l'affiche"

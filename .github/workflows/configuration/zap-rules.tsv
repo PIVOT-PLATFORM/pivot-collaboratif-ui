@@ -1,0 +1,5 @@
+# ZAP DAST Rules — PIVOT-UI
+# Format : <alertId>	<action>	<comment>
+# Actions : IGNORE | WARN | FAIL
+#
+# Laisser vide = comportement ZAP par défaut (WARN sur tout)

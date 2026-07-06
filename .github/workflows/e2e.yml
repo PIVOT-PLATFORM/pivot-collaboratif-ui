@@ -1,0 +1,141 @@
+name: E2E
+
+# Tests E2E Playwright contre une stack pivot-collaboratif-core reelle (image GHCR + postgres +
+# redis). Pas un required status check ici (voir TODO-SETUP.md) : echouera tant qu'aucune
+# release de pivot-collaboratif-core n'a publie d'image GHCR, ce qui est attendu au bootstrap.
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  # pivot-collaboratif-core publie son image sous ghcr.io/<owner>/pivot-collaboratif-core/
+  # pivot-collaboratif-core (le nom de repo est répété, cf. pivot-core). ATTENTION : ce job
+  # échouera (docker pull 404) tant qu'aucune release de pivot-collaboratif-core n'a encore
+  # publié cette image — attendu au bootstrap, pas un required check (voir TODO-SETUP.md).
+  CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core/pivot-collaboratif-core:latest
+
+jobs:
+  e2e:
+    name: E2E - Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: pivot_e2e
+          POSTGRES_USER: pivot
+          POSTGRES_PASSWORD: pivot_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U pivot -d pivot_e2e"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start pivot-collaboratif-core (E2E seed profile)
+        run: |
+          docker run -d --name pivot-collaboratif-core \
+            --network ${{ job.services.postgres.network }} \
+            -p 8083:8083 \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pivot_e2e \
+            -e SPRING_DATASOURCE_USERNAME=pivot \
+            -e SPRING_DATASOURCE_PASSWORD=pivot_e2e \
+            -e SPRING_DATA_REDIS_HOST=redis \
+            -e SPRING_DATA_REDIS_PORT=6379 \
+            -e SPRING_PROFILES_ACTIVE=test \
+            ${{ env.CORE_IMAGE }}
+
+      - name: Wait for pivot-collaboratif-core
+        run: |
+          curl --retry 40 --retry-delay 3 --retry-connrefused --retry-all-errors \
+            --fail --silent --show-error --output /dev/null \
+            http://localhost:8083/api/collaboratif/actuator/health
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Angular (CI config — apiUrl http://localhost:8083)
+        # Config `ci` = optimisations prod SANS le fileReplacement vers /api.
+        # L'app sert sur :4200 (serve, pas de proxy) et appelle le backend :8083 directement.
+        # La config `production` (image Docker/nginx) utilise /api/collaboratif proxifié.
+        run: npm run build -- --configuration ci
+
+      - name: Serve Angular build
+        # Projet Angular = "frontend" (pas d'outputPath custom dans angular.json) → dist/frontend/browser.
+        run: npx --yes serve dist/frontend/browser -p 4200 --single &
+
+      - name: Run Playwright
+        env:
+          PIVOT_API_URL: http://localhost:8083
+        run: npx playwright test --project=chromium
+
+      - name: Dump pivot-collaboratif-core logs on failure
+        if: failure()
+        run: docker logs pivot-collaboratif-core || true
+
+      - name: Stop pivot-collaboratif-core
+        if: always()
+        run: docker rm -f pivot-collaboratif-core || true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

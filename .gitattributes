@@ -1,0 +1,13 @@
+# Normalisation des fins de ligne — LF par défaut, auto-détection texte
+* text=auto eol=lf
+
+# Scripts Windows — CRLF obligatoire
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Binaires — pas de normalisation
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary

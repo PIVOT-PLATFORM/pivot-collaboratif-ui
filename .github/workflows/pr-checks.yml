@@ -1,0 +1,89 @@
+name: PR Checks
+
+# Jobs réservés aux PR. Sortis de ci.yml afin de NE PAS apparaître en "skipped" sur les runs
+# push (main/develop). ISO avec pivot-core.
+#
+# Mutation testing (Stryker) déplacé dans mutation-testing.yml (exécution hebdomadaire) —
+# timeoutait régulièrement à 30min sur chaque PR pour un indicateur non bloquant (CLAUDE.md).
+on:
+  pull_request:
+    # Même filtre que ci.yml.
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------
+  # DOCKER PREVIEW — build + scan + push de l'image nginx, MIRROR de la Release.
+  # Émet la MÊME catégorie code-scanning `trivy-container` que release.yml (qui ne tourne que
+  # sur push main) → la config existe aussi sur les PR (pas de "configuration not found").
+  # Image `pivot-collaboratif-ui-preview:pr-<num>` (package SÉPARÉ ≠ prod), supprimée à la fermeture de la
+  # PR par pr-image-cleanup.yml. amd64. Same-repo seulement (forks : pas de token GHCR).
+  # -----------------------------------------
+  docker-preview:
+    name: Docker preview image (PR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      packages: write
+      security-events: write   # upload du SARIF Trivy (parité avec la Release)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Mirror de la Release : build & load (pas de push) -> Trivy (gate) -> push.
+      - name: Build & load preview image (amd64)
+        run: |
+          # GHCR exige un nom de dépôt en minuscules ; github.repository contient PIVOT-PLATFORM.
+          # Package dédié aux previews (jamais l'image de prod pivot-collaboratif-ui).
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/pivot-collaboratif-ui-preview:pr-${{ github.event.pull_request.number }}"
+          echo "PREVIEW_IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+          docker buildx build --platform linux/amd64 --load -t "${IMAGE}" .
+
+      - name: Scan preview image - Trivy (gate avant push)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.PREVIEW_IMAGE }}
+          format: sarif
+          output: trivy-preview.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # MÊME catégorie que release.yml (trivy-container) → config présente sur PR et main.
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-preview.sarif') != ''
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
+        with:
+          sarif_file: trivy-preview.sarif
+          category: trivy-container
+
+      # Atteint uniquement si Trivy a réussi.
+      - name: Push preview image (scan OK)
+        run: docker push "${PREVIEW_IMAGE}"
+
+      - name: Résumé
+        run: |
+          echo "Image preview : ${PREVIEW_IMAGE}" >> "$GITHUB_STEP_SUMMARY"

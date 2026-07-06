@@ -1,0 +1,26 @@
+name: Deploy
+
+# Déploiement production — déclenché UNIQUEMENT à la publication d'une GitHub Release (créée
+# par Semantic Release dans release.yml). Event-based : ne tourne que sur de vraies releases
+# (jamais "skipped") et conserve les garde-fous de l'environnement `production` : approvals,
+# secrets d'environnement, règles de déploiement, historique des deployments.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:   # déclenchement manuel possible (rollback, re-déploiement)
+
+permissions: read-all
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - name: Deploy (TODO)
+        run: echo "TODO — brancher ici le déploiement (image nginx -> SSH / k8s / etc.)"

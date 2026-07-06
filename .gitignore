@@ -1,0 +1,45 @@
+# ===== Angular / Node =====
+node_modules/
+dist/
+.angular/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+*.log
+
+# ===== Secrets / Env =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ===== Tests / Coverage =====
+playwright-report/
+test-results/
+coverage/
+out-tsc/
+.sass-cache/
+reports/
+.stryker-tmp/
+lighthouse-reports/
+.lighthouseci/
+
+# ===== IDE =====
+.idea/
+*.iml
+.eclipse/
+.settings/
+*.swp
+*.swo
+.vscode/
+
+# ===== Claude Code =====
+.claude/settings.local.json
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini

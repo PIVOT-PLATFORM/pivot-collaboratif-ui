@@ -1,0 +1,15 @@
+title = "PIVOT-UI Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "PIVOT-UI CI credentials and test paths"
+regexes = [
+    '''ci-(test|e2e|lighthouse)-[a-z-]*secret[a-z0-9-]*'''
+]
+paths = [
+    '''src/.*\.spec\.ts$''',
+    '''e2e/.*''',
+    '''.*\.example$'''
+]

@@ -1,0 +1,96 @@
+skill:
+  id: pivot-security-redteam
+  version: "1.0"
+  name: "Red Team — Vecteurs d'attaque Frontend"
+  description: >
+    Checklist Red Team pour PIVOT-UI : XSS, CSRF, clickjacking, token exposure,
+    OIDC bypass côté client, open redirect, information disclosure.
+    Chargé pour toute US touchant auth, stockage navigateur ou données utilisateur.
+  loaded_by:
+    - Expert_Red_Team
+    - Security_Agent
+    - Expert_Blue_Team
+
+---
+
+attack_vectors:
+
+  xss:
+    risks:
+      - "[innerHTML] avec données utilisateur → injection HTML/JS"
+      - "DomSanitizer.bypassSecurityTrustHtml() sans validation stricte"
+      - "eval() ou Function() depuis données utilisateur"
+      - "Paramètre URL affiché sans encodage Angular"
+    checks:
+      - "Interpolation {{ val }} par défaut — jamais [innerHTML] avec données user"
+      - "Aucun bypass DomSanitizer sans justification documentée"
+      - "Aucun eval() / Function() dans le code Angular ou JS"
+      - "Routes : paramètres URL lus via ActivatedRoute — jamais depuis location.href brut"
+
+  csrf:
+    risks:
+      - "Requête state-changing initiée depuis un contexte cross-origin"
+      - "Cookie de session sans SameSite=Strict → exploitable depuis un tiers"
+    checks:
+      - "pivot_session : SameSite=Strict configuré côté backend (validé Blue Team)"
+      - "Toutes les requêtes mutantes via Angular HttpClient (Origin header automatique)"
+      - "Pas de formulaire HTML natif (<form action=...>) sans guard Angular"
+
+  token_exposure:
+    risks:
+      - "Access token dans localStorage → accessible via XSS sur n'importe quelle page du domaine"
+      - "Access token dans sessionStorage → idem"
+      - "Access token dans un Cookie JS-accessible → idem"
+      - "Token loggué via console.log / console.debug en production"
+      - "Token dans une route Angular ou query param → visible dans l'URL et les logs proxy"
+    checks:
+      - "Token exclusivement dans un signal Angular non sérialisé"
+      - "Aucun console.log/debug de token (vérifier avec grep 'accessToken')"
+      - "Aucun token dans les fragments URL (#token=...) ou query params (?t=...)"
+
+  oidc_bypass:
+    risks:
+      - "State parameter non validé → CSRF sur le callback OIDC"
+      - "PKCE code_verifier court-circuité → code interception attack"
+      - "redirect_uri construit dynamiquement depuis un paramètre user → open redirect"
+      - "Nonce non vérifié → replay d'ID token"
+    checks:
+      - "angular-oauth2-oidc gère state + PKCE S256 + nonce automatiquement"
+      - "Ne jamais bypasser les validations de la librairie OIDC"
+      - "redirect_uri fixé dans la config — jamais depuis un param URL"
+
+  open_redirect:
+    risks:
+      - "returnUrl passé en query param utilisé dans router.navigate() sans validation"
+      - "window.location.href = userInput → redirect arbitraire"
+    checks:
+      - "returnUrl validé : doit commencer par '/' et être une route interne"
+      - "Jamais de window.location.href avec données utilisateur"
+
+  clickjacking:
+    risks:
+      - "Application embeddable dans une iframe cross-origin malveillante"
+    checks:
+      - "X-Frame-Options: DENY dans nginx (responsabilité Blue Team — vérifier Dockerfile)"
+
+  information_disclosure:
+    risks:
+      - "Stack trace Angular affichée en production (ErrorHandler par défaut)"
+      - "Détail d'erreur API (message backend) affiché dans les toasts"
+      - "Champ de formulaire password visible en mémoire après logout"
+    checks:
+      - "ErrorHandler global en prod : message générique affiché, détail en console uniquement"
+      - "isDevMode() vérifié avant tout console.error détaillé"
+      - "Champs password vidés après login/logout"
+
+---
+
+gate_checklist:
+  gate_3:
+    - "Aucun [innerHTML] avec données utilisateur non assainies"
+    - "Access token en mémoire uniquement (signal Angular)"
+    - "Aucun console.log de token ou données sensibles en production"
+    - "angular-oauth2-oidc utilisé sans contournement state/PKCE/nonce"
+    - "returnUrl validé avant router.navigate()"
+    - "ErrorHandler global présent (pas de stack trace Angular en prod)"
+    - "npm audit : zéro vulnérabilité critique ou high"

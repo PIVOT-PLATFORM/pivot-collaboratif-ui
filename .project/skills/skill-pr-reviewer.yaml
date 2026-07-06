@@ -1,0 +1,113 @@
+skill:
+  id: pivot-pr-reviewer
+  version: "1.0"
+  name: "PR Review — Gate 3 & Gate 4 (pivot-ui)"
+  description: >
+    Checklist de relecture croisée neutre pour les PRs pivot-ui.
+    Couvre : cohérence architecture Angular, traçabilité AC, sécurité frontend,
+    accessibilité WCAG 2.1 AA, i18n, dette technique, standards PIVOT.
+    Chargé par PR_Review_Agent et Expert_PR_Review.
+  loaded_by:
+    - PR_Review_Agent
+    - Expert_PR_Review
+
+---
+
+review_dimensions:
+
+  architecture:
+    rules:
+      - "ChangeDetectionStrategy.OnPush sur tous les composants"
+      - "inject() plutôt que constructeur pour les dépendances (Angular 14+)"
+      - "Zéro any TypeScript"
+      - "Signals Angular pour le state local"
+      - "RxJS pour HTTP et WebSocket — pas de Promise sauf interop unavoidable"
+      - "Pas de logique métier dans les composants — délégation aux services"
+      - "Routes lazy-loaded par feature module"
+      - "TSDoc sur tous les services, guards et pipes publics"
+
+  ac_coverage:
+    rules:
+      - "Chaque AC de l'US tracé dans la table traçabilité AC → test Vitest"
+      - "Spec Playwright présente pour le happy path + au moins 1 erreur critique"
+      - "Aucun AC orphelin (présent dans l'US, absent des tests)"
+      - "Coverage Gate 2 ≥ 85 % vérifié avant Gate 4"
+      - "Tests nommés avec identifiant AC"
+
+  security:
+    rules:
+      - "Access token exclusivement en mémoire (signal Angular) — jamais localStorage/sessionStorage/Cookie"
+      - "Aucun tenantId/userId passé en query param, header custom ou body côté Angular"
+      - "Contenu utilisateur rendu via {{ }} — jamais [innerHTML] avec données user"
+      - "Module désactivé = route inaccessible (guard vérifie API /modules/{id}/status)"
+      - "// NOSONAR : zéro — exclusions via SonarCloud UI uniquement"
+      - "// nosemgrep : interdit sans validation mainteneur"
+
+  accessibility:
+    rules:
+      - "WCAG 2.1 AA sur tous les éléments interactifs"
+      - "role, aria-label ou aria-labelledby présents sur les éléments non sémantiques"
+      - "aria-describedby sur les champs avec message d'erreur associé"
+      - "Focus visible sur tous les éléments interactifs (:focus-visible)"
+      - "Contraste minimum 4.5:1 sur le texte normal"
+
+  i18n:
+    rules:
+      - "Aucune chaîne littérale dans les templates — Transloco | transloco uniquement"
+      - "Clés présentes dans fr.json ET en.json"
+      - "Aucun texte hardcodé dans les services ou composants"
+
+  technical_debt:
+    rules:
+      - "ESLint + TypeScript strict : zéro warning"
+      - "Pas de TODO non tracé dans le backlog"
+
+---
+
+gate_scoring:
+
+  gate_3_hard_blocks:
+    - "Secret Gitleaks détecté → STOP immédiat"
+    - "Label security ou breaking-change → needs-human-review obligatoire"
+    - "Modification contrat module sans coordination pivot-core → STOP"
+    - "Access token dans localStorage ou Cookie → STOP"
+    - "Modification OIDC Angular sans Expert_OIDC_IAM → STOP"
+
+  gate_4_breakdown:
+    architecture_25pts: "OnPush, inject(), signals, zéro any, lazy-loading"
+    ac_traceability_25pts: "Tous ACs tracés, tests Vitest nommés + spec Playwright"
+    security_a11y_25pts: "Token en mémoire, pas [innerHTML], WCAG 2.1 AA, ARIA"
+    quality_i18n_25pts: "ESLint verts, toutes clés i18n, pas de dette"
+    thresholds:
+      merge_autonome: "≥ 85 — merge sans intervention humaine"
+      merge_documente: "60–84 — merge avec commentaire breakdown obligatoire"
+      breaking_point_2: "< 60 — label needs-human-review + escalade mainteneur"
+
+---
+
+artifact_format: |
+  gate: MERGE_CONFIDENCE
+  us_id: {id}
+  score: {0-100}
+  decision: MERGE_AUTONOMOUS | MERGE_DOCUMENTED | BREAKING_POINT_2
+  breakdown:
+    architecture: {0-25}
+    ac_traceability: {0-25}
+    security_a11y: {0-25}
+    quality_i18n: {0-25}
+  notes: "..."
+
+---
+
+gate_checklist:
+  gate_4:
+    - "ChangeDetectionStrategy.OnPush sur tous les nouveaux composants"
+    - "Zéro any TypeScript"
+    - "Table traçabilité AC → test Vitest + spec Playwright dans le PR template"
+    - "Aucun AC orphelin"
+    - "Access token jamais dans localStorage / sessionStorage / Cookie"
+    - "Toutes les clés i18n présentes dans fr.json ET en.json"
+    - "Attributs ARIA présents sur tous les éléments interactifs nouveaux"
+    - "Gitleaks clean"
+    - "ESLint + TypeScript strict verts"
+    - "Score Gate 4 posté en commentaire PR (jamais de fichier committé)"

@@ -1,0 +1,101 @@
+skill:
+  id: pivot-security-blueteam
+  version: "1.0"
+  name: "Blue Team — Hardening Angular / nginx"
+  description: >
+    Défenses et hardening PIVOT-UI : CSP nginx, headers sécurité, gestion du
+    token en mémoire, SRI, réponse aux rapports Red Team frontend.
+    Chargé en réponse à un rapport Red Team ou lors de modification nginx/auth.
+  loaded_by:
+    - Expert_Blue_Team
+    - Security_Agent
+
+---
+
+defenses:
+
+  nginx_headers:
+    rules:
+      - "X-Frame-Options: DENY — empêche clickjacking"
+      - "X-Content-Type-Options: nosniff — empêche MIME sniffing"
+      - "Referrer-Policy: strict-origin-when-cross-origin"
+      - "Permissions-Policy: camera=(), microphone=(), geolocation=()"
+    pattern: |
+      add_header X-Frame-Options "DENY" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+  csp:
+    rule: "Content-Security-Policy restrictive — durcir par itération"
+    baseline: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* wss://*; font-src 'self'"
+    notes:
+      - "'unsafe-inline' style requis pour les tokens CSS Angular — à remplacer par nonce si possible"
+      - "connect-src ws/wss requis pour les WebSocket STOMP"
+      - "Durcissement progressif : bannir 'unsafe-inline' quand Angular supporte les nonces"
+
+  token_in_memory:
+    rules:
+      - "Token stocké dans un signal Angular readonly — pas dans une variable exportée globalement"
+      - "Token effacé sur logout ET non sérialisé (signal non persisté entre onglets)"
+      - "Intercepteur HTTP lit le token uniquement au moment de la requête"
+    pattern: |
+      // auth.service.ts
+      private readonly _token = signal<string | null>(null);
+      readonly token = this._token.asReadonly();
+
+      // token.interceptor.ts
+      const tok = authService.token();
+      return tok
+        ? next(req.clone({ setHeaders: { Authorization: `Bearer ${tok}` } }))
+        : next(req);
+
+  angular_error_handler:
+    rule: "ErrorHandler global — message générique en prod, détail en dev uniquement"
+    pattern: |
+      @Injectable()
+      export class GlobalErrorHandler implements ErrorHandler {
+        handleError(error: unknown): void {
+          if (!isDevMode()) {
+            console.error('An error occurred');
+          } else {
+            console.error(error);
+          }
+        }
+      }
+
+  dependencies:
+    rules:
+      - "npm audit avant chaque merge — zéro vulnérabilité critical ou high"
+      - "Pas de CDN externe en production (risque SRI / disponibilité)"
+      - "Si CDN inévitable : attribut integrity (SRI) obligatoire"
+
+  session_cookie:
+    note: "pivot_session est configuré côté backend (pivot-core) — vérifier la coordination"
+    required_attributes:
+      - "HttpOnly: true"
+      - "SameSite: Strict"
+      - "Secure: true en production"
+      - "Path: /"
+
+---
+
+response_to_redteam:
+  protocol:
+    step_1: "Reproduire avec un test Playwright ou Vitest avant de toucher le code"
+    step_2: "Corriger dans un commit security: — hard block Gate 4 automatique"
+    step_3: "Ajouter le vecteur dans skill-security-redteam.yaml (même PR)"
+    step_4: "Review humaine obligatoire avant merge (label needs-human-review)"
+    step_5: "Post-merge : vérifier que le test de régression est en CI"
+
+---
+
+gate_checklist:
+  gate_3:
+    - "Headers nginx : X-Frame-Options DENY, X-Content-Type-Options nosniff"
+    - "CSP configurée dans nginx.conf"
+    - "Token exclusivement en signal Angular (pas localStorage/Cookie/sessionStorage)"
+    - "Aucun [innerHTML] avec données utilisateur"
+    - "ErrorHandler global enregistré en prod (AppModule providers)"
+    - "npm audit : zéro critical ou high"
+    - "Aucun CDN externe sans SRI"

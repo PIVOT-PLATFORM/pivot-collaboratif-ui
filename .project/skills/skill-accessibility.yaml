@@ -1,0 +1,76 @@
+skill:
+  id: pivot-accessibility
+  version: "1.0"
+  name: "Accessibilité WCAG 2.1 AA"
+  description: >
+    Standards d'accessibilité WCAG 2.1 niveau AA pour les composants Angular PIVOT.
+    Chargé pour tout composant interactif ou AC contenant "A11y".
+  loaded_by:
+    - Expert_UX_UI
+    - Expert_QA
+    - Dev_Agent
+
+---
+
+rules:
+
+  contrast:
+    rule: "Ratio de contraste ≥ 4.5:1 pour le texte normal, ≥ 3:1 pour le texte large (18px+ ou 14px+ gras)"
+
+  focus:
+    rule: "Focus visible sur tous les éléments focusables — jamais outline: none sans alternative visible"
+    pattern: |
+      /* _tokens.scss */
+      :focus-visible {
+        outline: 2px solid var(--color-focus);
+        outline-offset: 2px;
+      }
+
+  aria:
+    rules:
+      - "aria-label sur boutons sans texte visible"
+      - "aria-describedby pour les champs de formulaire avec aide contextuelle"
+      - "role='alert' pour les messages d'erreur dynamiques"
+      - "aria-live='polite' pour les mises à jour de contenu non urgentes"
+    pattern: |
+      <button aria-label="Fermer la modale" (click)="close()">
+        <pivot-icon name="close" />
+      </button>
+
+  images:
+    rule: "alt non vide pour les images informatives, alt='' pour les images décoratives"
+
+  keyboard:
+    rule: "Toutes les interactions accessibles au clavier (Tab, Enter, Escape, flèches)"
+    checklist:
+      - "Modal : focus piégé dans la modale, Escape ferme"
+      - "Dropdown : flèches naviguent, Enter sélectionne, Escape ferme"
+      - "Toast : ne pas bloquer le focus"
+
+  forms:
+    rules:
+      - "label explicite ou aria-label sur chaque input"
+      - "Erreur de validation annoncée via aria-live ou aria-describedby"
+      - "Champs requis marqués avec aria-required='true'"
+
+---
+
+testing:
+
+  tools:
+    - "axe-core via @axe-core/playwright pour les tests Playwright"
+    - "Lighthouse CI — score Accessibility ≥ 90"
+  pattern: |
+    import AxeBuilder from '@axe-core/playwright';
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+
+---
+
+gate_checklist:
+  gate_2:
+    - "Ratio contraste vérifié (outil : WebAIM Contrast Checker)"
+    - "Focus visible sur tous les éléments interactifs"
+    - "aria-label / aria-labelledby sur éléments sans texte visible"
+    - "Navigation clavier testée manuellement"
+    - "axe-core 0 violation sur le composant"

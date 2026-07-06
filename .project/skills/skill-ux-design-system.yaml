@@ -1,0 +1,251 @@
+skill:
+  id: pivot-ux-design-system
+  version: "1.1"
+  name: "UX / Design System PIVOT — Tokens, Composants, BEM, Thèmes"
+  description: >
+    Design system maison de PIVOT-UI. Tokens CSS définis dans src/styles/tokens.scss,
+    composants partagés dans src/styles/components.scss, reset dans src/styles/reset.scss.
+    Trois thèmes : :root (light navy gradient), [data-theme="ocean"], [data-theme="dark"].
+    Chargé pour tout nouveau composant ou modification SCSS.
+  loaded_by:
+    - Expert_UX_UI
+    - Architecte_Angular
+    - Dev_Agent
+
+---
+
+files:
+
+  entry: "src/styles.scss                    ← @use tokens + reset + components"
+  tokens: "src/styles/tokens.scss            ← toutes les CSS custom properties (:root + thèmes)"
+  reset: "src/styles/reset.scss              ← box-sizing, font-family, reset margin/ul"
+  components: "src/styles/components.scss    ← classes partagées réutilisables"
+  rule: "Jamais modifier la valeur d'un token directement dans un composant — ouvrir tokens.scss"
+
+---
+
+tokens:
+
+  # ── COULEURS ──────────────────────────────────────────────────────────────────
+
+  brand:
+    note: "Bleu brand — actions principales, liens, focus rings"
+    vars: ["--color-brand-50", "--color-brand-100", "--color-brand-200",
+           "--color-brand-500", "--color-brand-600", "--color-brand-700", "--color-brand-900"]
+    usage:
+      bg_primary_btn: "--color-brand-600"
+      bg_hover:       "--color-brand-700"
+      link:           "--color-brand-600"
+      focus_ring:     "--color-brand-500"
+      light_tint:     "--color-brand-50 / --color-brand-100"
+
+  navy:
+    note: "Titres, texte fort, sidebar — identité premium"
+    vars: ["--color-navy-900 (#1B2A4A)", "--color-navy-800 (#243657)", "--color-navy-700 (#2D4266)"]
+    usage:
+      headings: "--color-navy-900"
+      sidebar_bg: "--surface-sidebar (= var(--color-navy-900))"
+
+  gray:
+    note: "Texte courant, bordures, fonds neutres"
+    vars: ["--color-gray-50", "--color-gray-100", "--color-gray-200", "--color-gray-300",
+           "--color-gray-400", "--color-gray-500", "--color-gray-600", "--color-gray-700", "--color-gray-900"]
+    usage:
+      body_text:      "--color-gray-900"
+      label:          "--color-gray-700"
+      placeholder:    "--color-gray-400"
+      muted:          "--color-gray-500"
+      border:         "--color-gray-200 (défaut) / --color-gray-300 (focus visible)"
+      bg_input:       "--surface-bg ou #fff selon contexte"
+
+  semantic:
+    success: "--color-success (#059669) · --color-success-400 · --color-success-light · --color-success-dark"
+    warning: "--color-warning (#D97706) · --color-warning-light"
+    error:   "--color-error (#DC2626) · --color-error-400 · --color-error-light · --color-error-dark"
+    info:    "--color-info (#0284C7) · --color-info-light"
+
+  surfaces:
+    note: "Fonds sémantiques — s'adaptent selon le thème actif"
+    vars:
+      bg:      "--surface-bg    ← fond de page (F4F5F7 en light)"
+      card:    "--surface-card  ← fond de carte/modale (#FFF en light)"
+      sidebar: "--surface-sidebar ← fond sidebar (navy-900)"
+      navbar:  "--surface-navbar  ← gradient indigo→violet en light"
+
+  special:
+    auth_gradient:  "--auth-gradient (gradient 135deg indigo→violet — pages auth uniquement)"
+    auth_accent:    "--color-auth-accent (#4338ca) — indigo accent pages auth (checkbox, liens, distinct du brand bleu)"
+    glass: "--glass-bg · --glass-border · --glass-shadow (cartes auth sur fond gradient)"
+
+  # ── TYPOGRAPHIE ───────────────────────────────────────────────────────────────
+
+  typography:
+    font: "--font-sans ('Inter', 'Segoe UI', Arial, sans-serif)"
+    sizes:
+      xs:   "--text-xs   (0.75rem / 12px)  — labels, badges, captions"
+      sm:   "--text-sm   (0.875rem / 14px) — corps, inputs, boutons"
+      base: "--text-base (1rem / 16px)     — paragraphes standard"
+      lg:   "--text-lg   (1.125rem / 18px)"
+      xl:   "--text-xl   (1.25rem / 20px)  — sous-titres section"
+      2xl:  "--text-2xl  (1.5rem / 24px)   — titres principaux"
+    forbidden: "Valeurs px/rem hardcodées pour les tailles de texte — toujours var(--text-*)"
+
+  # ── RADIUS ────────────────────────────────────────────────────────────────────
+
+  radius:
+    sm:  "--radius-sm  (4px)  — petits éléments (badge, tooltip, checkbox)"
+    md:  "--radius-md  (6px)  — inputs, boutons, cartes secondaires"
+    lg:  "--radius-lg  (8px)  — cartes principales"
+    xl:  "--radius-xl  (12px) — modales, cartes larges"
+
+  # ── OMBRES ────────────────────────────────────────────────────────────────────
+
+  shadows:
+    sm:  "--shadow-sm  — élévation légère (cards list)"
+    md:  "--shadow-md  — cards standards"
+    lg:  "--shadow-lg  — overlays, dropdowns"
+    xl:  "--shadow-xl  — modales, auth card"
+    btns: "--btn-primary-shadow / --btn-primary-shadow-hover (etc.) — ombres colorées boutons"
+
+  # ── TRANSITIONS ───────────────────────────────────────────────────────────────
+
+  transitions:
+    fast: "--transition-fast (150ms ease) — hover, focus, micro-interactions"
+    base: "--transition-base (200ms ease) — animations légèrement plus longues"
+
+---
+
+themes:
+
+  system: "Géré par attribut data-theme sur <html> (ThemeService — localStorage key 'pivot_theme')"
+  available:
+    light: ":root — navbar gradient indigo→violet, fond gris clair (#F4F5F7)"
+    dark:  "[data-theme='dark'] — gradient noir violet premium, fond #09090b"
+  rule: >
+    Les tokens de couleur s'adaptent automatiquement selon le thème — ne jamais
+    hardcoder une couleur hex dans un composant qui doit supporter plusieurs thèmes.
+    Exception : couleurs fixes indépendantes du thème (ex: #fff sur bouton primaire).
+
+---
+
+global_components:
+
+  note: "Classes définies dans components.scss — réutiliser avant d'écrire du CSS custom"
+
+  forms:
+    classes: [".form-group", ".form-label", ".form-control", ".form-error"]
+    modifiers: ".form-control.is-invalid — état erreur"
+    pattern: |
+      <div class="form-group">
+        <label class="form-label" for="email">Email</label>
+        <input id="email" class="form-control" [class.is-invalid]="hasError" />
+        <p class="form-error" *ngIf="hasError">Message d'erreur</p>
+      </div>
+
+  buttons:
+    base: ".btn"
+    variants: [".btn-primary", ".btn-secondary", ".btn-ghost", ".btn-danger"]
+    modifiers: [".btn-full (100% width)", ".btn-lg (padding/size agrandis)"]
+    rule: "Toujours base .btn + variant — jamais variant seul"
+    pattern: |
+      <button class="btn btn-primary btn-full">Se connecter</button>
+      <button class="btn btn-ghost">Annuler</button>
+
+  cards:
+    class: ".card"
+    note: "Background surface-card, border-radius radius-lg, shadow-md, border gray-200"
+
+  alerts:
+    base: ".alert"
+    variants: [".alert-error", ".alert-success", ".alert-info", ".alert-warning"]
+    pattern: |
+      <div class="alert alert-error" role="alert">Message d'erreur</div>
+      <div class="alert alert-success">Opération réussie.</div>
+
+  spinner:
+    class: ".spinner"
+    note: "border 2px currentColor, border-top transparent, animation spin 0.7s"
+    pattern: |
+      <span class="spinner" aria-hidden="true"></span>
+      <span class="sr-only">Chargement...</span>
+
+  accessibility:
+    sr_only: ".sr-only — visuellement masqué, accessible aux lecteurs d'écran"
+    links_in_prose: "p a, li a → text-decoration: underline (WCAG 1.4.1 — déjà dans reset)"
+
+---
+
+bem:
+
+  convention: "Block__Element--Modifier"
+  rule: "BEM sur les composants feature (contact, login, admin...) — classes globales (.btn, .card) pour les primitives réutilisables"
+
+  pattern: |
+    // contact.component.scss — exemple réel
+    .contact-page { ... }
+
+    .contact-layout {
+      background: var(--surface-card);
+      border-radius: 16px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .contact__back {
+      color: var(--color-brand-600);
+      &:focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; }
+    }
+
+    .contact-card { ... }
+    .contact-card__icon { ... }
+    .contact-card__icon--email { background: rgba(37, 99, 235, 0.1); color: var(--color-brand-600); }
+
+  naming_observed:
+    block_element: ".contact-card__icon, .contact__back, .form-field__label"
+    modifier:      ".contact-card__icon--email / --github / --docs"
+    note: "Certains fichiers (login) utilisent un style plus libre (.auth-card, .auth-title) — acceptable pour composants isolés"
+
+---
+
+focus_a11y:
+
+  rule: "focus-visible sur tout élément interactif — jamais outline: none sans alternative visible"
+  pattern: |
+    &:focus-visible {
+      outline: 2px solid var(--color-brand-500);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm);
+    }
+
+---
+
+responsive:
+
+  approach: "Mobile-first — styles base = mobile, @media (min-width: …) = agrandissement"
+  breakpoints:
+    sm:  "@media (max-width: 480px)  — très petits écrans (auth card)"
+    md:  "@media (max-width: 600px)  — contact layout padding réduit"
+    lg:  "@media (max-width: 640px)  — grille 1 colonne sur contact"
+  note: "Pas de tokens breakpoints — valeurs px directes dans les @media"
+
+---
+
+pitfalls:
+
+  - "Utiliser --color-primary-600 → INEXISTANT. Pages auth → --color-auth-accent. Ailleurs → --color-brand-600."
+  - "Utiliser --spacing-* → INEXISTANT. Valeurs px directes ou tokens radius/shadow."
+  - "Hardcoder une couleur hex dans un fichier composant sans token équivalent → ajouter le token dans tokens.scss d'abord."
+  - "Créer des variants de bouton custom → réutiliser .btn + variant global de components.scss."
+  - "Dupliquer .form-control dans un composant → utiliser la classe globale."
+
+---
+
+gate_checklist:
+  gate_2:
+    - "Zéro couleur hex hardcodée si token existant couvre le cas"
+    - "Pas de --color-primary-* (token inexistant — utiliser --color-brand-*)"
+    - "Pas de --spacing-* (inexistant — valeurs px ou tokens radius/shadow)"
+    - "Classes globales (.btn, .form-control, .card, .alert) réutilisées pour les primitives"
+    - "BEM respecté pour les classes feature spécifiques au composant"
+    - "focus-visible sur chaque élément interactif ajouté"
+    - "Thème testé manuellement sur au moins light + dark si composant utilise des surfaces"
+    - "Mobile responsive : layout vérifié sur 375px"

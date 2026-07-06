@@ -1,0 +1,5 @@
+@use 'styles/reset';
+
+// Pas de tokens/design system propres à ce module : `@pivot/design-system` (Angular CDK +
+// SCSS BEM, ADR-007) sera consommé une fois publié — voir CLAUDE.md. Ne pas dupliquer ici
+// le stub temporaire de tokens.scss de pivot-ui (dérive inter-repos).

@@ -1,0 +1,25 @@
+# Editor configuration — https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Angular / TypeScript — 2 espaces
+[*.{ts,js,html,scss,css,json}]
+indent_size = 2
+
+[*.ts]
+quote_type = single
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.md]
+max_line_length = off
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab

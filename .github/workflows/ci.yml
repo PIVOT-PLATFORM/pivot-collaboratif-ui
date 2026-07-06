@@ -1,0 +1,207 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------
+  # 1. QUALITE CODE - ANGULAR
+  # -----------------------------------------
+  quality:
+    name: Code Quality - Angular
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node + npm
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        run: npm run lint
+
+  # -----------------------------------------
+  # 2. TESTS (Vitest)
+  # -----------------------------------------
+  tests:
+    name: Tests (Vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node + npm
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:ci
+
+      # Coverage shared with the sonar job (no recompute downstream).
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: frontend-coverage
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: 1
+
+  # -----------------------------------------
+  # 3. BUILD PRODUCTION (UI-specific — pas d'equivalent backend)
+  # -----------------------------------------
+  build:
+    name: Build Angular (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [quality, tests]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node + npm
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build -- --configuration production
+
+  # -----------------------------------------
+  # 4. SONARCLOUD
+  # -----------------------------------------
+  sonar:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: [tests]
+    timeout-minutes: 15
+    if: github.actor != 'dependabot[bot]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup Node + npm
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: frontend-coverage
+          path: coverage/
+
+      - name: SonarCloud Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Passés en variables d'env pour éviter l'injection de template dans le shell
+          # (github.head_ref est user-controlled via le nom de branche d'un fork).
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_HEAD_REF: ${{ github.head_ref }}
+          GH_BASE_REF: ${{ github.base_ref }}
+        run: |
+          PR_ARGS=""
+          if [ "${GH_EVENT_NAME}" = "pull_request" ]; then
+            PR_ARGS="-Dsonar.pullrequest.key=${GH_PR_NUMBER} \
+                     -Dsonar.pullrequest.branch=${GH_HEAD_REF} \
+                     -Dsonar.pullrequest.base=${GH_BASE_REF}"
+          fi
+          npx sonar-scanner \
+            -Dsonar.projectKey=PIVOT-PLATFORM_pivot-collaboratif-ui \
+            -Dsonar.organization=pivot-platform \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.token="${SONAR_TOKEN}" \
+            -Dsonar.sources=src \
+            -Dsonar.tests=src \
+            -Dsonar.test.inclusions=**/*.spec.ts \
+            -Dsonar.exclusions=**/*.spec.ts,dist/**,node_modules/** \
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info,coverage/frontend/lcov.info \
+            $PR_ARGS
+
+  # -----------------------------------------
+  # 5. SCA - AUDIT DEPENDANCES (Trivy + npm)
+  # -----------------------------------------
+  sca:
+    name: SCA - Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Trivy - Frontend (package-lock.json)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
+        if: always() && hashFiles('trivy-frontend.sarif') != ''
+        with:
+          sarif_file: trivy-frontend.sarif
+          category: trivy-sca-frontend
+
+      - name: Setup Node + npm
+        uses: ./.github/actions/setup-node
+
+      - name: npm audit (production deps)
+        run: npm audit --audit-level=high --omit=dev
+
+  # Le job Mutation (Stryker), réservé aux PR, vit dans pr-checks.yml (déclenché uniquement
+  # on: pull_request) — pour ne pas apparaître en "skipped" sur les runs push (main/develop).

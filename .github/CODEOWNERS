@@ -1,0 +1,8 @@
+# Code owners — PIVOT-COLLABORATIF-UI
+# Toute modification, quel que soit le fichier, requiert la review de l'équipe frontend.
+
+* @ApoSkunz @0bno @tellebma @Destinea @leo-brgn
+
+# Workflows et config CI/CD
+.github/workflows/ @ApoSkunz @0bno @tellebma @Destinea @leo-brgn
+.github/CODEOWNERS @ApoSkunz @0bno @tellebma @Destinea @leo-brgn
