@@ -39,7 +39,7 @@
     "@stryker-mutator/core": "^9.0.0",
     "@stryker-mutator/vitest-runner": "^9.0.0",
     "@vitest/coverage-v8": "^4.0.8",
-    "eslint": "^9.27.0",
+    "eslint": "^10.6.0",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "semantic-release": "^25.0.5",
