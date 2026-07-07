@@ -42,6 +42,10 @@
           "boardMenu": "Actions pour {{title}}",
           "activeParticipants": "{{count}} collaborateur(s) actuellement en ligne"
         }
+      },
+      "rename": {
+        "error": "Impossible de renommer le tableau",
+        "aria": "Renommer le tableau {{title}}"
       }
     }
   }

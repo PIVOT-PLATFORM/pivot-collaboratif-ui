@@ -42,6 +42,10 @@ const FR_TRANSLATIONS = {
           activeParticipants: '{{count}} en ligne',
         },
       },
+      rename: {
+        error: 'Impossible de renommer le tableau',
+        aria: 'Renommer le tableau {{title}}',
+      },
     },
   },
 };
@@ -335,8 +339,94 @@ describe('BoardListComponent', () => {
     expect(link.getAttribute('aria-label')).toContain('Tableau secret');
   });
 
-  // ── Menu stubs ──
-  it('rename and delete menu items are clickable stubs', () => {
+  // ── Rename ──
+  it('rename menu item shows inline input with current title', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'r1', title: 'Mon board' })]));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.board-list__card-menu-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelectorAll('.board-list__menu-item')[0] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.board-list__card-rename-input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.value).toBe('Mon board');
+    expect(fixture.nativeElement.querySelector('.board-list__card-link')).toBeNull();
+  });
+
+  it('Escape key cancels rename and restores card link', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'r2', title: 'Mon board' })]));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.board-list__card-menu-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__menu-item')[0] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.board-list__card-rename-input') as HTMLInputElement;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.board-list__card-rename-input')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.board-list__card-link')).toBeTruthy();
+  });
+
+  it('Enter key confirms rename and updates board title on success', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'r3', title: 'Ancien' })]));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.board-list__card-menu-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__menu-item')[0] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.board-list__card-rename-input') as HTMLInputElement;
+    input.value = 'Nouveau nom';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    const patchReq = httpMock.expectOne(r => r.url.includes('/r3') && r.method === 'PATCH');
+    expect(patchReq.request.body).toEqual({ title: 'Nouveau nom' });
+    patchReq.flush(makeBoard({ id: 'r3', title: 'Nouveau nom' }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.board-list__card-rename-input')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Nouveau nom');
+  });
+
+  it('rename error shows toast and closes rename mode', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'r4', title: 'Board' })]));
+    fixture.detectChanges();
+
+    const toastSpy = vi.spyOn(toastService, 'show');
+    (fixture.nativeElement.querySelector('.board-list__card-menu-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__menu-item')[0] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.board-list__card-rename-input') as HTMLInputElement;
+    input.value = 'Nouveau';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    httpMock.expectOne(r => r.url.includes('/r4') && r.method === 'PATCH')
+      .flush('', { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+
+    expect(toastSpy).toHaveBeenCalledWith('Impossible de renommer le tableau', 'error');
+    expect(fixture.nativeElement.querySelector('.board-list__card-rename-input')).toBeNull();
+  });
+
+  // ── Delete stub ──
+  it('delete menu item is a clickable stub', () => {
     httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'y' })]));
     fixture.detectChanges();
 
@@ -345,10 +435,7 @@ describe('BoardListComponent', () => {
 
     const menuItems = fixture.nativeElement.querySelectorAll('.board-list__menu-item') as NodeListOf<HTMLButtonElement>;
     expect(menuItems.length).toBe(2);
-    expect(() => {
-      menuItems[0].click(); // rename stub
-      menuItems[1].click(); // delete stub
-    }).not.toThrow();
+    expect(() => menuItems[1].click()).not.toThrow();
   });
 
   // ── Empty state CTA ──

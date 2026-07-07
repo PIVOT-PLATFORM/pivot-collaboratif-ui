@@ -47,41 +47,78 @@
     <div class="board-list__grid">
       @for (board of boards(); track board.id) {
         <article class="board-list__card">
-          <a
-            class="board-list__card-link"
-            [routerLink]="['/whiteboard', board.id]"
-            [attr.aria-label]="cardAriaLabel(board, (board.updatedAt | date:'shortDate') ?? '')"
-          >
-            @if (board.thumbnailUrl) {
-              <img
-                class="board-list__card-thumbnail"
-                [src]="board.thumbnailUrl"
-                [alt]="board.title"
-              />
-            } @else {
-              <div class="board-list__card-thumbnail-placeholder" aria-hidden="true"></div>
-            }
-            <div class="board-list__card-body">
-              <h2 class="board-list__card-title">{{ board.title }}</h2>
-              <div class="board-list__card-meta">
-                <span class="board-list__badge board-list__badge--{{ board.role }}">
-                  {{ roleLabel(board.role) }}
-                </span>
-                <span class="board-list__card-date">
-                  {{ board.updatedAt | date:'shortDate' }}
-                </span>
-                @if (board.activeParticipantCount > 0) {
-                  <span
-                    class="board-list__badge board-list__badge--online"
-                    [attr.aria-label]="'whiteboard.board.list.aria.activeParticipants' | transloco:{ count: board.activeParticipantCount }"
-                  >
-                    <span class="board-list__online-dot" aria-hidden="true"></span>
-                    {{ board.activeParticipantCount }}&nbsp;{{ 'whiteboard.board.list.online' | transloco }}
+          @if (renamingBoardId() !== board.id) {
+            <a
+              class="board-list__card-link"
+              [routerLink]="['/whiteboard', board.id]"
+              [attr.aria-label]="cardAriaLabel(board, (board.updatedAt | date:'shortDate') ?? '')"
+            >
+              @if (board.thumbnailUrl) {
+                <img
+                  class="board-list__card-thumbnail"
+                  [src]="board.thumbnailUrl"
+                  [alt]="board.title"
+                />
+              } @else {
+                <div class="board-list__card-thumbnail-placeholder" aria-hidden="true"></div>
+              }
+              <div class="board-list__card-body">
+                <h2 class="board-list__card-title">{{ board.title }}</h2>
+                <div class="board-list__card-meta">
+                  <span class="board-list__badge board-list__badge--{{ board.role }}">
+                    {{ roleLabel(board.role) }}
                   </span>
-                }
+                  <span class="board-list__card-date">
+                    {{ board.updatedAt | date:'shortDate' }}
+                  </span>
+                  @if (board.activeParticipantCount > 0) {
+                    <span
+                      class="board-list__badge board-list__badge--online"
+                      [attr.aria-label]="'whiteboard.board.list.aria.activeParticipants' | transloco:{ count: board.activeParticipantCount }"
+                    >
+                      <span class="board-list__online-dot" aria-hidden="true"></span>
+                      {{ board.activeParticipantCount }}&nbsp;{{ 'whiteboard.board.list.online' | transloco }}
+                    </span>
+                  }
+                </div>
+              </div>
+            </a>
+          } @else {
+            <div class="board-list__card-rename">
+              @if (board.thumbnailUrl) {
+                <img
+                  class="board-list__card-thumbnail"
+                  [src]="board.thumbnailUrl"
+                  [alt]="board.title"
+                />
+              } @else {
+                <div class="board-list__card-thumbnail-placeholder" aria-hidden="true"></div>
+              }
+              <div class="board-list__card-body">
+                <input
+                  class="board-list__card-rename-input"
+                  type="text"
+                  [value]="renameTitle()"
+                  [attr.aria-label]="renameAriaLabel(board.title)"
+                  [disabled]="isRenaming()"
+                  (input)="onRenameInput($event)"
+                  (keydown.enter)="confirmRename(board.id)"
+                  (keydown.escape)="cancelRename()"
+                  maxlength="100"
+                  autocomplete="off"
+                  boardListAutofocus
+                />
+                <div class="board-list__card-meta">
+                  <span class="board-list__badge board-list__badge--{{ board.role }}">
+                    {{ roleLabel(board.role) }}
+                  </span>
+                  <span class="board-list__card-date">
+                    {{ board.updatedAt | date:'shortDate' }}
+                  </span>
+                </div>
               </div>
             </div>
-          </a>
+          }
           <button
             class="board-list__card-menu-btn"
             type="button"
@@ -98,7 +135,7 @@
                   class="board-list__menu-item"
                   type="button"
                   role="menuitem"
-                  (click)="onRenameStub(board.id)"
+                  (click)="startRename(board.id, board.title)"
                 >
                   {{ 'whiteboard.board.list.menu.rename' | transloco }}
                 </button>

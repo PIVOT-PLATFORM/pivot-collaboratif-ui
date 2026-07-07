@@ -26,4 +26,12 @@ export class BoardService {
   createBoard(title: string): Observable<Board> {
     return this.http.post<Board>(`${environment.apiUrl}/whiteboard/boards`, { title });
   }
+
+  /** Renames a board (OWNER only). */
+  renameBoard(boardId: string, title: string): Observable<Board> {
+    return this.http.patch<Board>(
+      `${environment.apiUrl}/whiteboard/boards/${boardId}`,
+      { title },
+    );
+  }
 }

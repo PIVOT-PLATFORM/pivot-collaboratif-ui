@@ -288,6 +288,31 @@
     &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
   }
 
+  // ── Inline rename ──
+  &__card-rename {
+    display: block;
+    color: inherit;
+  }
+
+  &__card-rename-input {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #1e293b;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid #3b82f6;
+    border-radius: 0;
+    padding: 0 0 0.125rem;
+    margin: 0 0 0.5rem;
+    outline: none;
+    padding-right: 2rem;
+
+    &:focus { border-bottom-color: #2563eb; box-shadow: none; }
+    &:disabled { opacity: 0.6; cursor: wait; }
+  }
+
   // ── Modal ──
   &__modal-overlay {
     position: fixed;

@@ -42,6 +42,10 @@
           "boardMenu": "Options for {{title}}",
           "activeParticipants": "{{count}} collaborator(s) currently online"
         }
+      },
+      "rename": {
+        "error": "Unable to rename the board",
+        "aria": "Rename board {{title}}"
       }
     }
   }
