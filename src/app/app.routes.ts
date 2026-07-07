@@ -1,8 +1,11 @@
 import { Routes } from '@angular/router';
+import { whiteboardModuleGuard } from './core/whiteboard/whiteboard-module.guard';
 
-/**
- * Aucune route métier tant qu'aucune US n'est implémentée (bootstrap only).
- * Les features (whiteboard, quiz, session live, formulaire) ajouteront leurs routes
- * lazy-loadées ici — jamais de barrel d'import massif (CLAUDE.md).
- */
-export const routes: Routes = [];
+export const routes: Routes = [
+  {
+    path: 'whiteboard',
+    canActivate: [whiteboardModuleGuard],
+    loadChildren: () =>
+      import('./whiteboard/whiteboard.routes').then(m => m.whiteboardRoutes),
+  },
+];
