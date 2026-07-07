@@ -61,4 +61,19 @@ describe('BoardService', () => {
     httpMock.expectOne(r => r.url === BASE && r.method === 'POST').flush('', { status: 400, statusText: 'Bad Request' });
     expect(caught).toBe(true);
   });
+
+  it('renameBoard() sends PATCH with new title', () => {
+    const boardId = 'board-uuid-1';
+    service.renameBoard(boardId, 'Nouveau nom').subscribe();
+    const req = httpMock.expectOne(r => r.url === `${BASE}/${boardId}` && r.method === 'PATCH');
+    expect(req.request.body).toEqual({ title: 'Nouveau nom' });
+    req.flush({ id: boardId, title: 'Nouveau nom', role: 'owner', createdAt: '', updatedAt: '', thumbnailUrl: null, activeParticipantCount: 0 });
+  });
+
+  it('renameBoard() propagates HTTP errors', () => {
+    let caught = false;
+    service.renameBoard('bid', 'x').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(r => r.url === `${BASE}/bid` && r.method === 'PATCH').flush('', { status: 403, statusText: 'Forbidden' });
+    expect(caught).toBe(true);
+  });
 });

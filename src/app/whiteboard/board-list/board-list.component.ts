@@ -1,7 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  Directive,
+  ElementRef,
   inject,
+  OnInit,
   signal,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
@@ -11,11 +14,20 @@ import { BoardService } from '../../core/whiteboard/board.service';
 import { ToastService } from '../../core/toast/toast.service';
 import { Board } from '../../core/whiteboard/board.model';
 
+@Directive({ selector: '[boardListAutofocus]', standalone: true })
+class BoardListAutofocusDirective implements OnInit {
+  private readonly el = inject(ElementRef<HTMLInputElement>);
+  ngOnInit(): void {
+    this.el.nativeElement.focus();
+    this.el.nativeElement.select();
+  }
+}
+
 @Component({
   selector: 'app-board-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoPipe, DatePipe],
+  imports: [RouterLink, TranslocoPipe, DatePipe, BoardListAutofocusDirective],
   templateUrl: './board-list.component.html',
   styleUrl: './board-list.component.scss',
 })
@@ -28,6 +40,9 @@ export class BoardListComponent {
   protected readonly isCreating = signal(false);
   protected readonly createTitle = signal('');
   protected readonly activeMenuBoardId = signal<string | null>(null);
+  protected readonly renamingBoardId = signal<string | null>(null);
+  protected readonly renameTitle = signal('');
+  protected readonly isRenaming = signal(false);
   protected readonly skeletons = Array.from<null>({ length: 8 });
 
   private readonly boardService = inject(BoardService);
@@ -100,8 +115,46 @@ export class BoardListComponent {
     );
   }
 
-  /** Stub — rename delegated to US08.1.4. */
-  protected onRenameStub(_boardId: string): void {}
+  protected startRename(boardId: string, currentTitle: string): void {
+    this.activeMenuBoardId.set(null);
+    this.renameTitle.set(currentTitle);
+    this.renamingBoardId.set(boardId);
+  }
+
+  protected cancelRename(): void {
+    this.renamingBoardId.set(null);
+  }
+
+  protected onRenameInput(event: Event): void {
+    this.renameTitle.set((event.target as HTMLInputElement).value);
+  }
+
+  protected confirmRename(boardId: string): void {
+    const title = this.renameTitle().trim();
+    if (!title || this.isRenaming()) return;
+    this.isRenaming.set(true);
+    this.boardService.renameBoard(boardId, title).subscribe({
+      next: (updated) => {
+        this.boards.set(this.boards().map(b => (b.id === boardId ? updated : b)));
+        this.renamingBoardId.set(null);
+        this.isRenaming.set(false);
+      },
+      error: () => {
+        this.isRenaming.set(false);
+        this.renamingBoardId.set(null);
+        this.toast.show(
+          this.transloco.translate('whiteboard.board.rename.error'),
+          'error',
+        );
+      },
+    });
+  }
+
+  protected renameAriaLabel(currentTitle: string): string {
+    return this.transloco.translate('whiteboard.board.rename.aria', {
+      title: currentTitle,
+    });
+  }
 
   /** Stub — delete delegated to US08.1.5. */
   protected onDeleteStub(_boardId: string): void {}
