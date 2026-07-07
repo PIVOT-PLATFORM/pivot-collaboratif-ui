@@ -18,29 +18,34 @@ Shell frontend (header/footer, OIDC, portail) : **pivot-ui**. Documentation gén
 
 ### Dépendances plateforme — état réel (lire avant toute implémentation)
 
-Ni `@pivot/ui-core` ni `@pivot/design-system` ne sont aujourd'hui des artefacts npm publiés et
-consommables :
+Ni `@pivot-platform/ui-core` ni `@pivot/design-system` ne sont aujourd'hui des artefacts npm
+publiés et consommables :
 
-- **`@pivot/ui-core`** : `pivot-ui` (le repo shell) ne publie **aucun package npm** — son
-  `package.json` s'appelle `frontend`, `private: true`, et son `release.yml` ne contient
-  **aucune étape `npm publish`** (uniquement Semantic Release pour le tag/changelog + image
-  Docker GHCR). `@pivot/ui-core` est un nom d'export **aspirationnel** documenté dans le
-  `CLAUDE.md` de `pivot-ui`, pas un package réel aujourd'hui.
+- **`@pivot-platform/ui-core`** (scope réel confirmé — **pas** `@pivot-platform/ui-core`) : `pivot-ui`
+  tente de publier ce package via `publish-ui-core.yml` sur GitHub Packages (registry
+  `npm.pkg.github.com`). Deux tentatives ont échoué (EN17.3) : `npm ci` dans le workflow plante
+  sur `git --no-replace-objects ls-remote ssh://git@github.com/dist/ui-core.git` (clé SSH
+  absente du runner). **Le package `@pivot-platform/ui-core` n'existe pas encore** — `npm
+  install @pivot-platform/ui-core@latest` retourne 404. Un `.npmrc` est déjà présent dans ce
+  repo pour préparer l'authentification dès que le package sera publié. Statut : bloqué EN17.3.
 - **`@pivot/design-system`** : repo `pivot-design-system` **pas encore créé** (stack actée par
   `ADR-007` : Angular CDK + SCSS BEM custom, aucune lib visuelle tierce — mais le repo lui-même
   est différé). `pivot-ui` gère ses styles en interne (`src/styles/`) en attendant.
 
 Conséquences concrètes tant que ces gaps ne sont pas comblés :
 - **Pas d'auth** dans ce repo — aucun `AuthService`, `AuthInterceptor`, `AuthGuard` (viendraient
-  de `@pivot/ui-core`). Aucune route protégée tant que ce contrat n'est pas consommable.
+  de `@pivot-platform/ui-core`). Aucune route protégée tant que ce contrat n'est pas consommable.
 - **Pas de composants de design system** — ce squelette utilise un reset CSS minimal
   auto-contenu (`src/styles/reset.scss`), pas les tokens de `@pivot/design-system`.
-- **Pas de `ModuleGuard`/`ModuleStatusService`** (contrat de `@pivot/ui-core/modules`) — aucune
-  vérification d'activation de module ici tant que le contrat n'est pas consommable.
+- **Pas de `ModuleGuard`/`ModuleStatusService`** (contrat de `@pivot-platform/ui-core/modules`) —
+  `whiteboardModuleGuard` est implémenté comme stub `of(true)` (EN08.2) en attendant la
+  publication réelle. TODO : remplacer par `moduleGuard('whiteboard')` de
+  `@pivot-platform/ui-core` dès que EN17.3 sera résolu.
 
-**Ne jamais fabriquer une fausse version de `@pivot/ui-core` ou `@pivot/design-system` dans
-`package.json`.** Vérifier l'état de publication avant toute tentative, et signaler au
-mainteneur si une US du backlog suppose ces dépendances disponibles alors qu'elles ne le sont pas.
+**Ne jamais ajouter `@pivot-platform/ui-core` ou `@pivot/design-system` avec une version devinée
+dans `package.json`.** Vérifier l'état de publication avant toute tentative (voir `.npmrc` pour
+la config registry), et signaler au mainteneur si une US suppose ces dépendances disponibles
+alors qu'elles ne le sont pas.
 
 ---
 
@@ -64,7 +69,7 @@ Concise et directe. Techniquement précise. Pas de récapitulatifs inutiles.
 | Styles | SCSS · reset minimal — **pas** de tokens propres (attend `@pivot/design-system`) |
 | HTTP | Angular HttpClient · RxJS |
 | State | Signals Angular |
-| Auth | **Différée** — dépend de `@pivot/ui-core` (voir section dédiée ci-dessus). Aucun guard/intercepteur dans ce squelette. |
+| Auth | **Différée** — dépend de `@pivot-platform/ui-core` (voir section dédiée ci-dessus). Aucun guard/intercepteur dans ce squelette. |
 | Temps réel | WebSocket STOMP — `@stomp/rx-stomp` ajouté au `package.json` au bootstrap (dépendance présente), **aucun client STOMP implémenté** — à construire avec la première US qui l'exige (`EN08.1`) |
 | Tests unitaires | Vitest |
 | Tests E2E | Playwright (Chromium) |
@@ -118,12 +123,12 @@ Toute contribution mobilise les experts concernés — les mentionner explicitem
 | **Expert DevSecOps** | CI/CD GitHub Actions, SonarCloud, Semgrep, Gitleaks, Plumber, SBOM |
 | **Expert Red Team** | XSS, injection via messages WebSocket, exposition de données |
 | **Expert Blue Team** | CSP, SRI, headers sécurité nginx, réponse aux rapports Red Team |
-| **Expert OIDC / IAM** | Consommation du contrat `@pivot/ui-core` une fois publié |
+| **Expert OIDC / IAM** | Consommation du contrat `@pivot-platform/ui-core` une fois publié |
 | **Expert QA** | Stratégie Vitest/Playwright, coverage ≥ 85 %, A11y tests |
 | **Expert RGPD** | Contenu utilisateur sur les boards/formulaires, stockage navigateur |
 | **Product Owner** | Backlog markdown pivot-docs (EPIC E30), critères d'acceptation, priorisation |
 | **Scrum Master** | Coordination, sprints, impediments, backlog consistency |
-| **Architecte Modules** | Intégration `ModuleGuard`/lazy-loading une fois `@pivot/ui-core` consommable |
+| **Architecte Modules** | Intégration `ModuleGuard`/lazy-loading une fois `@pivot-platform/ui-core` consommable |
 | **Expert PR Review** | Relecture croisée neutre : cohérence architecture, lisibilité, dette technique |
 | **Experts Java / Backend** | → **pivot-collaboratif-core** |
 
@@ -134,7 +139,7 @@ Toute contribution mobilise les experts concernés — les mentionner explicitem
 | Composant Angular, SCSS, routing | **Architecte Angular** + **Expert UX/UI** |
 | WebSocket STOMP, temps réel, présence | **Architecte Temps Réel / WebSocket** |
 | Design system, tokens CSS, A11y | **Expert UX/UI** |
-| Consommation `@pivot/ui-core` (auth, guards) | **Expert OIDC / IAM** + **Expert Blue Team** |
+| Consommation `@pivot-platform/ui-core` (auth, guards) | **Expert OIDC / IAM** + **Expert Blue Team** |
 | Tests Vitest, Playwright, coverage | **Expert QA** |
 | CI/CD, GitHub Actions, Plumber | **Expert DevSecOps** |
 | Vulnérabilité sécurité frontend | **Expert Red Team** → **Expert Blue Team** |
@@ -147,7 +152,7 @@ Toute contribution mobilise les experts concernés — les mentionner explicitem
 **Règles :**
 - Mentionner l'expert explicitement quand son domaine est engagé.
 - Toute faille Red Team = correction Blue Team **avant** tout merge.
-- Ajout d'une dépendance `@pivot/ui-core` ou `@pivot/design-system` = coordination avec
+- Ajout d'une dépendance `@pivot-platform/ui-core` ou `@pivot/design-system` = coordination avec
   `pivot-ui` obligatoire (vérifier l'état de publication réel avant).
 
 ---
@@ -190,7 +195,7 @@ Avant tout code, le **PO Agent** challenge les ACs de l'US :
 1. Vérifier DoR — story complète, ACs Given/When/Then, AC erreur + sécurité
 2. Calculer Gate 1 : **= 100** → procéder · **< 100** → PO Agent réécrit ACs → recalculer
 3. AC ambigus à l'implémentation → PO Agent clarifie, jamais d'interprétation unilatérale
-4. **AC supposant `@pivot/ui-core`/`@pivot/design-system` disponibles alors qu'ils ne le sont
+4. **AC supposant `@pivot-platform/ui-core`/`@pivot/design-system` disponibles alors qu'ils ne le sont
    pas** → bloquant, signaler au mainteneur avant tout Gate 1
 
 Pas de blocage humain — Claude autonome de A à Z sur la validation des ACs (hors point 4).
@@ -201,7 +206,7 @@ Tout PR avec :
 - Label `security` ou `breaking-change`
 - Gitleaks secret détecté
 - Modification du contrat de module sans coordination pivot-ui
-- Ajout d'une dépendance `@pivot/ui-core`/`@pivot/design-system` avec version fictive
+- Ajout d'une dépendance `@pivot-platform/ui-core`/`@pivot/design-system` avec version fictive
 
 → Label `needs-human-review` + score breakdown + attendre le mainteneur.
 
@@ -357,7 +362,7 @@ Format **Conventional Commits** (`type(scope): message`) — alimente Semantic R
 | `feat(quiz):` | quiz interactif, sondages |
 | `feat(session):` | session live, facilitation d'atelier |
 | `feat(forms):` | moteur de formulaire |
-| `feat(modules):` | lazy-loading, route guard, activation module (une fois `@pivot/ui-core` consommable) |
+| `feat(modules):` | lazy-loading, route guard, activation module (une fois `@pivot-platform/ui-core` consommable) |
 | `feat(ws):` | WebSocket STOMP client Angular (`@stomp/rx-stomp`) |
 | `fix(ws):` | correction bug WebSocket / STOMP |
 | `test:` | ajout ou correction de tests (Vitest, Playwright) sans changement de code prod |
@@ -477,7 +482,7 @@ git push origin --delete feat/{us-id}-{slug}
 
 ## Système de modules (côté Angular) — différé
 
-Ce repo consommera `ModuleGuard`/`ModuleStatusService` (contrat exposé par `@pivot/ui-core`) une
+Ce repo consommera `ModuleGuard`/`ModuleStatusService` (contrat exposé par `@pivot-platform/ui-core`) une
 fois ce dernier réellement publié et consommable (voir section "Dépendances plateforme" ci-dessus) :
 - Module désactivé = route inaccessible + aucun bundle chargé
 - Guard d'activation : appel API `/api/modules/{id}/status` → 403 si désactivé
@@ -488,7 +493,7 @@ fois ce dernier réellement publié et consommable (voir section "Dépendances p
 ## Auth (différée)
 
 **Aucun mécanisme d'authentification n'est implémenté dans ce squelette.** Ce repo consommera
-`AuthService`/`AuthInterceptor`/`AuthGuard` de `@pivot/ui-core` une fois publié — **jamais de
+`AuthService`/`AuthInterceptor`/`AuthGuard` de `@pivot-platform/ui-core` une fois publié — **jamais de
 réimplémentation locale** d'un mécanisme d'auth propre à ce module.
 
 ---
@@ -511,14 +516,14 @@ Dans **pivot-docs** — un fichier par catégorie, mis à jour en place. **Jamai
 | `any` TypeScript | Désactive la sécurité du typage |
 | Logique métier dans les composants | Viole la séparation des couches |
 | Implémenter sans US tracée dans les fichiers markdown backlog | Perte de traçabilité |
-| Dépendance `@pivot/ui-core`/`@pivot/design-system` avec version fictive | Coordonnée npm fictive — vérifier l'état de publication avant toute tentative |
-| Réimplémentation locale d'un mécanisme d'auth | Doit venir exclusivement de `@pivot/ui-core` — dérive d'architecture |
+| Dépendance `@pivot-platform/ui-core`/`@pivot/design-system` avec version fictive | Coordonnée npm fictive — vérifier l'état de publication avant toute tentative |
+| Réimplémentation locale d'un mécanisme d'auth | Doit venir exclusivement de `@pivot-platform/ui-core` — dérive d'architecture |
 | Commiter `.env`, tokens, secrets, certificats | Exposition définitive |
 | Logique de filtrage tenant côté Angular | Non-fiable — le backend est la seule autorité d'isolation |
 
 ---
 
-## Règle transversale sécurité — Isolation tenant (à activer avec `@pivot/ui-core`)
+## Règle transversale sécurité — Isolation tenant (à activer avec `@pivot-platform/ui-core`)
 
 - Ne jamais passer de `tenantId` ou `userId` en query param, header custom ou body côté Angular
 - L'isolation tenant est **exclusivement gérée côté backend** une fois l'auth branchée
@@ -561,7 +566,7 @@ Index : `.project/skills/_index.yaml`
 | Skill | Fichier | Charger quand |
 |-------|---------|---------------|
 | `skill-angular-architecture` | `skill-angular-architecture.yaml` | Tout fichier .ts / .html / .scss |
-| `skill-oidc-angular` | `skill-oidc-angular.yaml` | Une fois `@pivot/ui-core` branché — fichier auth/, guard, AC sécurité |
+| `skill-oidc-angular` | `skill-oidc-angular.yaml` | Une fois `@pivot-platform/ui-core` branché — fichier auth/, guard, AC sécurité |
 | `skill-module-system-angular` | `skill-module-system-angular.yaml` | Feature module, lazy-loading, route guard |
 | `skill-ac-traceability` | `skill-ac-traceability.yaml` | **Toujours** — toute implémentation d'US, Gate 2, Gate 4 |
 | `skill-testing-strategy` | `skill-testing-strategy.yaml` | Nouveau test Vitest, coverage < 85 %, spec Playwright |

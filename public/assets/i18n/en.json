@@ -2,5 +2,12 @@
   "app": {
     "title": "PIVOT — Collaboratif",
     "bootstrapNotice": "Module bootstrap in progress — no feature implemented yet."
+  },
+  "whiteboard": {
+    "guard": {
+      "moduleDisabled": "Module not available",
+      "accessDenied": "You don't have access to this board",
+      "networkError": "Network error, please try again"
+    }
   }
 }
