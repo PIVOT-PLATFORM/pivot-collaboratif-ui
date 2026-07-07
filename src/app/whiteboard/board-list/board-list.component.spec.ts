@@ -46,6 +46,16 @@ const FR_TRANSLATIONS = {
         error: 'Impossible de renommer le tableau',
         aria: 'Renommer le tableau {{title}}',
       },
+      delete: {
+        success: 'Tableau supprimé',
+        error: 'Impossible de supprimer le tableau',
+        confirm: {
+          title: 'Supprimer « {{title}} » ?',
+          message: 'Cette action est irréversible.',
+          confirm: 'Supprimer définitivement',
+          cancel: 'Annuler',
+        },
+      },
     },
   },
 };
@@ -427,17 +437,84 @@ describe('BoardListComponent', () => {
     expect(fixture.nativeElement.querySelector('.board-list__card-rename-input')).toBeNull();
   });
 
-  // ── Delete stub ──
-  it('delete menu item is a clickable stub', () => {
-    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'y' })]));
+  // ── Delete ──
+  it('delete menu item opens confirm alertdialog', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'd1', title: 'A supprimer' })]));
     fixture.detectChanges();
 
     (fixture.nativeElement.querySelector('.board-list__card-menu-btn') as HTMLButtonElement).click();
     fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__menu-item')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
 
-    const menuItems = fixture.nativeElement.querySelectorAll('.board-list__menu-item') as NodeListOf<HTMLButtonElement>;
-    expect(menuItems.length).toBe(2);
-    expect(() => menuItems[1].click()).not.toThrow();
+    const dialog = fixture.nativeElement.querySelector('[role="alertdialog"]') as HTMLElement;
+    expect(dialog).not.toBeNull();
+    expect(dialog.textContent).toContain('A supprimer');
+    expect(dialog.textContent).toContain('Supprimer définitivement');
+  });
+
+  it('cancel in delete dialog closes dialog without HTTP call', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'd2', title: 'Board D2' })]));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.board-list__card-menu-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__menu-item')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).not.toBeNull();
+
+    (fixture.nativeElement.querySelector('.board-list__modal-btn--cancel') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+    // afterEach(httpMock.verify()) would fail if a DELETE was accidentally sent
+    expect(fixture.nativeElement.textContent).toContain('Board D2');
+  });
+
+  it('confirm delete removes the card on success and shows toast', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'd3', title: 'Board D3' })]));
+    fixture.detectChanges();
+
+    const toastSpy = vi.spyOn(toastService, 'show');
+    (fixture.nativeElement.querySelector('.board-list__card-menu-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__menu-item')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.board-list__modal-btn--delete') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.board-list__card-rename-spinner')).not.toBeNull();
+
+    httpMock.expectOne(r => r.url.includes('/d3') && r.method === 'DELETE').flush(null);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Board D3');
+    expect(toastSpy).toHaveBeenCalledWith('Tableau supprimé', 'success');
+  });
+
+  it('confirm delete shows error toast and keeps card on failure', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'd4', title: 'Board D4' })]));
+    fixture.detectChanges();
+
+    const toastSpy = vi.spyOn(toastService, 'show');
+    (fixture.nativeElement.querySelector('.board-list__card-menu-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__menu-item')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.board-list__modal-btn--delete') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    httpMock.expectOne(r => r.url.includes('/d4') && r.method === 'DELETE')
+      .flush('', { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Board D4');
+    expect(toastSpy).toHaveBeenCalledWith('Impossible de supprimer le tableau', 'error');
   });
 
   // ── Empty state CTA ──

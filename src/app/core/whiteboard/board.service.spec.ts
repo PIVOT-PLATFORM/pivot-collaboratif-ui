@@ -76,4 +76,19 @@ describe('BoardService', () => {
     httpMock.expectOne(r => r.url === `${BASE}/bid` && r.method === 'PATCH').flush('', { status: 403, statusText: 'Forbidden' });
     expect(caught).toBe(true);
   });
+
+  it('deleteBoard() sends DELETE to boards/{boardId}', () => {
+    const boardId = 'board-to-delete';
+    service.deleteBoard(boardId).subscribe();
+    const req = httpMock.expectOne(r => r.url === `${BASE}/${boardId}` && r.method === 'DELETE');
+    expect(req.request.body).toBeNull();
+    req.flush(null);
+  });
+
+  it('deleteBoard() propagates HTTP errors', () => {
+    let caught = false;
+    service.deleteBoard('bid').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(r => r.url === `${BASE}/bid` && r.method === 'DELETE').flush('', { status: 403, statusText: 'Forbidden' });
+    expect(caught).toBe(true);
+  });
 });
