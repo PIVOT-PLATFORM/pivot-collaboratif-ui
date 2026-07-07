@@ -56,6 +56,38 @@ describe('BoardService', () => {
     req.flush({ id: 'abc', title: 'Mon tableau', role: 'owner', createdAt: '', updatedAt: '', thumbnailUrl: null, activeParticipantCount: 0 });
   });
 
+  it('createBoard() sends templateId as query param when provided', () => {
+    service.createBoard('Depuis template', 'template-uuid-1').subscribe();
+    const req = httpMock.expectOne(
+      r => r.url === BASE && r.method === 'POST' && r.params.get('templateId') === 'template-uuid-1',
+    );
+    expect(req.request.body).toEqual({ title: 'Depuis template' });
+    req.flush({ id: 'abc', title: 'Depuis template', role: 'owner', createdAt: '', updatedAt: '', thumbnailUrl: null, activeParticipantCount: 0 });
+  });
+
+  it('createBoard() omits templateId query param when not provided', () => {
+    service.createBoard('Vierge').subscribe();
+    const req = httpMock.expectOne(r => r.url === BASE && r.method === 'POST');
+    expect(req.request.params.has('templateId')).toBe(false);
+    req.flush({ id: 'abc', title: 'Vierge', role: 'owner', createdAt: '', updatedAt: '', thumbnailUrl: null, activeParticipantCount: 0 });
+  });
+
+  it('createBoard() with invalid templateId propagates 400 INVALID_TEMPLATE_ID', () => {
+    let caught: number | undefined;
+    service.createBoard('x', 'not-a-uuid').subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(r => r.url === BASE && r.params.get('templateId') === 'not-a-uuid')
+      .flush({ code: 'INVALID_TEMPLATE_ID' }, { status: 400, statusText: 'Bad Request' });
+    expect(caught).toBe(400);
+  });
+
+  it('createBoard() with unknown templateId propagates 404', () => {
+    let caught: number | undefined;
+    service.createBoard('x', 'unknown-template-id').subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(r => r.url === BASE && r.params.get('templateId') === 'unknown-template-id')
+      .flush('', { status: 404, statusText: 'Not Found' });
+    expect(caught).toBe(404);
+  });
+
   it('createBoard() propagates HTTP errors', () => {
     let caught = false;
     service.createBoard('test').subscribe({ error: () => { caught = true; } });

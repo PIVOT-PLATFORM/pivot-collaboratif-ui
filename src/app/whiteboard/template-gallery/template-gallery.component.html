@@ -1,0 +1,53 @@
+<div class="template-gallery">
+  @if (status() === 'loading') {
+    <div class="template-gallery__grid" aria-busy="true" aria-live="polite">
+      @for (_ of skeletons; track $index) {
+        <div class="template-gallery__skeleton" aria-hidden="true">
+          <div class="template-gallery__skeleton-preview"></div>
+          <div class="template-gallery__skeleton-line template-gallery__skeleton-line--title"></div>
+          <div class="template-gallery__skeleton-line template-gallery__skeleton-line--desc"></div>
+        </div>
+      }
+    </div>
+  } @else if (status() === 'error') {
+    <div class="template-gallery__error" role="alert">
+      <p class="template-gallery__error-message">
+        {{ 'whiteboard.template.gallery.loadError' | transloco }}
+      </p>
+      <button
+        class="template-gallery__retry-btn"
+        type="button"
+        (click)="retry()"
+      >
+        {{ 'whiteboard.template.gallery.retry' | transloco }}
+      </button>
+    </div>
+  } @else {
+    <div
+      class="template-gallery__grid"
+      role="listbox"
+      [attr.aria-label]="'whiteboard.template.gallery.label' | transloco"
+    >
+      @for (template of templates(); track template.id; let i = $index) {
+        <button
+          class="template-gallery__card"
+          [class.template-gallery__card--selected]="selectedId() === template.id"
+          type="button"
+          role="option"
+          [attr.aria-selected]="selectedId() === template.id"
+          [tabindex]="tabIndexFor(template.id)"
+          (click)="select(template.id)"
+          (keydown)="onKeydown($event, i)"
+        >
+          <img
+            class="template-gallery__preview"
+            [src]="template.previewUrl"
+            [alt]="previewAlt(template.code)"
+          />
+          <span class="template-gallery__name">{{ templateName(template.code) }}</span>
+          <span class="template-gallery__description">{{ templateDescription(template.code) }}</span>
+        </button>
+      }
+    </div>
+  }
+</div>

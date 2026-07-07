@@ -22,9 +22,19 @@ export class BoardService {
     });
   }
 
-  /** Creates a new board and returns the created board. */
-  createBoard(title: string): Observable<Board> {
-    return this.http.post<Board>(`${environment.apiUrl}/whiteboard/boards`, { title });
+  /**
+   * Creates a new board and returns the created board.
+   *
+   * When `templateId` is provided (US08.4.1), the backend initializes the board's
+   * canvas from that global template's content. When omitted, the board is created
+   * blank ("Vierge", US08.1.1).
+   */
+  createBoard(title: string, templateId?: string): Observable<Board> {
+    return this.http.post<Board>(
+      `${environment.apiUrl}/whiteboard/boards`,
+      { title },
+      templateId ? { params: { templateId } } : {},
+    );
   }
 
   /** Renames a board (OWNER only). */

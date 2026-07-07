@@ -160,6 +160,27 @@
         "showShortcuts": "Show shortcuts"
       }
     },
+    "template": {
+      "gallery": {
+        "label": "Board template",
+        "loadError": "Unable to load board templates.",
+        "retry": "Try again"
+      },
+      "createError": "Unable to create the board. Please try again.",
+      "previewAlt": "Preview of the {{name}} template",
+      "brainstorm": {
+        "name": "Brainstorm",
+        "description": "Freely collect ideas on sticky notes before organizing them."
+      },
+      "retrospective": {
+        "name": "Retrospective",
+        "description": "Structure the team's feedback: what went well, what can improve, action items."
+      },
+      "userStoryMap": {
+        "name": "User Story Map",
+        "description": "Map out the user journey and prioritize user stories by release."
+      }
+    },
     "join": {
       "loading": "Joining board…",
       "error401": "You must be logged in to join this board.",

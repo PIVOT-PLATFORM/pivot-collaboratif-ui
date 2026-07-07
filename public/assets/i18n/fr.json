@@ -160,6 +160,27 @@
         "showShortcuts": "Afficher les raccourcis"
       }
     },
+    "template": {
+      "gallery": {
+        "label": "Modèle de tableau",
+        "loadError": "Impossible de charger les modèles de tableau.",
+        "retry": "Réessayer"
+      },
+      "createError": "Impossible de créer le tableau. Veuillez réessayer.",
+      "previewAlt": "Aperçu du modèle {{name}}",
+      "brainstorm": {
+        "name": "Brainstorm",
+        "description": "Collectez librement des idées sur des post-its avant de les organiser."
+      },
+      "retrospective": {
+        "name": "Rétrospective",
+        "description": "Structurez le retour d'expérience de l'équipe : ce qui a bien fonctionné, ce qui peut s'améliorer, actions à mener."
+      },
+      "userStoryMap": {
+        "name": "User Story Map",
+        "description": "Cartographiez le parcours utilisateur et priorisez les user stories par release."
+      }
+    },
     "join": {
       "loading": "Rejoindre le tableau…",
       "error401": "Vous devez être connecté pour rejoindre ce tableau.",
