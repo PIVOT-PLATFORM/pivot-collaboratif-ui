@@ -57,6 +57,47 @@
           "cancel": "Cancel"
         }
       }
+    },
+    "share": {
+      "panel": {
+        "title": "Share board",
+        "close": "Close sharing panel",
+        "linkSection": "Invitation link",
+        "selectRole": "Role:",
+        "generateLink": "Generate a link",
+        "generatingLink": "Generating…",
+        "linkLabel": "Invitation link",
+        "copyLink": "Copy link",
+        "linkCopied": "Link copied to clipboard!",
+        "clipboardFallback": "Copy the link above manually.",
+        "generateError": "Unable to generate the invitation link",
+        "membersSection": "Members",
+        "memberUserId": "ID",
+        "memberRole": "Role",
+        "memberJoined": "Added on",
+        "changeRole": "Change role",
+        "removeMember": "Remove",
+        "removeError": "Unable to remove member",
+        "roleUpdateError": "Unable to update role",
+        "loadMembersError": "Unable to load member list",
+        "confirmRemove": {
+          "title": "Remove this member?",
+          "message": "This member will lose access to the board immediately.",
+          "confirm": "Remove",
+          "cancel": "Cancel"
+        }
+      }
+    },
+    "join": {
+      "loading": "Joining board…",
+      "error401": "You must be logged in to join this board.",
+      "error403": "You don't have permission to join this board.",
+      "error404": "The invitation link is invalid or not found.",
+      "error409": "You are already a member of this board.",
+      "error410": "This invitation link has expired or been revoked.",
+      "error429": "Too many attempts. Please wait before trying again.",
+      "errorDefault": "An error occurred. Please try again.",
+      "retry": "Try again"
     }
   }
 }

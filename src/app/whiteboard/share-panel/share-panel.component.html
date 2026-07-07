@@ -1,0 +1,219 @@
+<div
+  class="share-panel"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'whiteboard.share.panel.title' | transloco"
+  (keydown.escape)="close()"
+  tabindex="-1"
+>
+  <div class="share-panel__header">
+    <h2 class="share-panel__heading" id="share-panel-heading">
+      {{ 'whiteboard.share.panel.title' | transloco }}
+    </h2>
+    <button
+      class="share-panel__close-btn"
+      type="button"
+      [attr.aria-label]="'whiteboard.share.panel.close' | transloco"
+      (click)="close()"
+      autofocus
+    >
+      &times;
+    </button>
+  </div>
+
+  <!-- ── Link section ────────────────────────────────────────────────── -->
+  <section class="share-panel__section" aria-labelledby="share-link-heading">
+    <h3 id="share-link-heading" class="share-panel__section-heading">
+      {{ 'whiteboard.share.panel.linkSection' | transloco }}
+    </h3>
+
+    <div class="share-panel__role-row">
+      <label class="share-panel__label" for="share-role-select">
+        {{ 'whiteboard.share.panel.selectRole' | transloco }}
+      </label>
+      <select
+        id="share-role-select"
+        class="share-panel__select"
+        (change)="setSelectedRole($event)"
+        [disabled]="tokenStatus() === 'generating'"
+      >
+        <option value="EDITOR">EDITOR</option>
+        <option value="VIEWER">VIEWER</option>
+      </select>
+    </div>
+
+    <button
+      class="share-panel__generate-btn"
+      type="button"
+      [disabled]="tokenStatus() === 'generating'"
+      (click)="generateLink()"
+    >
+      @if (tokenStatus() === 'generating') {
+        <span class="share-panel__spinner" aria-hidden="true"></span>
+        {{ 'whiteboard.share.panel.generatingLink' | transloco }}
+      } @else {
+        {{ 'whiteboard.share.panel.generateLink' | transloco }}
+      }
+    </button>
+
+    @if (shareLink(); as link) {
+      <div class="share-panel__link-row">
+        @if (clipboardFailed()) {
+          <!-- Fallback: show the link in a readonly input when clipboard API is unavailable -->
+          <label class="share-panel__label" for="share-link-input">
+            {{ 'whiteboard.share.panel.linkLabel' | transloco }}
+          </label>
+          <input
+            id="share-link-input"
+            class="share-panel__link-input"
+            type="text"
+            readonly
+            [value]="link"
+          />
+        } @else {
+          <span class="share-panel__link-preview" aria-hidden="true">{{ link }}</span>
+        }
+
+        <button
+          class="share-panel__copy-btn"
+          type="button"
+          [attr.aria-label]="'whiteboard.share.panel.copyLink' | transloco"
+          (click)="copyLink()"
+        >
+          {{ 'whiteboard.share.panel.copyLink' | transloco }}
+        </button>
+      </div>
+
+      @if (linkCopied()) {
+        <p class="share-panel__copied-notice" role="status" aria-live="polite">
+          {{ 'whiteboard.share.panel.linkCopied' | transloco }}
+        </p>
+      }
+
+      @if (clipboardFailed() && !linkCopied()) {
+        <p class="share-panel__copied-notice" role="status" aria-live="polite">
+          {{ 'whiteboard.share.panel.clipboardFallback' | transloco }}
+        </p>
+      }
+    }
+  </section>
+
+  <!-- ── Members section ────────────────────────────────────────────── -->
+  <section class="share-panel__section" aria-labelledby="share-members-heading">
+    <h3 id="share-members-heading" class="share-panel__section-heading">
+      {{ 'whiteboard.share.panel.membersSection' | transloco }}
+    </h3>
+
+    @if (membersStatus() === 'loading') {
+      <div class="share-panel__loading" aria-busy="true" aria-live="polite">
+        <span class="share-panel__spinner" aria-hidden="true"></span>
+      </div>
+    } @else if (membersStatus() === 'error') {
+      <p class="share-panel__error" role="alert">
+        {{ 'whiteboard.share.panel.loadMembersError' | transloco }}
+      </p>
+    } @else {
+      <table class="share-panel__members-table" aria-label="{{ 'whiteboard.share.panel.membersSection' | transloco }}">
+        <thead>
+          <tr>
+            <th scope="col" class="share-panel__th">{{ 'whiteboard.share.panel.memberUserId' | transloco }}</th>
+            <th scope="col" class="share-panel__th">{{ 'whiteboard.share.panel.memberRole' | transloco }}</th>
+            <th scope="col" class="share-panel__th">{{ 'whiteboard.share.panel.memberJoined' | transloco }}</th>
+            <th scope="col" class="share-panel__th"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (member of members(); track member.userId) {
+            <tr class="share-panel__tr">
+              <td class="share-panel__td share-panel__td--id">
+                {{ member.userId | slice:0:8 }}…
+              </td>
+              <td class="share-panel__td">
+                @if (member.role === 'OWNER') {
+                  <span class="share-panel__role-badge share-panel__role-badge--owner">
+                    OWNER
+                  </span>
+                } @else {
+                  <label class="sr-only" [for]="'role-' + member.userId">
+                    {{ 'whiteboard.share.panel.changeRole' | transloco }}
+                  </label>
+                  <select
+                    [id]="'role-' + member.userId"
+                    class="share-panel__select share-panel__select--sm"
+                    [value]="member.role"
+                    [disabled]="updatingRoleForUserId() === member.userId"
+                    (change)="onRoleChange(member, $event)"
+                  >
+                    <option value="EDITOR">EDITOR</option>
+                    <option value="VIEWER">VIEWER</option>
+                  </select>
+                  @if (updatingRoleForUserId() === member.userId) {
+                    <span class="share-panel__spinner share-panel__spinner--sm" aria-hidden="true"></span>
+                  }
+                }
+              </td>
+              <td class="share-panel__td share-panel__td--date">
+                {{ member.joinedAt | date:'shortDate' }}
+              </td>
+              <td class="share-panel__td">
+                @if (member.role !== 'OWNER') {
+                  <button
+                    class="share-panel__remove-btn"
+                    type="button"
+                    [disabled]="removingMemberId() === member.userId"
+                    [attr.aria-label]="'whiteboard.share.panel.removeMember' | transloco"
+                    (click)="startRemove(member)"
+                  >
+                    {{ 'whiteboard.share.panel.removeMember' | transloco }}
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+</div>
+
+<!-- ── Confirm remove dialog ────────────────────────────────────────── -->
+@if (confirmRemoveMember(); as member) {
+  <div
+    class="share-panel__overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="confirm-remove-heading"
+    (keydown.escape)="cancelRemove()"
+  >
+    <div class="share-panel__dialog">
+      <h3 id="confirm-remove-heading" class="share-panel__dialog-heading">
+        {{ 'whiteboard.share.panel.confirmRemove.title' | transloco }}
+      </h3>
+      <p class="share-panel__dialog-message">
+        {{ 'whiteboard.share.panel.confirmRemove.message' | transloco }}
+      </p>
+      <div class="share-panel__dialog-actions">
+        <button
+          class="share-panel__dialog-btn share-panel__dialog-btn--cancel"
+          type="button"
+          [disabled]="removingMemberId() === member.userId"
+          (click)="cancelRemove()"
+          autofocus
+        >
+          {{ 'whiteboard.share.panel.confirmRemove.cancel' | transloco }}
+        </button>
+        <button
+          class="share-panel__dialog-btn share-panel__dialog-btn--confirm"
+          type="button"
+          [disabled]="removingMemberId() === member.userId"
+          (click)="confirmRemove(member)"
+        >
+          @if (removingMemberId() === member.userId) {
+            <span class="share-panel__spinner" aria-hidden="true"></span>
+          }
+          {{ 'whiteboard.share.panel.confirmRemove.confirm' | transloco }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
