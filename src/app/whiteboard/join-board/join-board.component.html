@@ -1,0 +1,19 @@
+<div class="join-board">
+  @if (status() === 'loading') {
+    <div class="join-board__loading" aria-busy="true" aria-live="polite">
+      <span class="join-board__spinner" aria-hidden="true"></span>
+      <p class="join-board__loading-label">{{ 'whiteboard.join.loading' | transloco }}</p>
+    </div>
+  } @else {
+    <div class="join-board__error" role="alert">
+      <p class="join-board__error-message">{{ errorMessage() }}</p>
+      <button
+        class="join-board__retry-btn"
+        type="button"
+        (click)="retry()"
+      >
+        {{ 'whiteboard.join.retry' | transloco }}
+      </button>
+    </div>
+  }
+</div>

@@ -5,6 +5,7 @@ import {
 } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { BoardService } from './board.service';
+import { BoardMember, ShareToken } from './board.model';
 import { environment } from '../../../environments/environment';
 
 const BASE = `${environment.apiUrl}/whiteboard/boards`;
@@ -89,6 +90,140 @@ describe('BoardService', () => {
     let caught = false;
     service.deleteBoard('bid').subscribe({ error: () => { caught = true; } });
     httpMock.expectOne(r => r.url === `${BASE}/bid` && r.method === 'DELETE').flush('', { status: 403, statusText: 'Forbidden' });
+    expect(caught).toBe(true);
+  });
+
+  // ── listMembers ──
+  it('listMembers() sends GET to /boards/{boardId}/members', () => {
+    const boardId = 'board-m1';
+    const members: BoardMember[] = [
+      { userId: 'user-1', role: 'OWNER', joinedAt: '2026-07-01T00:00:00Z' },
+      { userId: 'user-2', role: 'EDITOR', joinedAt: '2026-07-02T00:00:00Z' },
+    ];
+
+    let result: BoardMember[] | undefined;
+    service.listMembers(boardId).subscribe(r => { result = r; });
+
+    const req = httpMock.expectOne(`${BASE}/${boardId}/members`);
+    expect(req.request.method).toBe('GET');
+    req.flush(members);
+    expect(result).toEqual(members);
+  });
+
+  it('listMembers() propagates HTTP errors', () => {
+    let caught = false;
+    service.listMembers('bid').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(`${BASE}/bid/members`).flush('', { status: 404, statusText: 'Not Found' });
+    expect(caught).toBe(true);
+  });
+
+  // ── generateShareToken ──
+  it('generateShareToken() sends POST with role in body', () => {
+    const boardId = 'board-s1';
+    const response: ShareToken = { id: 'tok-1', token: 'secret', role: 'EDITOR', maxUses: 5, expiresAt: '2026-08-01T00:00:00Z' };
+
+    let result: ShareToken | undefined;
+    service.generateShareToken(boardId, 'EDITOR').subscribe(r => { result = r; });
+
+    const req = httpMock.expectOne(`${BASE}/${boardId}/share`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ role: 'EDITOR' });
+    req.flush(response);
+    expect(result).toEqual(response);
+  });
+
+  it('generateShareToken() propagates HTTP errors', () => {
+    let caught = false;
+    service.generateShareToken('bid', 'VIEWER').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(`${BASE}/bid/share`).flush('', { status: 403, statusText: 'Forbidden' });
+    expect(caught).toBe(true);
+  });
+
+  // ── revokeShareToken ──
+  it('revokeShareToken() sends DELETE to /boards/{boardId}/share/{tokenId}', () => {
+    const boardId = 'board-r1';
+    const tokenId = 'tok-xyz';
+    let completed = false;
+
+    service.revokeShareToken(boardId, tokenId).subscribe({ complete: () => { completed = true; } });
+
+    const req = httpMock.expectOne(`${BASE}/${boardId}/share/${tokenId}`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+    expect(completed).toBe(true);
+  });
+
+  it('revokeShareToken() propagates HTTP errors', () => {
+    let caught = false;
+    service.revokeShareToken('bid', 'tid').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(`${BASE}/bid/share/tid`).flush('', { status: 404, statusText: 'Not Found' });
+    expect(caught).toBe(true);
+  });
+
+  // ── joinBoard ──
+  it('joinBoard() sends POST to /whiteboard/join with token as query param', () => {
+    const JOIN_URL = `${environment.apiUrl}/whiteboard/join`;
+    const response = { boardId: 'b1', title: 'Board', role: 'EDITOR', redirectUrl: '/whiteboard/b1' };
+
+    let result: unknown;
+    service.joinBoard('my-token').subscribe(r => { result = r; });
+
+    const req = httpMock.expectOne(r => r.url === JOIN_URL && r.params.get('token') === 'my-token');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeNull();
+    req.flush(response);
+    expect(result).toEqual(response);
+  });
+
+  it('joinBoard() propagates HTTP errors', () => {
+    const JOIN_URL = `${environment.apiUrl}/whiteboard/join`;
+    let caught = false;
+    service.joinBoard('bad-token').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(r => r.url === JOIN_URL).flush('', { status: 410, statusText: 'Gone' });
+    expect(caught).toBe(true);
+  });
+
+  // ── updateMemberRole ──
+  it('updateMemberRole() sends PATCH with role in body', () => {
+    const boardId = 'board-u1';
+    const userId = 'user-u1';
+    const updated: BoardMember = { userId, role: 'VIEWER', joinedAt: '2026-07-01T00:00:00Z' };
+
+    let result: BoardMember | undefined;
+    service.updateMemberRole(boardId, userId, 'VIEWER').subscribe(r => { result = r; });
+
+    const req = httpMock.expectOne(`${BASE}/${boardId}/members/${userId}/role`);
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ role: 'VIEWER' });
+    req.flush(updated);
+    expect(result).toEqual(updated);
+  });
+
+  it('updateMemberRole() propagates HTTP errors', () => {
+    let caught = false;
+    service.updateMemberRole('bid', 'uid', 'EDITOR').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(`${BASE}/bid/members/uid/role`).flush('', { status: 400, statusText: 'Bad Request' });
+    expect(caught).toBe(true);
+  });
+
+  // ── removeMember ──
+  it('removeMember() sends DELETE to /boards/{boardId}/members/{userId}', () => {
+    const boardId = 'board-rm1';
+    const userId = 'user-rm1';
+    let completed = false;
+
+    service.removeMember(boardId, userId).subscribe({ complete: () => { completed = true; } });
+
+    const req = httpMock.expectOne(`${BASE}/${boardId}/members/${userId}`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+    expect(completed).toBe(true);
+  });
+
+  it('removeMember() propagates HTTP errors', () => {
+    let caught = false;
+    service.removeMember('bid', 'uid').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(`${BASE}/bid/members/uid`).flush('', { status: 403, statusText: 'Forbidden' });
     expect(caught).toBe(true);
   });
 });
