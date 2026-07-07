@@ -15,7 +15,7 @@ export const whiteboardRoutes: Routes = [
   {
     path: ':boardId',
     canActivate: [boardAccessGuard],
-    // TODO(US08.3.1): replace children:[] with BoardCanvasComponent
-    children: [],
+    loadComponent: () =>
+      import('./canvas/whiteboard-canvas.component').then(m => m.WhiteboardCanvasComponent),
   },
 ];

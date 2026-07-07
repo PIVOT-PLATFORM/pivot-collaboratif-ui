@@ -88,6 +88,78 @@
         }
       }
     },
+    "canvas": {
+      "ariaLabel": "Collaborative canvas —",
+      "readOnly": "Read-only mode — reconnecting…",
+      "toolbar": {
+        "label": "Drawing tools",
+        "tools": "Tools",
+        "colorGroup": "Colors",
+        "currentColor": "Active color:",
+        "undoRedo": "Undo / Redo",
+        "selectionActions": "Selection actions",
+        "zoom": "Zoom",
+        "duplicate": "Duplicate (Ctrl+D)",
+        "zoomIn": "Zoom in (Ctrl++)",
+        "zoomOut": "Zoom out (Ctrl+-)"
+      },
+      "tool": {
+        "select": "Selection tool (V)",
+        "pencil": "Pencil tool (P)",
+        "rectangle": "Rectangle tool (R)",
+        "ellipse": "Ellipse tool",
+        "text": "Text tool (T)",
+        "erase": "Erase tool (E)"
+      },
+      "color": {
+        "panelLabel": "Color palette",
+        "palette": "Color",
+        "customHex": "Custom color (hex)",
+        "applyCustom": "Apply custom color"
+      },
+      "undo": {
+        "label": "Undo (Ctrl+Z)",
+        "redo": "Redo (Ctrl+Y)"
+      },
+      "group": {
+        "group": "Group selection (Ctrl+G)",
+        "ungroup": "Ungroup (Ctrl+Shift+G)"
+      },
+      "text": {
+        "inputLabel": "Text input on canvas"
+      },
+      "minimap": {
+        "ariaLabel": "Minimap — board overview",
+        "show": "Show minimap",
+        "hide": "Hide minimap"
+      },
+      "shortcuts": {
+        "dialogToggle": "Show keyboard shortcuts (?)",
+        "dialogLabel": "Keyboard shortcuts",
+        "tableCaption": "Available keyboard shortcuts",
+        "close": "Close",
+        "description": "Press ? to see available keyboard shortcuts.",
+        "select": "Selection tool",
+        "pencil": "Pencil tool",
+        "text": "Text tool",
+        "erase": "Erase tool",
+        "rectangle": "Rectangle tool",
+        "undo": "Undo",
+        "redo": "Redo",
+        "selectAll": "Select all",
+        "duplicate": "Duplicate selection",
+        "copy": "Copy",
+        "paste": "Paste",
+        "group": "Group",
+        "ungroup": "Ungroup",
+        "delete": "Delete selection",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "zoomWheel": "Zoom (wheel)",
+        "pan": "Pan",
+        "showShortcuts": "Show shortcuts"
+      }
+    },
     "join": {
       "loading": "Joining board…",
       "error401": "You must be logged in to join this board.",

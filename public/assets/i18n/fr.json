@@ -88,6 +88,78 @@
         }
       }
     },
+    "canvas": {
+      "ariaLabel": "Canvas collaboratif —",
+      "readOnly": "Mode lecture seule — reconnexion en cours…",
+      "toolbar": {
+        "label": "Outils de dessin",
+        "tools": "Outils",
+        "colorGroup": "Couleurs",
+        "currentColor": "Couleur active :",
+        "undoRedo": "Annuler / Rétablir",
+        "selectionActions": "Actions de sélection",
+        "zoom": "Zoom",
+        "duplicate": "Dupliquer (Ctrl+D)",
+        "zoomIn": "Zoom avant (Ctrl++)",
+        "zoomOut": "Zoom arrière (Ctrl+-)"
+      },
+      "tool": {
+        "select": "Outil sélection (V)",
+        "pencil": "Outil crayon (P)",
+        "rectangle": "Outil rectangle (R)",
+        "ellipse": "Outil ellipse",
+        "text": "Outil texte (T)",
+        "erase": "Outil effacement (E)"
+      },
+      "color": {
+        "panelLabel": "Palette de couleurs",
+        "palette": "Couleur",
+        "customHex": "Couleur personnalisée (hex)",
+        "applyCustom": "Appliquer la couleur personnalisée"
+      },
+      "undo": {
+        "label": "Annuler (Ctrl+Z)",
+        "redo": "Rétablir (Ctrl+Y)"
+      },
+      "group": {
+        "group": "Grouper la sélection (Ctrl+G)",
+        "ungroup": "Dégrouper (Ctrl+Maj+G)"
+      },
+      "text": {
+        "inputLabel": "Saisie de texte sur le canvas"
+      },
+      "minimap": {
+        "ariaLabel": "Minimap — vue d'ensemble du tableau",
+        "show": "Afficher la minimap",
+        "hide": "Masquer la minimap"
+      },
+      "shortcuts": {
+        "dialogToggle": "Afficher les raccourcis clavier (?)",
+        "dialogLabel": "Raccourcis clavier",
+        "tableCaption": "Liste des raccourcis clavier disponibles",
+        "close": "Fermer",
+        "description": "Appuyez sur ? pour voir les raccourcis clavier disponibles.",
+        "select": "Outil sélection",
+        "pencil": "Outil crayon",
+        "text": "Outil texte",
+        "erase": "Outil effacement",
+        "rectangle": "Outil rectangle",
+        "undo": "Annuler",
+        "redo": "Rétablir",
+        "selectAll": "Tout sélectionner",
+        "duplicate": "Dupliquer la sélection",
+        "copy": "Copier",
+        "paste": "Coller",
+        "group": "Grouper",
+        "ungroup": "Dégrouper",
+        "delete": "Supprimer la sélection",
+        "zoomIn": "Zoom avant",
+        "zoomOut": "Zoom arrière",
+        "zoomWheel": "Zoom (molette)",
+        "pan": "Panoramique",
+        "showShortcuts": "Afficher les raccourcis"
+      }
+    },
     "join": {
       "loading": "Rejoindre le tableau…",
       "error401": "Vous devez être connecté pour rejoindre ce tableau.",
