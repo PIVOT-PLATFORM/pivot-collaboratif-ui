@@ -26,9 +26,9 @@ describe('TemplateService', () => {
 
   it('getTemplates() sends GET to /whiteboard/templates', () => {
     const templates: WhiteboardTemplate[] = [
-      { id: 't-1', code: 'BRAINSTORM', previewUrl: 'https://cdn.example.com/brainstorm.png' },
-      { id: 't-2', code: 'RETROSPECTIVE', previewUrl: 'https://cdn.example.com/retro.png' },
-      { id: 't-3', code: 'USER_STORY_MAP', previewUrl: 'https://cdn.example.com/usm.png' },
+      { id: 't-1', code: 'BRAINSTORM', thumbnailUrl: 'https://cdn.example.com/brainstorm.png' },
+      { id: 't-2', code: 'RETROSPECTIVE', thumbnailUrl: 'https://cdn.example.com/retro.png' },
+      { id: 't-3', code: 'USER_STORY_MAP', thumbnailUrl: 'https://cdn.example.com/usm.png' },
     ];
 
     let result: WhiteboardTemplate[] | undefined;

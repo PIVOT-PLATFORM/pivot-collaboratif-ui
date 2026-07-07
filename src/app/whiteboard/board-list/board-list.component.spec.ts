@@ -98,9 +98,9 @@ function makePageResponse(boards: Board[], hasNext = false): BoardPage {
 
 function makeTemplates(): WhiteboardTemplate[] {
   return [
-    { id: 'tpl-brainstorm', code: 'BRAINSTORM', previewUrl: 'https://cdn.example.com/brainstorm.png' },
-    { id: 'tpl-retro', code: 'RETROSPECTIVE', previewUrl: 'https://cdn.example.com/retro.png' },
-    { id: 'tpl-usm', code: 'USER_STORY_MAP', previewUrl: 'https://cdn.example.com/usm.png' },
+    { id: 'tpl-brainstorm', code: 'BRAINSTORM', thumbnailUrl: 'https://cdn.example.com/brainstorm.png' },
+    { id: 'tpl-retro', code: 'RETROSPECTIVE', thumbnailUrl: 'https://cdn.example.com/retro.png' },
+    { id: 'tpl-usm', code: 'USER_STORY_MAP', thumbnailUrl: 'https://cdn.example.com/usm.png' },
   ];
 }
 

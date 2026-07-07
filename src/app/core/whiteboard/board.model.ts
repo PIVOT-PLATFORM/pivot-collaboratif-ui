@@ -54,5 +54,5 @@ export interface BoardPage {
 export interface WhiteboardTemplate {
   id: string;
   code: 'BRAINSTORM' | 'RETROSPECTIVE' | 'USER_STORY_MAP';
-  previewUrl: string;
+  thumbnailUrl: string;
 }
