@@ -8,6 +8,41 @@
       "moduleDisabled": "Module non disponible",
       "accessDenied": "Vous n'avez pas accès à ce tableau",
       "networkError": "Erreur réseau, veuillez réessayer"
+    },
+    "board": {
+      "list": {
+        "title": "Mes tableaux",
+        "newBoard": "Nouveau tableau",
+        "emptyTitle": "Aucun tableau pour l'instant",
+        "emptySubtitle": "Créez votre premier tableau collaboratif",
+        "emptyCta": "Créer mon premier tableau",
+        "loadMore": "Charger plus",
+        "retry": "Réessayer",
+        "errorSubtitle": "Impossible de charger vos tableaux. Vérifiez votre connexion.",
+        "createError": "Impossible de créer le tableau",
+        "online": "en ligne",
+        "role": {
+          "owner": "Propriétaire",
+          "editor": "Éditeur",
+          "viewer": "Lecteur"
+        },
+        "menu": {
+          "rename": "Renommer",
+          "delete": "Supprimer"
+        },
+        "create": {
+          "title": "Nouveau tableau",
+          "label": "Titre du tableau",
+          "placeholder": "Mon tableau",
+          "confirm": "Créer",
+          "cancel": "Annuler"
+        },
+        "aria": {
+          "openBoard": "{{title}} — modifié le {{date}} — {{role}}",
+          "boardMenu": "Actions pour {{title}}",
+          "activeParticipants": "{{count}} collaborateur(s) actuellement en ligne"
+        }
+      }
     }
   }
 }

@@ -1,0 +1,177 @@
+<div class="board-list">
+  <div class="board-list__header">
+    <h1 class="board-list__heading">{{ 'whiteboard.board.list.title' | transloco }}</h1>
+    <button
+      class="board-list__create-btn"
+      type="button"
+      (click)="openCreateModal()"
+    >
+      {{ 'whiteboard.board.list.newBoard' | transloco }}
+    </button>
+  </div>
+
+  @if (status() === 'loading') {
+    <div class="board-list__grid" aria-busy="true" aria-live="polite">
+      @for (_ of skeletons; track $index) {
+        <div class="board-list__skeleton" aria-hidden="true">
+          <div class="board-list__skeleton-thumbnail"></div>
+          <div class="board-list__skeleton-body">
+            <div class="board-list__skeleton-line board-list__skeleton-line--title"></div>
+            <div class="board-list__skeleton-line board-list__skeleton-line--meta"></div>
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (status() === 'error') {
+    <div class="board-list__error" role="alert">
+      <p class="board-list__error-message">
+        {{ 'whiteboard.board.list.errorSubtitle' | transloco }}
+      </p>
+      <button class="board-list__retry-btn" type="button" (click)="retry()">
+        {{ 'whiteboard.board.list.retry' | transloco }}
+      </button>
+    </div>
+  } @else if (boards().length === 0) {
+    <div class="board-list__empty">
+      <p class="board-list__empty-title">
+        {{ 'whiteboard.board.list.emptyTitle' | transloco }}
+      </p>
+      <p class="board-list__empty-subtitle">
+        {{ 'whiteboard.board.list.emptySubtitle' | transloco }}
+      </p>
+      <button class="board-list__empty-cta" type="button" (click)="openCreateModal()">
+        {{ 'whiteboard.board.list.emptyCta' | transloco }}
+      </button>
+    </div>
+  } @else {
+    <div class="board-list__grid">
+      @for (board of boards(); track board.id) {
+        <article class="board-list__card">
+          <a
+            class="board-list__card-link"
+            [routerLink]="['/whiteboard', board.id]"
+            [attr.aria-label]="cardAriaLabel(board, (board.updatedAt | date:'shortDate') ?? '')"
+          >
+            @if (board.thumbnailUrl) {
+              <img
+                class="board-list__card-thumbnail"
+                [src]="board.thumbnailUrl"
+                [alt]="board.title"
+              />
+            } @else {
+              <div class="board-list__card-thumbnail-placeholder" aria-hidden="true"></div>
+            }
+            <div class="board-list__card-body">
+              <h2 class="board-list__card-title">{{ board.title }}</h2>
+              <div class="board-list__card-meta">
+                <span class="board-list__badge board-list__badge--{{ board.role }}">
+                  {{ roleLabel(board.role) }}
+                </span>
+                <span class="board-list__card-date">
+                  {{ board.updatedAt | date:'shortDate' }}
+                </span>
+                @if (board.activeParticipantCount > 0) {
+                  <span
+                    class="board-list__badge board-list__badge--online"
+                    [attr.aria-label]="'whiteboard.board.list.aria.activeParticipants' | transloco:{ count: board.activeParticipantCount }"
+                  >
+                    <span class="board-list__online-dot" aria-hidden="true"></span>
+                    {{ board.activeParticipantCount }}&nbsp;{{ 'whiteboard.board.list.online' | transloco }}
+                  </span>
+                }
+              </div>
+            </div>
+          </a>
+          <button
+            class="board-list__card-menu-btn"
+            type="button"
+            [attr.aria-label]="'whiteboard.board.list.aria.boardMenu' | transloco:{ title: board.title }"
+            [attr.aria-expanded]="activeMenuBoardId() === board.id ? 'true' : 'false'"
+            (click)="toggleMenu(board.id, $event)"
+          >
+            &#8943;
+          </button>
+          @if (activeMenuBoardId() === board.id) {
+            <ul class="board-list__card-menu" role="menu">
+              <li role="none">
+                <button
+                  class="board-list__menu-item"
+                  type="button"
+                  role="menuitem"
+                  (click)="onRenameStub(board.id)"
+                >
+                  {{ 'whiteboard.board.list.menu.rename' | transloco }}
+                </button>
+              </li>
+              <li role="none">
+                <button
+                  class="board-list__menu-item"
+                  type="button"
+                  role="menuitem"
+                  (click)="onDeleteStub(board.id)"
+                >
+                  {{ 'whiteboard.board.list.menu.delete' | transloco }}
+                </button>
+              </li>
+            </ul>
+          }
+        </article>
+      }
+    </div>
+
+    @if (hasNext()) {
+      <div class="board-list__pagination">
+        <button class="board-list__load-more-btn" type="button" (click)="loadMore()">
+          {{ 'whiteboard.board.list.loadMore' | transloco }}
+        </button>
+      </div>
+    }
+  }
+
+  @if (showCreateModal()) {
+    <div
+      class="board-list__modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="'whiteboard.board.list.create.title' | transloco"
+    >
+      <div class="board-list__modal-dialog">
+        <h2 class="board-list__modal-heading">
+          {{ 'whiteboard.board.list.create.title' | transloco }}
+        </h2>
+        <label class="board-list__modal-label" for="board-title-input">
+          {{ 'whiteboard.board.list.create.label' | transloco }}
+        </label>
+        <input
+          id="board-title-input"
+          class="board-list__modal-input"
+          type="text"
+          [placeholder]="'whiteboard.board.list.create.placeholder' | transloco"
+          [value]="createTitle()"
+          (input)="onTitleInput($event)"
+          (keydown.enter)="submitCreate()"
+          maxlength="100"
+          autocomplete="off"
+          autofocus
+        />
+        <div class="board-list__modal-actions">
+          <button
+            class="board-list__modal-btn board-list__modal-btn--cancel"
+            type="button"
+            (click)="closeCreateModal()"
+          >
+            {{ 'whiteboard.board.list.create.cancel' | transloco }}
+          </button>
+          <button
+            class="board-list__modal-btn board-list__modal-btn--confirm"
+            type="button"
+            [disabled]="!createTitle().trim() || isCreating()"
+            (click)="submitCreate()"
+          >
+            {{ 'whiteboard.board.list.create.confirm' | transloco }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
