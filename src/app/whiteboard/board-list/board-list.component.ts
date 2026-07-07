@@ -19,7 +19,7 @@ class BoardListAutofocusDirective implements OnInit {
   private readonly el = inject(ElementRef<HTMLInputElement>);
   ngOnInit(): void {
     this.el.nativeElement.focus();
-    this.el.nativeElement.select();
+    this.el.nativeElement.select?.();
   }
 }
 
@@ -43,6 +43,8 @@ export class BoardListComponent {
   protected readonly renamingBoardId = signal<string | null>(null);
   protected readonly renameTitle = signal('');
   protected readonly isRenaming = signal(false);
+  protected readonly deletingBoard = signal<Board | null>(null);
+  protected readonly isDeleting = signal(false);
   protected readonly skeletons = Array.from<null>({ length: 8 });
 
   private readonly boardService = inject(BoardService);
@@ -156,8 +158,39 @@ export class BoardListComponent {
     });
   }
 
-  /** Stub — delete delegated to US08.1.5. */
-  protected onDeleteStub(_boardId: string): void {}
+  protected startDelete(board: Board): void {
+    this.activeMenuBoardId.set(null);
+    this.deletingBoard.set(board);
+  }
+
+  protected cancelDelete(): void {
+    this.deletingBoard.set(null);
+  }
+
+  protected confirmDelete(): void {
+    const board = this.deletingBoard();
+    if (!board || this.isDeleting()) return;
+    this.isDeleting.set(true);
+    this.boardService.deleteBoard(board.id).subscribe({
+      next: () => {
+        this.boards.set(this.boards().filter(b => b.id !== board.id));
+        this.deletingBoard.set(null);
+        this.isDeleting.set(false);
+        this.toast.show(
+          this.transloco.translate('whiteboard.board.delete.success'),
+          'success',
+        );
+      },
+      error: () => {
+        this.isDeleting.set(false);
+        this.deletingBoard.set(null);
+        this.toast.show(
+          this.transloco.translate('whiteboard.board.delete.error'),
+          'error',
+        );
+      },
+    });
+  }
 
   protected retry(): void {
     this.loadBoards(0);

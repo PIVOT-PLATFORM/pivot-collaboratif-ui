@@ -150,7 +150,7 @@
                   class="board-list__menu-item"
                   type="button"
                   role="menuitem"
-                  (click)="onDeleteStub(board.id)"
+                  (click)="startDelete(board)"
                 >
                   {{ 'whiteboard.board.list.menu.delete' | transloco }}
                 </button>
@@ -168,6 +168,47 @@
         </button>
       </div>
     }
+  }
+
+  @if (deletingBoard(); as board) {
+    <div
+      class="board-list__modal-overlay"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="delete-dialog-heading"
+      (keydown.escape)="cancelDelete()"
+    >
+      <div class="board-list__modal-dialog">
+        <h2 id="delete-dialog-heading" class="board-list__modal-heading">
+          {{ 'whiteboard.board.delete.confirm.title' | transloco:{ title: board.title } }}
+        </h2>
+        <p class="board-list__delete-message">
+          {{ 'whiteboard.board.delete.confirm.message' | transloco }}
+        </p>
+        <div class="board-list__modal-actions">
+          <button
+            class="board-list__modal-btn board-list__modal-btn--cancel"
+            type="button"
+            [disabled]="isDeleting()"
+            (click)="cancelDelete()"
+            boardListAutofocus
+          >
+            {{ 'whiteboard.board.delete.confirm.cancel' | transloco }}
+          </button>
+          <button
+            class="board-list__modal-btn board-list__modal-btn--delete"
+            type="button"
+            [disabled]="isDeleting()"
+            (click)="confirmDelete()"
+          >
+            @if (isDeleting()) {
+              <span class="board-list__card-rename-spinner" aria-hidden="true"></span>
+            }
+            {{ 'whiteboard.board.delete.confirm.confirm' | transloco }}
+          </button>
+        </div>
+      </div>
+    </div>
   }
 
   @if (showCreateModal()) {

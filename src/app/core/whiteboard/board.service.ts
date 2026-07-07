@@ -34,4 +34,11 @@ export class BoardService {
       { title },
     );
   }
+
+  /** Permanently deletes a board and all its data (OWNER only). */
+  deleteBoard(boardId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${environment.apiUrl}/whiteboard/boards/${boardId}`,
+    );
+  }
 }

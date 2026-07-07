@@ -46,6 +46,16 @@
       "rename": {
         "error": "Impossible de renommer le tableau",
         "aria": "Renommer le tableau {{title}}"
+      },
+      "delete": {
+        "success": "Tableau supprimé",
+        "error": "Impossible de supprimer le tableau",
+        "confirm": {
+          "title": "Supprimer « {{title}} » ?",
+          "message": "Cette action est irréversible. Tous les éléments du tableau seront perdus.",
+          "confirm": "Supprimer définitivement",
+          "cancel": "Annuler"
+        }
       }
     }
   }
