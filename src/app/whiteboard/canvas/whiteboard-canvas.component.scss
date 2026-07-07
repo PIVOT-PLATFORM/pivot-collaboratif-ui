@@ -1,0 +1,363 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wb-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  background: #f5f5f5;
+  position: relative;
+  overflow: hidden;
+}
+
+// ─── Toolbar ───────────────────────────────────────────────────────────────
+
+.wb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+  flex-shrink: 0;
+  position: relative;
+  user-select: none;
+}
+
+.wb-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.wb-toolbar__separator {
+  width: 1px;
+  height: 24px;
+  background: #e0e0e0;
+  margin: 0 6px;
+}
+
+.wb-toolbar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: #f0f0f0;
+    border-color: #ddd;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2196F3;
+    outline-offset: 1px;
+  }
+
+  &--active {
+    background: #e3f2fd;
+    border-color: #2196F3;
+    color: #1565C0;
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &--end {
+    margin-left: auto;
+  }
+}
+
+.wb-color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #bbb;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #555;
+  }
+}
+
+// ─── Color picker panel ────────────────────────────────────────────────────
+
+.wb-color-panel {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 28px);
+  gap: 4px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+}
+
+.wb-color-option {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.1s;
+
+  &:hover { transform: scale(1.15); }
+  &[aria-selected='true'] { border-color: #333; }
+
+  &:focus-visible {
+    outline: 2px solid #2196F3;
+    outline-offset: 2px;
+  }
+}
+
+.wb-color-custom {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+
+  input {
+    flex: 1;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: monospace;
+
+    &:focus { outline: 2px solid #2196F3; border-color: transparent; }
+
+    &.wb-color-custom--error { border-color: #E91E63; }
+  }
+
+  &__apply {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f5f5f5;
+    cursor: pointer;
+    font-size: 12px;
+
+    &:hover { background: #e0e0e0; }
+  }
+}
+
+// ─── Zoom label ────────────────────────────────────────────────────────────
+
+.wb-zoom-label {
+  font-size: 12px;
+  color: #555;
+  min-width: 40px;
+  text-align: center;
+}
+
+// ─── Read-only banner ──────────────────────────────────────────────────────
+
+.wb-banner {
+  padding: 8px 16px;
+  font-size: 13px;
+  text-align: center;
+  flex-shrink: 0;
+
+  &--offline {
+    background: #fff3e0;
+    border-bottom: 1px solid #ffe0b2;
+    color: #e65100;
+  }
+}
+
+// ─── Canvas area ──────────────────────────────────────────────────────────
+
+.wb-canvas-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.wb-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: default;
+  touch-action: none;
+
+  &--pan { cursor: grab; }
+  &--crosshair { cursor: crosshair; }
+
+  &:focus-visible { outline: 3px solid #2196F3; outline-offset: -3px; }
+}
+
+// ─── Text input overlay ────────────────────────────────────────────────────
+
+.wb-text-input {
+  position: absolute;
+  min-width: 80px;
+  min-height: 24px;
+  max-width: 400px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px dashed #2196F3;
+  border-radius: 4px;
+  font-size: 16px;
+  font-family: sans-serif;
+  resize: both;
+  z-index: 20;
+  line-height: 1.4;
+  overflow: hidden;
+  white-space: pre-wrap;
+
+  &:focus { outline: none; }
+}
+
+// ─── Minimap ──────────────────────────────────────────────────────────────
+
+.wb-minimap-wrapper {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 15;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.wb-minimap-toggle {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  color: #888;
+  padding: 0;
+  line-height: 1;
+
+  &:hover { color: #333; }
+}
+
+.wb-minimap {
+  display: block;
+  width: 160px;
+  height: 100px;
+}
+
+.wb-minimap-show {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 15;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover { background: #f5f5f5; }
+}
+
+// ─── Keyboard shortcuts dialog ─────────────────────────────────────────────
+
+.wb-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px 32px;
+  min-width: 320px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+
+  h2 { margin: 0 0 16px; font-size: 18px; font-weight: 600; }
+}
+
+.wb-shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  td {
+    padding: 6px 8px;
+    font-size: 13px;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:first-child { font-family: monospace; white-space: nowrap; }
+  }
+
+  kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+}
+
+.wb-dialog-close {
+  display: block;
+  margin: 16px auto 0;
+  padding: 8px 24px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #f5f5f5;
+  cursor: pointer;
+  font-size: 14px;
+
+  &:hover { background: #e0e0e0; }
+}
+
+// ─── Screen reader only ────────────────────────────────────────────────────
+
+.wb-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+// ─── Read-only overlay state ───────────────────────────────────────────────
+
+.wb-readonly .wb-canvas {
+  pointer-events: none;
+}

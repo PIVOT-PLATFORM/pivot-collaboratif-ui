@@ -1,0 +1,230 @@
+<div class="wb-container" [class.wb-readonly]="readOnly()">
+
+  <!-- ───────────────────────────── Toolbar ──────────────────────────────── -->
+  <nav class="wb-toolbar" role="toolbar" [attr.aria-label]="'whiteboard.canvas.toolbar.label' | transloco">
+
+    <!-- Drawing tools -->
+    <div class="wb-toolbar__group" role="group" [attr.aria-label]="'whiteboard.canvas.toolbar.tools' | transloco">
+      @for (tool of toolDefs; track tool.id) {
+        <button
+          class="wb-toolbar__btn"
+          [class.wb-toolbar__btn--active]="activeTool() === tool.id"
+          [attr.aria-label]="tool.label | transloco"
+          [attr.aria-pressed]="activeTool() === tool.id"
+          [attr.aria-disabled]="readOnly() || null"
+          [disabled]="readOnly()"
+          (click)="setTool(tool.id)">
+          <span class="wb-icon" [attr.aria-hidden]="true">{{ tool.icon }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="wb-toolbar__separator" role="separator"></div>
+
+    <!-- Color picker toggle -->
+    <div class="wb-toolbar__group" role="group" [attr.aria-label]="'whiteboard.canvas.toolbar.colorGroup' | transloco">
+      <button
+        class="wb-toolbar__btn wb-color-swatch"
+        [style.background]="strokeColor()"
+        [attr.aria-label]="('whiteboard.canvas.toolbar.currentColor' | transloco) + ' ' + strokeColor()"
+        [attr.aria-expanded]="showColorPicker()"
+        [attr.aria-haspopup]="'listbox'"
+        (click)="showColorPicker.set(!showColorPicker())">
+      </button>
+
+      @if (showColorPicker()) {
+        <div class="wb-color-panel" role="listbox" [attr.aria-label]="'whiteboard.canvas.color.panelLabel' | transloco">
+          @for (color of palette; track color; let i = $index) {
+            <button
+              class="wb-color-option"
+              role="option"
+              [style.background]="color"
+              [attr.aria-label]="('whiteboard.canvas.color.palette' | transloco) + ' ' + (i + 1)"
+              [attr.aria-selected]="strokeColor() === color"
+              (click)="setStrokeColor(color)">
+            </button>
+          }
+          <!-- Custom hex input -->
+          <div class="wb-color-custom">
+            <input
+              type="text"
+              maxlength="7"
+              placeholder="#rrggbb"
+              [attr.aria-label]="'whiteboard.canvas.color.customHex' | transloco"
+              [class.wb-color-custom--error]="customHexError()"
+              [value]="customHexInput()"
+              (input)="onCustomHexChange($any($event.target).value)"
+              (keydown.enter)="setCustomColor()" />
+            <button
+              class="wb-color-custom__apply"
+              [attr.aria-label]="'whiteboard.canvas.color.applyCustom' | transloco"
+              (click)="setCustomColor()">✓</button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="wb-toolbar__separator" role="separator"></div>
+
+    <!-- Undo / Redo -->
+    <div class="wb-toolbar__group" role="group" [attr.aria-label]="'whiteboard.canvas.toolbar.undoRedo' | transloco">
+      <button
+        class="wb-toolbar__btn"
+        [attr.aria-label]="'whiteboard.canvas.undo.label' | transloco"
+        [attr.aria-disabled]="!canUndo() || readOnly() || null"
+        [disabled]="!canUndo() || readOnly()"
+        (click)="onUndo()">↩</button>
+      <button
+        class="wb-toolbar__btn"
+        [attr.aria-label]="'whiteboard.canvas.undo.redo' | transloco"
+        [attr.aria-disabled]="!canRedo() || readOnly() || null"
+        [disabled]="!canRedo() || readOnly()"
+        (click)="onRedo()">↪</button>
+    </div>
+
+    <div class="wb-toolbar__separator" role="separator"></div>
+
+    <!-- Selection actions (group/duplicate/delete) -->
+    <div class="wb-toolbar__group" role="group" [attr.aria-label]="'whiteboard.canvas.toolbar.selectionActions' | transloco">
+      <button
+        class="wb-toolbar__btn"
+        [attr.aria-label]="'whiteboard.canvas.group.group' | transloco"
+        [attr.aria-disabled]="!canGroup() || readOnly() || null"
+        [disabled]="!canGroup() || readOnly()"
+        (click)="onGroup()">⊞</button>
+      <button
+        class="wb-toolbar__btn"
+        [attr.aria-label]="'whiteboard.canvas.group.ungroup' | transloco"
+        [attr.aria-disabled]="!hasSelection() || readOnly() || null"
+        [disabled]="!hasSelection() || readOnly()"
+        (click)="onUngroup()">⊟</button>
+      <button
+        class="wb-toolbar__btn"
+        [attr.aria-label]="'whiteboard.canvas.toolbar.duplicate' | transloco"
+        [attr.aria-disabled]="!hasSelection() || readOnly() || null"
+        [disabled]="!hasSelection() || readOnly()"
+        (click)="onDuplicate()">⿻</button>
+    </div>
+
+    <div class="wb-toolbar__separator" role="separator"></div>
+
+    <!-- Zoom controls -->
+    <div class="wb-toolbar__group" role="group" [attr.aria-label]="'whiteboard.canvas.toolbar.zoom' | transloco">
+      <button
+        class="wb-toolbar__btn"
+        [attr.aria-label]="'whiteboard.canvas.toolbar.zoomOut' | transloco"
+        (click)="zoomOut()">−</button>
+      <span class="wb-zoom-label" aria-live="polite">{{ (zoom() * 100).toFixed(0) }}%</span>
+      <button
+        class="wb-toolbar__btn"
+        [attr.aria-label]="'whiteboard.canvas.toolbar.zoomIn' | transloco"
+        (click)="zoomIn()">+</button>
+    </div>
+
+    <!-- Keyboard shortcuts dialog toggle -->
+    <button
+      class="wb-toolbar__btn wb-toolbar__btn--end"
+      [attr.aria-label]="'whiteboard.canvas.shortcuts.dialogToggle' | transloco"
+      [attr.aria-expanded]="showShortcutDialog()"
+      (click)="showShortcutDialog.update(v => !v)">?</button>
+  </nav>
+
+  <!-- ─────────────────────────── Read-only banner ──────────────────────── -->
+  @if (readOnly()) {
+    <div class="wb-banner wb-banner--offline" role="status" aria-live="polite">
+      {{ 'whiteboard.canvas.readOnly' | transloco }}
+    </div>
+  }
+
+  <!-- ──────────────────────────── Canvas area ──────────────────────────── -->
+  <div class="wb-canvas-area">
+    <canvas
+      #mainCanvas
+      class="wb-canvas"
+      tabindex="0"
+      role="application"
+      [attr.aria-label]="('whiteboard.canvas.ariaLabel' | transloco) + ' ' + boardTitle()"
+      [attr.aria-describedby]="'wb-shortcuts-desc'"
+      [class.wb-canvas--pan]="spaceDown"
+      [class.wb-canvas--crosshair]="activeTool() !== 'select'"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerUp($event)"
+      (dblclick)="onDoubleClick($event)"
+      (wheel.passive)="false"
+      (wheel)="onWheel($event)">
+    </canvas>
+
+    <!-- Text input overlay (absolutely positioned during text edit) -->
+    @if (isEditingText()) {
+      <textarea
+        #textInput
+        class="wb-text-input"
+        [style.left.px]="textEditX()"
+        [style.top.px]="textEditY()"
+        [attr.aria-label]="'whiteboard.canvas.text.inputLabel' | transloco"
+        maxlength="500"
+        (blur)="commitTextEdit(textInput.value)"
+        (keydown.escape)="cancelTextEdit()"
+        (keydown.enter)="$any($event).shiftKey || commitTextEdit(textInput.value)">
+      </textarea>
+    }
+
+    <!-- Hidden description for aria-describedby -->
+    <span id="wb-shortcuts-desc" class="wb-sr-only">
+      {{ 'whiteboard.canvas.shortcuts.description' | transloco }}
+    </span>
+  </div>
+
+  <!-- ─────────────────────────── Minimap ───────────────────────────────── -->
+  @if (showMinimap()) {
+    <div class="wb-minimap-wrapper">
+      <button
+        class="wb-minimap-toggle"
+        [attr.aria-label]="'whiteboard.canvas.minimap.hide' | transloco"
+        (click)="toggleMinimap()">✕</button>
+      <canvas
+        #minimapCanvas
+        class="wb-minimap"
+        width="160"
+        height="100"
+        [attr.aria-label]="'whiteboard.canvas.minimap.ariaLabel' | transloco"
+        aria-hidden="true">
+      </canvas>
+    </div>
+  } @else {
+    <button
+      class="wb-minimap-show"
+      [attr.aria-label]="'whiteboard.canvas.minimap.show' | transloco"
+      (click)="toggleMinimap()">🗺</button>
+  }
+
+  <!-- ────────────────────── Keyboard shortcuts dialog ─────────────────── -->
+  @if (showShortcutDialog()) {
+    <div
+      class="wb-dialog-overlay"
+      role="dialog"
+      [attr.aria-label]="'whiteboard.canvas.shortcuts.dialogLabel' | transloco"
+      aria-modal="true"
+      (click)="showShortcutDialog.set(false)">
+      <div class="wb-dialog" (click)="$event.stopPropagation()">
+        <h2>{{ 'whiteboard.canvas.shortcuts.dialogLabel' | transloco }}</h2>
+        <table class="wb-shortcuts-table">
+          <caption class="wb-sr-only">{{ 'whiteboard.canvas.shortcuts.tableCaption' | transloco }}</caption>
+          <tbody>
+            @for (shortcut of shortcuts; track shortcut.key) {
+              <tr>
+                <td><kbd>{{ shortcut.key }}</kbd></td>
+                <td>{{ shortcut.label | transloco }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <button class="wb-dialog-close" (click)="showShortcutDialog.set(false)">
+          {{ 'whiteboard.canvas.shortcuts.close' | transloco }}
+        </button>
+      </div>
+    </div>
+  }
+
+</div>
