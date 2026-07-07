@@ -390,6 +390,8 @@ describe('BoardListComponent', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     fixture.detectChanges();
 
+    expect(fixture.nativeElement.querySelector('.board-list__card-rename-spinner')).not.toBeNull();
+
     const patchReq = httpMock.expectOne(r => r.url.includes('/r3') && r.method === 'PATCH');
     expect(patchReq.request.body).toEqual({ title: 'Nouveau nom' });
     patchReq.flush(makeBoard({ id: 'r3', title: 'Nouveau nom' }));

@@ -95,19 +95,24 @@
                 <div class="board-list__card-thumbnail-placeholder" aria-hidden="true"></div>
               }
               <div class="board-list__card-body">
-                <input
-                  class="board-list__card-rename-input"
-                  type="text"
-                  [value]="renameTitle()"
-                  [attr.aria-label]="renameAriaLabel(board.title)"
-                  [disabled]="isRenaming()"
-                  (input)="onRenameInput($event)"
-                  (keydown.enter)="confirmRename(board.id)"
-                  (keydown.escape)="cancelRename()"
-                  maxlength="100"
-                  autocomplete="off"
-                  boardListAutofocus
-                />
+                <div class="board-list__card-rename-field">
+                  <input
+                    class="board-list__card-rename-input"
+                    type="text"
+                    [value]="renameTitle()"
+                    [attr.aria-label]="renameAriaLabel(board.title)"
+                    [disabled]="isRenaming()"
+                    (input)="onRenameInput($event)"
+                    (keydown.enter)="confirmRename(board.id)"
+                    (keydown.escape)="cancelRename()"
+                    maxlength="100"
+                    autocomplete="off"
+                    boardListAutofocus
+                  />
+                  @if (isRenaming()) {
+                    <span class="board-list__card-rename-spinner" aria-hidden="true"></span>
+                  }
+                </div>
                 <div class="board-list__card-meta">
                   <span class="board-list__badge board-list__badge--{{ board.role }}">
                     {{ roleLabel(board.role) }}

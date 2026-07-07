@@ -294,6 +294,10 @@
     color: inherit;
   }
 
+  &__card-rename-field {
+    position: relative;
+  }
+
   &__card-rename-input {
     width: 100%;
     box-sizing: border-box;
@@ -311,6 +315,19 @@
 
     &:focus { border-bottom-color: #2563eb; box-shadow: none; }
     &:disabled { opacity: 0.6; cursor: wait; }
+  }
+
+  &__card-rename-spinner {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 2px solid #cbd5e1;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: board-rename-spin 0.6s linear infinite;
   }
 
   // ── Modal ──
@@ -400,4 +417,8 @@
       &:hover:not(:disabled) { background: #2563eb; }
     }
   }
+}
+
+@keyframes board-rename-spin {
+  to { transform: rotate(360deg); }
 }
