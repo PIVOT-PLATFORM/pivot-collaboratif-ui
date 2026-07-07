@@ -1,8 +1,13 @@
 name: E2E
 
 # Tests E2E Playwright contre une stack pivot-collaboratif-core reelle (image GHCR + postgres +
-# redis). Pas un required status check ici (voir TODO-SETUP.md) : echouera tant qu'aucune
-# release de pivot-collaboratif-core n'a publie d'image GHCR, ce qui est attendu au bootstrap.
+# redis). Pas un required status check ici (voir TODO-SETUP.md — pas encore ajoute a la liste des
+# required checks). pivot-collaboratif-core a publie sa premiere image GHCR (release v1.0.0,
+# 2026-07-06) — le "manifest unknown" (image absente) du tout debut du bootstrap ne se reproduit
+# plus. Mais `docker run` echoue desormais avec "denied" APRES un login GHCR reussi : le package
+# GHCR de pivot-collaboratif-core est prive et n'accorde pas d'acces cross-repo aux Actions de ce
+# repo. Correctif hors de portee d'une PR pivot-collaboratif-ui (action mainteneur cote package
+# settings) — voir TODO-SETUP.md.
 
 on:
   push:
@@ -26,9 +31,10 @@ concurrency:
 
 env:
   # pivot-collaboratif-core publie son image sous ghcr.io/<owner>/pivot-collaboratif-core/
-  # pivot-collaboratif-core (le nom de repo est répété, cf. pivot-core). ATTENTION : ce job
-  # échouera (docker pull 404) tant qu'aucune release de pivot-collaboratif-core n'a encore
-  # publié cette image — attendu au bootstrap, pas un required check (voir TODO-SETUP.md).
+  # pivot-collaboratif-core (le nom de repo est répété, cf. pivot-core). Image disponible
+  # depuis la release v1.0.0 de pivot-collaboratif-core (2026-07-06), mais le pull échoue
+  # avec "denied" tant que le package GHCR n'accorde pas l'accès Actions cross-repo à
+  # pivot-collaboratif-ui (voir TODO-SETUP.md — action mainteneur).
   CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core/pivot-collaboratif-core:latest
 
 jobs:

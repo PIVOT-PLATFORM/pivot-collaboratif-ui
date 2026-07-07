@@ -88,11 +88,40 @@ gh api repos/PIVOT-PLATFORM/pivot-collaboratif-ui/rulesets -X POST --input /tmp/
       bootstrap : `pivot-ui` lui-même a **0 secret au niveau repo** — donc ces secrets sont
       forcément organisation, jamais configurés par repo. Vérifier manuellement : Organization
       Settings → Secrets and variables → Actions → périmètre de chaque secret.
-- [ ] **Publier une première image GHCR** de `pivot-collaboratif-core` (première release du
-      backend sibling) — `e2e.yml` et `lighthouse.yml`/`dast-full.yml` de ce repo démarrent
-      `ghcr.io/pivot-platform/pivot-collaboratif-core/pivot-collaboratif-core:latest`, qui
-      n'existe pas encore. `E2E - Playwright` échouera (docker pull 404) jusque-là — attendu,
-      pas un required check.
+- [x] **Publier une première image GHCR** de `pivot-collaboratif-core` (première release du
+      backend sibling) — fait : release `v1.0.0` (2026-07-06) a publié
+      `ghcr.io/pivot-platform/pivot-collaboratif-core/pivot-collaboratif-core:latest`,
+      consommée par `e2e.yml` (`dast-full.yml` la référence aussi mais reste `workflow_dispatch`
+      uniquement, non fonctionnel — voir plus bas). Le `docker pull` 404 ("manifest unknown")
+      qui faisait échouer `E2E - Playwright` sur les runs antérieurs à cette release (ex. run
+      `28828164301`, 2026-07-06T22:40) ne se reproduit plus — voir le nouveau blocant ci-dessous
+      qui a pris sa place. `lighthouse.yml` ne démarre aucun backend — n'a jamais dépendu de
+      cette image (correction de l'affirmation précédente de ce fichier).
+- [ ] ⚠️ **BLOQUANT #2 — package GHCR `pivot-collaboratif-core` privé, pas d'accès cross-repo
+      pour les Actions de `pivot-collaboratif-ui`.** Depuis la publication de `v1.0.0`,
+      `E2E - Playwright` échoue maintenant avec `docker: Error response from daemon: denied`
+      **après un `docker login` réussi** (`Login Succeeded!`) — pas un problème d'image absente,
+      un problème d'autorisation : le package `ghcr.io/pivot-platform/pivot-collaboratif-core/
+      pivot-collaboratif-core` est privé et n'a pas accordé l'accès Actions à ce repo (constaté
+      run `28843199918`, 2026-07-07). Confirmé depuis cette session : impossible de lire/modifier
+      la visibilité du package via l'API (`gh api orgs/PIVOT-PLATFORM/packages/...` → 403/404,
+      token sans scope `packages`), même limitation que **BLOQUANT #1** (droits insuffisants pour
+      cette action d'administration).
+      **Action requise du mainteneur**, l'une des deux :
+      ```
+      # Option A — accès cross-repo explicite (recommandé, package reste privé) :
+      # Package pivot-collaboratif-core/pivot-collaboratif-core → Package settings →
+      # "Manage Actions access" → Add repository → PIVOT-PLATFORM/pivot-collaboratif-ui → Role: Read
+      gh api orgs/PIVOT-PLATFORM/packages/container/pivot-collaboratif-core%2Fpivot-collaboratif-core/repositories \
+        -X POST -f repository_name=pivot-collaboratif-ui
+
+      # Option B — rendre le package public (Package settings → Danger Zone → Change visibility) :
+      gh api orgs/PIVOT-PLATFORM/packages/container/pivot-collaboratif-core%2Fpivot-collaboratif-core \
+        -X PATCH -f visibility=public
+      ```
+      `E2E - Playwright` n'est toujours pas un required check (voir item ruleset comprehensive
+      plus bas) — ce blocant n'empêche donc pas les merges, mais rend les runs E2E non fiables
+      tant qu'il n'est pas levé.
 - [ ] **Question architecture à trancher avec le mainteneur** : `dast-baseline.yml` scanne
       `secrets.PIVOT_PROD_URL` — mais ce module est lazy-loadé DANS le shell `pivot-ui` (pas de
       domaine/URL public autonome en prod). Décider si ce scan doit être retiré, pointé sur la
