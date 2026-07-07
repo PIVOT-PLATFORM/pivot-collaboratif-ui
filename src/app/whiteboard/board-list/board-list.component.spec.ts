@@ -8,10 +8,11 @@ import { provideRouter, Router } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { BoardListComponent } from './board-list.component';
 import { ToastService } from '../../core/toast/toast.service';
-import { Board, BoardPage } from '../../core/whiteboard/board.model';
+import { Board, BoardPage, WhiteboardTemplate } from '../../core/whiteboard/board.model';
 import { environment } from '../../../environments/environment';
 
 const BASE = `${environment.apiUrl}/whiteboard/boards`;
+const TEMPLATES_BASE = `${environment.apiUrl}/whiteboard/templates`;
 
 const FR_TRANSLATIONS = {
   whiteboard: {
@@ -57,6 +58,18 @@ const FR_TRANSLATIONS = {
         },
       },
     },
+    template: {
+      gallery: {
+        label: 'Modèle de tableau',
+        loadError: 'Impossible de charger les modèles de tableau.',
+        retry: 'Réessayer',
+      },
+      createError: 'Impossible de créer le tableau. Veuillez réessayer.',
+      previewAlt: 'Aperçu du modèle {{name}}',
+      brainstorm: { name: 'Brainstorm', description: 'Idées libres sur des post-its.' },
+      retrospective: { name: 'Rétrospective', description: 'Ce qui a bien fonctionné, ce qui peut s\'améliorer.' },
+      userStoryMap: { name: 'User Story Map', description: 'Parcours utilisateur et priorisation.' },
+    },
   },
 };
 
@@ -81,6 +94,14 @@ function makePageResponse(boards: Board[], hasNext = false): BoardPage {
     currentPage: 0,
     hasNext,
   };
+}
+
+function makeTemplates(): WhiteboardTemplate[] {
+  return [
+    { id: 'tpl-brainstorm', code: 'BRAINSTORM', previewUrl: 'https://cdn.example.com/brainstorm.png' },
+    { id: 'tpl-retro', code: 'RETROSPECTIVE', previewUrl: 'https://cdn.example.com/retro.png' },
+    { id: 'tpl-usm', code: 'USER_STORY_MAP', previewUrl: 'https://cdn.example.com/usm.png' },
+  ];
 }
 
 describe('BoardListComponent', () => {
@@ -117,6 +138,26 @@ describe('BoardListComponent', () => {
     httpMock.verify();
     TestBed.resetTestingModule();
   });
+
+  /**
+   * Opens the "Nouveau tableau" modal via the given trigger selector and flushes the
+   * template gallery's GET request it fires on init (default: 3 templates, "Brainstorm"
+   * selected by default). Pass `templates: []` and rely on the caller to flush an error
+   * response instead when testing the gallery's error state.
+   */
+  function openCreateModal(
+    triggerSelector = '.board-list__create-btn',
+    templates: WhiteboardTemplate[] | 'error' = makeTemplates(),
+  ): void {
+    (fixture.nativeElement.querySelector(triggerSelector) as HTMLButtonElement).click();
+    fixture.detectChanges();
+    if (templates === 'error') {
+      httpMock.expectOne(TEMPLATES_BASE).flush('', { status: 500, statusText: 'Server Error' });
+    } else {
+      httpMock.expectOne(TEMPLATES_BASE).flush(templates);
+    }
+    fixture.detectChanges();
+  }
 
   // ── Loading state ──
   it('renders skeleton grid while loading', () => {
@@ -185,8 +226,7 @@ describe('BoardListComponent', () => {
     httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('.board-list__create-btn') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    openCreateModal();
 
     expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('#board-title-input')).toBeTruthy();
@@ -196,8 +236,7 @@ describe('BoardListComponent', () => {
     httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('.board-list__create-btn') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    openCreateModal();
 
     (fixture.nativeElement.querySelector('.board-list__modal-btn--cancel') as HTMLButtonElement).click();
     fixture.detectChanges();
@@ -208,8 +247,7 @@ describe('BoardListComponent', () => {
     httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('.board-list__create-btn') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    openCreateModal();
 
     const input = fixture.nativeElement.querySelector('#board-title-input') as HTMLInputElement;
     input.value = 'Nouveau test';
@@ -222,6 +260,8 @@ describe('BoardListComponent', () => {
 
     const createReq = httpMock.expectOne(r => r.url === BASE && r.method === 'POST');
     expect(createReq.request.body).toEqual({ title: 'Nouveau test' });
+    // "Brainstorm" is selected by default once the gallery loads (see openCreateModal()).
+    expect(createReq.request.params.get('templateId')).toBe('tpl-brainstorm');
     createReq.flush(makeBoard({ id: 'new-id', title: 'Nouveau test' }));
     fixture.detectChanges();
 
@@ -234,8 +274,7 @@ describe('BoardListComponent', () => {
     fixture.detectChanges();
 
     const toastSpy = vi.spyOn(toastService, 'show');
-    (fixture.nativeElement.querySelector('.board-list__create-btn') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    openCreateModal();
 
     const input = fixture.nativeElement.querySelector('#board-title-input') as HTMLInputElement;
     input.value = 'Fail board';
@@ -250,6 +289,95 @@ describe('BoardListComponent', () => {
     fixture.detectChanges();
 
     expect(toastSpy).toHaveBeenCalledWith('Impossible de créer le tableau', 'error');
+  });
+
+  it('shows inline error message and retry button on create failure, without closing the modal', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+
+    openCreateModal();
+
+    const input = fixture.nativeElement.querySelector('#board-title-input') as HTMLInputElement;
+    input.value = 'Fail board';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.board-list__modal-btn--confirm') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    httpMock.expectOne(r => r.url === BASE && r.method === 'POST')
+      .flush('', { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[role="dialog"]')).toBeTruthy();
+    expect(el.querySelector('.board-list__modal-error[role="alert"]')).toBeTruthy();
+    const retryBtn = el.querySelector('.board-list__modal-error .board-list__retry-btn') as HTMLButtonElement;
+    expect(retryBtn).toBeTruthy();
+
+    const spy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    retryBtn.click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.url === BASE && r.method === 'POST')
+      .flush(makeBoard({ id: 'retry-id', title: 'Fail board' }));
+    fixture.detectChanges();
+
+    expect(spy).toHaveBeenCalledWith(['/whiteboard', 'retry-id']);
+    spy.mockRestore();
+  });
+
+  it('falls back to a blank ("Vierge") board when the template gallery fails to load', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+
+    openCreateModal('.board-list__create-btn', 'error');
+
+    const input = fixture.nativeElement.querySelector('#board-title-input') as HTMLInputElement;
+    input.value = 'Board vierge malgré erreur templates';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const spy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    (fixture.nativeElement.querySelector('.board-list__modal-btn--confirm') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const createReq = httpMock.expectOne(r => r.url === BASE && r.method === 'POST');
+    expect(createReq.request.params.has('templateId')).toBe(false);
+    createReq.flush(makeBoard({ id: 'blank-id', title: 'Board vierge malgré erreur templates' }));
+    fixture.detectChanges();
+
+    expect(spy).toHaveBeenCalledWith(['/whiteboard', 'blank-id']);
+    spy.mockRestore();
+  });
+
+  it('creates the board from the template picked in the gallery', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+
+    openCreateModal();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const cards = Array.from(el.querySelectorAll<HTMLButtonElement>('.template-gallery__card'));
+    const retroCard = cards.find(c => c.textContent?.includes('Rétrospective'))!;
+    retroCard.click();
+    fixture.detectChanges();
+
+    const input = el.querySelector('#board-title-input') as HTMLInputElement;
+    input.value = 'Depuis retro';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const spy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    (el.querySelector('.board-list__modal-btn--confirm') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const createReq = httpMock.expectOne(r => r.url === BASE && r.method === 'POST');
+    expect(createReq.request.params.get('templateId')).toBe('tpl-retro');
+    createReq.flush(makeBoard({ id: 'from-retro', title: 'Depuis retro' }));
+    fixture.detectChanges();
+
+    expect(spy).toHaveBeenCalledWith(['/whiteboard', 'from-retro']);
+    spy.mockRestore();
   });
 
   // ── Pagination ──
@@ -522,9 +650,7 @@ describe('BoardListComponent', () => {
     httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
     fixture.detectChanges();
 
-    const cta = fixture.nativeElement.querySelector('.board-list__empty-cta') as HTMLButtonElement;
-    cta.click();
-    fixture.detectChanges();
+    openCreateModal('.board-list__empty-cta');
 
     expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
     httpMock.expectNone(r => r.url === BASE); // no additional HTTP call on modal open

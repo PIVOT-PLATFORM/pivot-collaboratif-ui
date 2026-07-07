@@ -381,6 +381,20 @@
     }
   }
 
+  &__modal-error {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border: 1px solid #fecaca;
+    border-radius: 0.375rem;
+    background: #fef2f2;
+  }
+
+  &__modal-error-message {
+    font-size: 0.8125rem;
+    color: #dc2626;
+    margin: 0 0 0.5rem;
+  }
+
   &__modal-actions {
     display: flex;
     justify-content: flex-end;

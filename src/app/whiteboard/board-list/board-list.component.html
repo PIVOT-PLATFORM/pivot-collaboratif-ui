@@ -237,10 +237,33 @@
           autocomplete="off"
           autofocus
         />
+
+        <div class="board-list__modal-label">
+          {{ 'whiteboard.template.gallery.label' | transloco }}
+        </div>
+        <app-template-gallery (selectionChange)="onTemplateSelectionChange($event)" />
+
+        @if (createError()) {
+          <div class="board-list__modal-error" role="alert">
+            <p class="board-list__modal-error-message">
+              {{ 'whiteboard.template.createError' | transloco }}
+            </p>
+            <button
+              class="board-list__retry-btn"
+              type="button"
+              [disabled]="!createTitle().trim() || isCreating()"
+              (click)="submitCreate()"
+            >
+              {{ 'whiteboard.board.list.retry' | transloco }}
+            </button>
+          </div>
+        }
+
         <div class="board-list__modal-actions">
           <button
             class="board-list__modal-btn board-list__modal-btn--cancel"
             type="button"
+            [disabled]="isCreating()"
             (click)="closeCreateModal()"
           >
             {{ 'whiteboard.board.list.create.cancel' | transloco }}
@@ -248,9 +271,13 @@
           <button
             class="board-list__modal-btn board-list__modal-btn--confirm"
             type="button"
-            [disabled]="!createTitle().trim() || isCreating()"
+            [disabled]="!createTitle().trim()"
+            [attr.aria-disabled]="isCreating() ? 'true' : null"
             (click)="submitCreate()"
           >
+            @if (isCreating()) {
+              <span class="board-list__card-rename-spinner" aria-hidden="true"></span>
+            }
             {{ 'whiteboard.board.list.create.confirm' | transloco }}
           </button>
         </div>

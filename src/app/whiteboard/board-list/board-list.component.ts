@@ -13,6 +13,7 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { BoardService } from '../../core/whiteboard/board.service';
 import { ToastService } from '../../core/toast/toast.service';
 import { Board } from '../../core/whiteboard/board.model';
+import { TemplateGalleryComponent } from '../template-gallery/template-gallery.component';
 
 @Directive({ selector: '[boardListAutofocus]', standalone: true })
 class BoardListAutofocusDirective implements OnInit {
@@ -27,7 +28,7 @@ class BoardListAutofocusDirective implements OnInit {
   selector: 'app-board-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoPipe, DatePipe, BoardListAutofocusDirective],
+  imports: [RouterLink, TranslocoPipe, DatePipe, BoardListAutofocusDirective, TemplateGalleryComponent],
   templateUrl: './board-list.component.html',
   styleUrl: './board-list.component.scss',
 })
@@ -39,6 +40,9 @@ export class BoardListComponent {
   protected readonly showCreateModal = signal(false);
   protected readonly isCreating = signal(false);
   protected readonly createTitle = signal('');
+  protected readonly createError = signal(false);
+  /** Selected template id from the gallery — `null` falls back to a blank ("Vierge") board. */
+  protected readonly selectedTemplateId = signal<string | null>(null);
   protected readonly activeMenuBoardId = signal<string | null>(null);
   protected readonly renamingBoardId = signal<string | null>(null);
   protected readonly renameTitle = signal('');
@@ -79,6 +83,8 @@ export class BoardListComponent {
 
   protected openCreateModal(): void {
     this.createTitle.set('');
+    this.createError.set(false);
+    this.selectedTemplateId.set(null);
     this.showCreateModal.set(true);
   }
 
@@ -90,11 +96,16 @@ export class BoardListComponent {
     this.createTitle.set((event.target as HTMLInputElement).value);
   }
 
+  protected onTemplateSelectionChange(templateId: string | null): void {
+    this.selectedTemplateId.set(templateId);
+  }
+
   protected submitCreate(): void {
     const title = this.createTitle().trim();
     if (!title || this.isCreating()) return;
     this.isCreating.set(true);
-    this.boardService.createBoard(title).subscribe({
+    this.createError.set(false);
+    this.boardService.createBoard(title, this.selectedTemplateId() ?? undefined).subscribe({
       next: (board) => {
         this.isCreating.set(false);
         this.showCreateModal.set(false);
@@ -102,6 +113,7 @@ export class BoardListComponent {
       },
       error: () => {
         this.isCreating.set(false);
+        this.createError.set(true);
         this.toast.show(
           this.transloco.translate('whiteboard.board.list.createError'),
           'error',
