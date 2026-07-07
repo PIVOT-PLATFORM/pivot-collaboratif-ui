@@ -8,6 +8,41 @@
       "moduleDisabled": "Module not available",
       "accessDenied": "You don't have access to this board",
       "networkError": "Network error, please try again"
+    },
+    "board": {
+      "list": {
+        "title": "My boards",
+        "newBoard": "New board",
+        "emptyTitle": "No boards yet",
+        "emptySubtitle": "Create your first collaborative board",
+        "emptyCta": "Create my first board",
+        "loadMore": "Load more",
+        "retry": "Try again",
+        "errorSubtitle": "Unable to load your boards. Check your connection.",
+        "createError": "Unable to create the board",
+        "online": "online",
+        "role": {
+          "owner": "Owner",
+          "editor": "Editor",
+          "viewer": "Viewer"
+        },
+        "menu": {
+          "rename": "Rename",
+          "delete": "Delete"
+        },
+        "create": {
+          "title": "New board",
+          "label": "Board title",
+          "placeholder": "My board",
+          "confirm": "Create",
+          "cancel": "Cancel"
+        },
+        "aria": {
+          "openBoard": "{{title}} — modified on {{date}} — {{role}}",
+          "boardMenu": "Options for {{title}}",
+          "activeParticipants": "{{count}} collaborator(s) currently online"
+        }
+      }
     }
   }
 }
