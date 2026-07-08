@@ -39,6 +39,19 @@ class StubCanvasComponent {
 })
 class StubPresenceComponent {}
 
+/**
+ * Stub standing in for `PresencePanelComponent` (US08.5.1) — this container test only needs
+ * the selector to resolve; the panel's own behaviour (avatar list, overflow, aria-labels) is
+ * fully covered by its own dedicated spec file.
+ */
+@Component({
+  selector: 'app-presence-panel',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: '',
+})
+class StubPresencePanelComponent {}
+
 const FR: Record<string, unknown> = {
   whiteboard: {
     ws: {
@@ -91,7 +104,9 @@ describe('WhiteboardBoardComponent', () => {
       ],
     })
       .overrideComponent(WhiteboardBoardComponent, {
-        set: { imports: [TranslocoPipe, StubCanvasComponent, StubPresenceComponent] },
+        set: {
+          imports: [TranslocoPipe, StubCanvasComponent, StubPresenceComponent, StubPresencePanelComponent],
+        },
       })
       .compileComponents();
 
@@ -129,7 +144,9 @@ describe('WhiteboardBoardComponent', () => {
       ],
     })
       .overrideComponent(WhiteboardBoardComponent, {
-        set: { imports: [TranslocoPipe, StubCanvasComponent, StubPresenceComponent] },
+        set: {
+          imports: [TranslocoPipe, StubCanvasComponent, StubPresenceComponent, StubPresencePanelComponent],
+        },
       })
       .compileComponents();
 

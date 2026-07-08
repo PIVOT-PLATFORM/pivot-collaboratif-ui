@@ -1,0 +1,32 @@
+<div class="pp-panel" role="group" [attr.aria-label]="'whiteboard.presence.panelAriaLabel' | transloco">
+  @if (hasParticipants()) {
+    <ul class="pp-avatars">
+      @for (participant of visibleParticipants(); track participant.userId) {
+        <li
+          class="pp-avatar"
+          role="img"
+          [style.background]="participant.color"
+          [attr.aria-label]="participant.ariaLabel"
+          [title]="participant.displayName">
+          @if (participant.avatarUrl) {
+            <img class="pp-avatar__img" [src]="participant.avatarUrl" alt="" />
+          } @else {
+            <span class="pp-avatar__initials" aria-hidden="true">{{ participant.initials }}</span>
+          }
+        </li>
+      }
+      @if (overflowCount() > 0) {
+        <li
+          class="pp-avatar pp-avatar--overflow"
+          role="img"
+          [attr.aria-label]="overflowAriaLabel()"
+          [title]="overflowTooltip()">
+          <span aria-hidden="true">{{ 'whiteboard.presence.overflowBadge' | transloco: { count: overflowCount() } }}</span>
+        </li>
+      }
+    </ul>
+    <span class="pp-online-label">
+      {{ participantCount() }} {{ 'whiteboard.presence.online' | transloco }}
+    </span>
+  }
+</div>

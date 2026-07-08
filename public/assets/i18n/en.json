@@ -202,7 +202,17 @@
       "revoked": "You no longer have access to this board"
     },
     "presence": {
-      "cursorLabel": "Cursor of {{name}}"
+      "cursorLabel": "Cursor of {{name}}",
+      "panelAriaLabel": "Online participants",
+      "avatarAriaLabel": "{{name}} — {{role}}",
+      "overflowBadge": "+{{count}}",
+      "overflowAriaLabel": "And {{count}} more participants: {{names}}",
+      "online": "online",
+      "role": {
+        "owner": "Owner",
+        "editor": "Editor",
+        "viewer": "Viewer"
+      }
     }
   }
 }

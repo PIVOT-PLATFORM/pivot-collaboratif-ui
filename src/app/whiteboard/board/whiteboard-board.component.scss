@@ -67,6 +67,15 @@ app-whiteboard-canvas {
   }
 }
 
+// ─── Presence panel (US08.5.1) — top-right overlay, below the canvas toolbar ────────────────
+
+.wb-presence-panel-slot {
+  position: absolute;
+  top: 56px;
+  right: 16px;
+  z-index: 15;
+}
+
 // ─── "Reconnected" toast (AC9) ───────────────────────────────────────────────
 
 .wb-toast {
