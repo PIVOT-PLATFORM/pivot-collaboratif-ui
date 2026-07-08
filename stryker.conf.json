@@ -15,7 +15,10 @@
     "!src/**/*.config.ts",
     "!src/main.ts",
     "!src/test-setup.ts",
-    "!src/**/environment*.ts"
+    "!src/**/environment*.ts",
+    "projects/collaboratif-ui/src/**/*.ts",
+    "!projects/collaboratif-ui/src/**/*.spec.ts",
+    "!projects/collaboratif-ui/src/public-api.ts"
   ],
   "thresholds": {
     "high": 80,

@@ -166,11 +166,11 @@ jobs:
             -Dsonar.organization=pivot-platform \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token="${SONAR_TOKEN}" \
-            -Dsonar.sources=src \
-            -Dsonar.tests=src \
+            -Dsonar.sources=src,projects/collaboratif-ui/src \
+            -Dsonar.tests=src,projects/collaboratif-ui/src \
             -Dsonar.test.inclusions=**/*.spec.ts \
             -Dsonar.exclusions=**/*.spec.ts,dist/**,node_modules/** \
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info,coverage/frontend/lcov.info \
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info,coverage/frontend/lcov.info,coverage/collaboratif-ui/lcov.info \
             $PR_ARGS
 
   # -----------------------------------------
