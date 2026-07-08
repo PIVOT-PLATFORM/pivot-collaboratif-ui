@@ -6,8 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
-    "test:ci": "ng test --watch=false --coverage && ng test collaboratif-ui --watch=false --coverage",
+    "test": "ng test frontend",
+    "test:ci": "ng test frontend --watch=false --coverage && ng test collaboratif-ui --watch=false --coverage",
     "test:mutation": "stryker run",
     "build:collaboratif-ui": "ng build collaboratif-ui",
     "lint": "eslint src/ projects/collaboratif-ui/src/"
