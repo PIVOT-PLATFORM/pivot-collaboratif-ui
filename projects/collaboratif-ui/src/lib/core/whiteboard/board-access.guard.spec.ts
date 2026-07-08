@@ -16,9 +16,10 @@ import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom, Observable } from 'rxjs';
 import { boardAccessGuard } from './board-access.guard';
 import { ToastService } from '../toast/toast.service';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from './config/tokens';
 
-const API_URL = `${environment.apiUrl}/whiteboard/boards`;
+const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
+const API_URL = `${TEST_API_URL}/whiteboard/boards`;
 
 function makeRoute(boardId: string): ActivatedRouteSnapshot {
   return {
@@ -40,6 +41,7 @@ describe('boardAccessGuard', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: TranslocoService, useValue: mockTransloco },
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);

@@ -7,9 +7,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { TemplateGalleryComponent } from './template-gallery.component';
 import { WhiteboardTemplate } from '../../core/whiteboard/board.model';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
 
-const BASE = `${environment.apiUrl}/whiteboard/templates`;
+const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
+const BASE = `${TEST_API_URL}/whiteboard/templates`;
 
 const FR_TRANSLATIONS = {
   whiteboard: {
@@ -49,7 +50,11 @@ describe('TemplateGalleryComponent', () => {
           preloadLangs: true,
         }),
       ],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TemplateGalleryComponent);

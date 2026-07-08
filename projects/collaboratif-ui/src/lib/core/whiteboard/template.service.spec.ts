@@ -6,9 +6,10 @@ import {
 import { provideHttpClient } from '@angular/common/http';
 import { TemplateService } from './template.service';
 import { WhiteboardTemplate } from './board.model';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from './config/tokens';
 
-const BASE = `${environment.apiUrl}/whiteboard/templates`;
+const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
+const BASE = `${TEST_API_URL}/whiteboard/templates`;
 
 describe('TemplateService', () => {
   let service: TemplateService;
@@ -16,7 +17,11 @@ describe('TemplateService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+      ],
     });
     service = TestBed.inject(TemplateService);
     httpMock = TestBed.inject(HttpTestingController);

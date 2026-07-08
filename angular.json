@@ -110,6 +110,34 @@
           }
         }
       }
+    },
+    "collaboratif-ui": {
+      "projectType": "library",
+      "root": "projects/collaboratif-ui",
+      "sourceRoot": "projects/collaboratif-ui/src",
+      "prefix": "piv-collab",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/collaboratif-ui/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/collaboratif-ui/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/collaboratif-ui/tsconfig.spec.json",
+            "runner": "vitest",
+            "coverageReporters": ["lcov", "text", "html"]
+          }
+        }
+      }
     }
   }
 }

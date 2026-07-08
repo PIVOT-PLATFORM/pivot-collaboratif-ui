@@ -8,9 +8,10 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { JoinBoardComponent } from './join-board.component';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
 
-const JOIN_URL = `${environment.apiUrl}/whiteboard/join`;
+const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
+const JOIN_URL = `${TEST_API_URL}/whiteboard/join`;
 
 const FR: Record<string, unknown> = {
   whiteboard: {
@@ -54,6 +55,7 @@ describe('JoinBoardComponent — with token', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
         {
           provide: ActivatedRoute,
           useValue: { queryParamMap: of(convertToParamMap({ token: 'valid-token' })) },
@@ -189,6 +191,7 @@ describe('JoinBoardComponent — no token', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
         {
           provide: ActivatedRoute,
           useValue: { queryParamMap: of(convertToParamMap({})) },

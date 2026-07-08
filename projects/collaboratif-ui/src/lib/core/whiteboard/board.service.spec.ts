@@ -6,9 +6,10 @@ import {
 import { provideHttpClient } from '@angular/common/http';
 import { BoardService } from './board.service';
 import { BoardMember, ShareToken } from './board.model';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from './config/tokens';
 
-const BASE = `${environment.apiUrl}/whiteboard/boards`;
+const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
+const BASE = `${TEST_API_URL}/whiteboard/boards`;
 
 describe('BoardService', () => {
   let service: BoardService;
@@ -16,7 +17,11 @@ describe('BoardService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+      ],
     });
     service = TestBed.inject(BoardService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -194,7 +199,7 @@ describe('BoardService', () => {
 
   // ── joinBoard ──
   it('joinBoard() sends POST to /whiteboard/join with token as query param', () => {
-    const JOIN_URL = `${environment.apiUrl}/whiteboard/join`;
+    const JOIN_URL = `${TEST_API_URL}/whiteboard/join`;
     const response = { boardId: 'b1', title: 'Board', role: 'EDITOR', redirectUrl: '/whiteboard/b1' };
 
     let result: unknown;
@@ -208,7 +213,7 @@ describe('BoardService', () => {
   });
 
   it('joinBoard() propagates HTTP errors', () => {
-    const JOIN_URL = `${environment.apiUrl}/whiteboard/join`;
+    const JOIN_URL = `${TEST_API_URL}/whiteboard/join`;
     let caught = false;
     service.joinBoard('bad-token').subscribe({ error: () => { caught = true; } });
     httpMock.expectOne(r => r.url === JOIN_URL).flush('', { status: 410, statusText: 'Gone' });
