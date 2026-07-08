@@ -1,0 +1,12 @@
+<svg class="wb-presence-overlay" aria-hidden="true" focusable="false">
+  @for (cursor of visibleCursors(); track cursor.userId) {
+    <g class="wb-presence-cursor" [attr.transform]="'translate(' + cursor.x + ',' + cursor.y + ')'">
+      <title>{{ 'whiteboard.presence.cursorLabel' | transloco: { name: cursor.displayName } }}</title>
+      <path
+        class="wb-presence-cursor__pointer"
+        [attr.fill]="cursor.color"
+        d="M0,0 L0,15.5 L4,12 L6.5,18 L9,17 L6.5,11 L11,11 Z" />
+      <text class="wb-presence-cursor__label" x="13" y="24" [attr.fill]="cursor.color">{{ cursor.displayName }}</text>
+    </g>
+  }
+</svg>

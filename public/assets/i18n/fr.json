@@ -200,6 +200,9 @@
       "retryManual": "Réessayer manuellement",
       "offline": "Mode hors ligne — les modifications ne sont pas sauvegardées",
       "revoked": "Vous n'avez plus accès à ce tableau"
+    },
+    "presence": {
+      "cursorLabel": "Curseur de {{name}}"
     }
   }
 }

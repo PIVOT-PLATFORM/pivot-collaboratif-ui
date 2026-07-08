@@ -11,6 +11,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { Subscription } from 'rxjs';
 import { WhiteboardSyncService } from '../../core/whiteboard/whiteboard-sync.service';
 import { DrawAction, UndoEvent, WhiteboardCanvasComponent } from '../canvas/whiteboard-canvas.component';
+import { WhiteboardPresenceComponent } from '../presence/whiteboard-presence.component';
 
 /**
  * Route-level container for a single board (`/whiteboard/{boardId}`, US08.3.2b).
@@ -32,7 +33,7 @@ import { DrawAction, UndoEvent, WhiteboardCanvasComponent } from '../canvas/whit
   selector: 'app-whiteboard-board',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoPipe, WhiteboardCanvasComponent],
+  imports: [TranslocoPipe, WhiteboardCanvasComponent, WhiteboardPresenceComponent],
   templateUrl: './whiteboard-board.component.html',
   styleUrl: './whiteboard-board.component.scss',
 })

@@ -26,6 +26,29 @@ export interface SyncDrawAction {
 /** UI connection status driving banners/toasts in the whiteboard page (US08.3.2b AC7-10). */
 export type WhiteboardConnectionStatus = 'connecting' | 'open' | 'lost' | 'failed';
 
+/**
+ * A validated remote `CURSOR_MOVE` broadcast (US08.3.2c) — broadcast-only, never persisted
+ * server-side (`CanvasActionService#handleCursorMove`).
+ */
+export interface RemoteCursorMove {
+  userId: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * A single participant entry from a validated `PARTICIPANTS_UPDATE` broadcast (contract fixed
+ * by US08.5.1 backend, `ParticipantInfo` record). Only the fields the backend actually exposes
+ * — never email or other profile data (security AC, US08.5.1).
+ */
+export interface ParticipantInfo {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  color: string;
+  role: string;
+}
+
 /** Whitelisted top-level STOMP action types (contract fixed by US08.3.1). */
 const KNOWN_ACTION_TYPES = new Set([
   'JOIN',
@@ -87,12 +110,25 @@ const HEARTBEAT_OUTGOING_MS = 10000;
  * is resolved server-side from the authenticated STOMP principal and is never trusted
  * from the client payload (CLAUDE.md: no client-supplied `userId`/`tenantId` in body).
  *
- * ## Generic publish API (used by US08.3.3 undo/redo)
+ * ## Generic publish API (used by US08.3.3 undo/redo and US08.3.2c presence)
  * {@link publish} is intentionally generic (`type` + `data`) — `WhiteboardBoardComponent`
  * relays an `UNDO { eventId }` message through this same method (US08.3.3 AC5) whenever
  * `WhiteboardCanvasComponent` emits its `undoAction` output, without requiring any change
  * to this service. This service still does not implement undo/redo logic itself (that
  * stays in `UndoRedoService`/`WhiteboardCanvasComponent`) — it only transports the message.
+ * `WhiteboardPresenceComponent` (US08.3.2c) reuses the same entry point directly for
+ * `CURSOR_MOVE { x, y }` — unlike `WhiteboardCanvasComponent`, it is not kept STOMP-unaware:
+ * it injects this service directly (see that component's own TSDoc for the rationale).
+ *
+ * ## Presence topic (US08.3.2c/US08.5.1)
+ * `PARTICIPANTS_UPDATE` is **not** broadcast on the main `/topic/whiteboard/{boardId}` room
+ * alongside JOIN/LEAVE/DRAW/CURSOR_MOVE/UNDO. The backend (`ParticipantsBroadcastService`)
+ * emits it on a dedicated `/topic/whiteboard/{boardId}/presence` subtopic instead, as a raw
+ * `{ participants: [...] }` object with no `type`/`boardId`/`userId` envelope fields — this
+ * service subscribes to both topics and parses each with its own validation
+ * ({@link onIncoming} vs {@link onPresenceIncoming}). Isolation of the presence subtopic is
+ * inherited from `WhiteboardChannelInterceptor` (EN08.1) unchanged — its destination prefix
+ * check already covers the `/presence` suffix, not duplicated client-side here.
  *
  * ## Known platform gap — WS handshake identity
  * The backend's `StompHandshakeInterceptor` reads caller identity from the
@@ -121,10 +157,18 @@ export class WhiteboardSyncService {
 
   /** Emits validated remote `DRAW` actions for the canvas to apply (AC3). */
   readonly remoteActions$ = new Subject<SyncDrawAction>();
+  /** Emits validated remote `CURSOR_MOVE` broadcasts for the presence overlay (US08.3.2c). */
+  readonly cursorMoves$ = new Subject<RemoteCursorMove>();
+  /**
+   * Emits the validated participant list from every `PARTICIPANTS_UPDATE` broadcast on the
+   * board's dedicated `/presence` subtopic (see class TSDoc, "Presence topic").
+   */
+  readonly participantsUpdates$ = new Subject<ParticipantInfo[]>();
 
   private rxStomp: RxStomp | null = null;
   private boardId: string | null = null;
   private topicSubscription: Subscription | null = null;
+  private presenceSubscription: Subscription | null = null;
   private errorQueueSubscription: Subscription | null = null;
   private stateSubscription: Subscription | null = null;
   private stompErrorSubscription: Subscription | null = null;
@@ -169,6 +213,9 @@ export class WhiteboardSyncService {
     this.topicSubscription = rxStomp
       .watch(`/topic/whiteboard/${boardId}`)
       .subscribe(message => this.onIncoming(message.body));
+    this.presenceSubscription = rxStomp
+      .watch(`/topic/whiteboard/${boardId}/presence`)
+      .subscribe(message => this.onPresenceIncoming(message.body));
     this.errorQueueSubscription = rxStomp
       .watch('/user/queue/errors')
       .subscribe(() => this.onRevoked());
@@ -187,10 +234,12 @@ export class WhiteboardSyncService {
     this.clearReconnectedToastTimer();
 
     this.topicSubscription?.unsubscribe();
+    this.presenceSubscription?.unsubscribe();
     this.errorQueueSubscription?.unsubscribe();
     this.stateSubscription?.unsubscribe();
     this.stompErrorSubscription?.unsubscribe();
     this.topicSubscription = null;
+    this.presenceSubscription = null;
     this.errorQueueSubscription = null;
     this.stateSubscription = null;
     this.stompErrorSubscription = null;
@@ -356,9 +405,15 @@ export class WhiteboardSyncService {
     if (!KNOWN_ACTION_TYPES.has(parsed.type)) {
       return;
     }
+    if (parsed.type === 'CURSOR_MOVE') {
+      this.handleCursorMove(parsed.userId, parsed.data);
+      return;
+    }
     if (parsed.type !== 'DRAW') {
-      // JOIN/LEAVE/CURSOR_MOVE/UNDO/PARTICIPANTS_UPDATE are out of scope for this service
-      // (US08.3.2c presence, US08.3.3 undo) — validated and silently ignored, not applied.
+      // JOIN/LEAVE/UNDO are out of scope for this service. PARTICIPANTS_UPDATE never actually
+      // arrives on this main topic in practice — the backend broadcasts it separately on the
+      // board's `/presence` subtopic (see onPresenceIncoming) — this whitelist entry only
+      // guards a hypothetical future main-topic emission.
       return;
     }
     const data = parsed.data;
@@ -373,6 +428,57 @@ export class WhiteboardSyncService {
     });
   }
 
+  /**
+   * Validates and forwards a `CURSOR_MOVE` broadcast to {@link cursorMoves$}. Malformed
+   * frames (missing/non-string `userId`, non-numeric `x`/`y`) are silently dropped rather
+   * than throwing — `CURSOR_MOVE` is a purely visual, ephemeral, broadcast-only signal
+   * (`CanvasActionService#handleCursorMove`, never persisted), so failing safe on a
+   * malformed frame is preferable to disrupting the rest of the sync pipeline over it.
+   *
+   * @param userId the emitting user's UUID as a string, from the message envelope
+   * @param data   the `CURSOR_MOVE`-specific payload (`{ x, y }`)
+   */
+  private handleCursorMove(userId: unknown, data: Record<string, unknown> | null): void {
+    if (typeof userId !== 'string') {
+      return;
+    }
+    const x = data?.['x'];
+    const y = data?.['y'];
+    if (typeof x !== 'number' || typeof y !== 'number') {
+      return;
+    }
+    this.cursorMoves$.next({ userId, x, y });
+  }
+
+  /**
+   * Parses and validates an incoming `PARTICIPANTS_UPDATE` frame body from the board's
+   * dedicated `/presence` subtopic (US08.5.1 contract: `ParticipantsUpdatePayload`, a plain
+   * `{ participants: [...] }` object — not wrapped in the `BroadcastCanvasMessage` envelope
+   * used on the main topic, since it is emitted by a different backend broadcaster,
+   * `ParticipantsBroadcastService`, with no per-message `type`/`boardId`/`userId` fields).
+   * Entries individually failing shape validation are dropped rather than discarding the
+   * whole update, so one malformed participant never hides the rest of a legitimate list.
+   *
+   * @param rawBody the raw STOMP message body (JSON text)
+   */
+  private onPresenceIncoming(rawBody: string): void {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawBody);
+    } catch {
+      return;
+    }
+    if (typeof parsed !== 'object' || parsed === null) {
+      return;
+    }
+    const rawParticipants = (parsed as Record<string, unknown>)['participants'];
+    if (!Array.isArray(rawParticipants)) {
+      return;
+    }
+    const participants = rawParticipants.filter((p): p is ParticipantInfo => this.isParticipantInfo(p));
+    this.participantsUpdates$.next(participants);
+  }
+
   private isBroadcastMessage(value: unknown): value is {
     type: string;
     boardId: string;
@@ -384,6 +490,22 @@ export class WhiteboardSyncService {
     }
     const candidate = value as Record<string, unknown>;
     return typeof candidate['type'] === 'string' && typeof candidate['boardId'] === 'string';
+  }
+
+  private isParticipantInfo(value: unknown): value is ParticipantInfo {
+    if (typeof value !== 'object' || value === null) {
+      return false;
+    }
+    const candidate = value as Record<string, unknown>;
+    return (
+      typeof candidate['userId'] === 'string' &&
+      typeof candidate['displayName'] === 'string' &&
+      typeof candidate['color'] === 'string' &&
+      typeof candidate['role'] === 'string' &&
+      (candidate['avatarUrl'] === null ||
+        candidate['avatarUrl'] === undefined ||
+        typeof candidate['avatarUrl'] === 'string')
+    );
   }
 
   /**
