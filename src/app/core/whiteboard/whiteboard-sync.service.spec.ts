@@ -376,6 +376,23 @@ describe('WhiteboardSyncService', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/whiteboard');
   });
 
+  // ── Viewer UNDO rejection (US08.3.3 AC9) ──
+
+  it(
+    'a VIEWER-role UNDO rejection (backend CanvasActionService, "VIEWER role cannot send ' +
+      'UNDO") is delivered on the same /user/queue/errors channel and gets the same coherent ' +
+      'disconnect+redirect handling as any other denied SEND/SUBSCRIBE frame — this US does ' +
+      'not add client-side role logic to special-case it (see WhiteboardSyncService TSDoc)',
+    () => {
+      service.connect(BOARD_ID);
+      fake.emit(ERROR_QUEUE, JSON.stringify({ error: 'VIEWER role cannot send UNDO' }));
+
+      expect(toastService.show).toHaveBeenCalledWith('whiteboard.ws.revoked', 'error');
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/whiteboard');
+      expect(fake.deactivateCalls).toBeGreaterThanOrEqual(1);
+    },
+  );
+
   // ── disconnect() ──
 
   it('disconnect() deactivates the client, clears listeners and resets the undo stack', () => {

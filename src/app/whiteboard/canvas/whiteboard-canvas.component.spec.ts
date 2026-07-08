@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { WhiteboardCanvasComponent } from './whiteboard-canvas.component';
-import { CanvasObject, StrokeObject, ShapeObject, COLOR_PALETTE, HEX_REGEX } from './model/canvas.model';
+import { StrokeObject, ShapeObject, COLOR_PALETTE, HEX_REGEX } from './model/canvas.model';
 import { clampShape, getBoundingBox, hitTest, translateObject } from './model/canvas-geometry';
 import { UndoRedoService } from '../../core/whiteboard/undo-redo.service';
 
@@ -138,83 +138,12 @@ describe('translateObject', () => {
   });
 });
 
-// ─── UndoRedoService unit tests ───────────────────────────────────────────────
-
-describe('UndoRedoService', () => {
-  let service: UndoRedoService;
-
-  beforeEach(() => {
-    service = new UndoRedoService();
-  });
-
-  it('starts with canUndo=false and canRedo=false', () => {
-    expect(service.canUndo()).toBe(false);
-    expect(service.canRedo()).toBe(false);
-  });
-
-  it('push enables canUndo', () => {
-    service.push([makeRect()]);
-    expect(service.canUndo()).toBe(true);
-    expect(service.canRedo()).toBe(false);
-  });
-
-  it('undo returns the previous state and enables canRedo', () => {
-    const obj = makeRect();
-    service.push([obj]);
-    const current: CanvasObject[] = [];
-    const result = service.undo(current);
-    expect(result).toEqual([obj]);
-    expect(service.canUndo()).toBe(false);
-    expect(service.canRedo()).toBe(true);
-  });
-
-  it('redo returns the undone state', () => {
-    const obj = makeRect();
-    service.push([obj]);
-    const undone = service.undo([]);
-    expect(undone).toEqual([obj]);
-    const redone = service.redo([]);
-    expect(redone).not.toBeNull();
-  });
-
-  it('undo returns null when stack is empty', () => {
-    expect(service.undo([])).toBeNull();
-  });
-
-  it('redo returns null when redo stack is empty', () => {
-    expect(service.redo([])).toBeNull();
-  });
-
-  it('push after undo clears the redo stack', () => {
-    service.push([makeRect()]);
-    service.undo([]);
-    expect(service.canRedo()).toBe(true);
-    service.push([makeRect('r2')]);
-    expect(service.canRedo()).toBe(false);
-  });
-
-  it('limits the undo stack to 50 entries', () => {
-    for (let i = 0; i < 60; i++) {
-      service.push([makeRect(`rect-${i}`)]);
-    }
-    // Undo 60 times — should only succeed 50 times
-    let count = 0;
-    let current: CanvasObject[] = [];
-    while (service.canUndo()) {
-      current = service.undo(current) ?? current;
-      count++;
-    }
-    expect(count).toBe(50);
-  });
-
-  it('reset clears both stacks', () => {
-    service.push([makeRect()]);
-    service.push([makeRect('r2')]);
-    service.reset();
-    expect(service.canUndo()).toBe(false);
-    expect(service.canRedo()).toBe(false);
-  });
-});
+// `UndoRedoService` itself is unit-tested in its own dedicated spec file
+// (`core/whiteboard/undo-redo.service.spec.ts`, US08.3.3) — consolidated there rather
+// than duplicated here, matching the convention already used for
+// `WhiteboardSyncService`/`whiteboard-sync.service.spec.ts`. This file keeps only the
+// `WhiteboardCanvasComponent` integration tests below (undo/redo wired to keyboard
+// shortcuts, toolbar buttons and the `undoAction` output).
 
 // ─── Component integration tests ─────────────────────────────────────────────
 
@@ -398,11 +327,97 @@ describe('WhiteboardCanvasComponent', () => {
     expect(undoRedo.canRedo()).toBe(false);
   });
 
-  it('read-only mode disables toolbar buttons', () => {
+  it('onUndo() emits undoAction with the undone action eventId (US08.3.3 AC5)', () => {
+    const undoRedo = TestBed.inject(UndoRedoService);
+    undoRedo.push([makeRect('r1'), makeRect('r2')]);
+    component['objects'].set([makeRect('r1'), makeRect('r2'), makeRect('r3')]);
+
+    const emitted: { eventId: string }[] = [];
+    component.undoAction.subscribe(e => emitted.push(e));
+
+    component['onUndo']();
+
+    expect(emitted).toHaveLength(1);
+    expect(typeof emitted[0].eventId).toBe('string');
+    expect(emitted[0].eventId.length).toBeGreaterThan(0);
+  });
+
+  it('onUndo() emits nothing when the undo stack is empty (no-op)', () => {
+    const emitted: unknown[] = [];
+    component.undoAction.subscribe(e => emitted.push(e));
+
+    component['onUndo']();
+
+    expect(emitted).toHaveLength(0);
+  });
+
+  it('onRedo() never emits undoAction (redo has no STOMP wire contract)', () => {
+    const undoRedo = TestBed.inject(UndoRedoService);
+    undoRedo.push([makeRect('r1')]);
+    component['objects'].set([makeRect('r1'), makeRect('r2')]);
+    component['onUndo']();
+
+    const emitted: unknown[] = [];
+    component.undoAction.subscribe(e => emitted.push(e));
+    component['onRedo']();
+
+    expect(emitted).toHaveLength(0);
+  });
+
+  it('onUndo() is a no-op when read-only, even called directly (AC10)', () => {
+    const undoRedo = TestBed.inject(UndoRedoService);
+    undoRedo.push([makeRect('r1'), makeRect('r2')]);
+    component['objects'].set([makeRect('r1'), makeRect('r2'), makeRect('r3')]);
     fixture.componentRef.setInput('readOnly', true);
     fixture.detectChanges();
+
+    const emitted: unknown[] = [];
+    component.undoAction.subscribe(e => emitted.push(e));
+    component['onUndo']();
+
+    expect(component['objects']()).toHaveLength(3);
+    expect(emitted).toHaveLength(0);
+  });
+
+  it('onRedo() is a no-op when read-only, even called directly (AC10)', () => {
+    const undoRedo = TestBed.inject(UndoRedoService);
+    undoRedo.push([makeRect('r1')]);
+    component['objects'].set([makeRect('r1'), makeRect('r2')]);
+    component['onUndo']();
+    fixture.componentRef.setInput('readOnly', true);
+    fixture.detectChanges();
+
+    component['onRedo']();
+
+    expect(component['objects']()).toHaveLength(1);
+  });
+
+  it('Ctrl+Z/Ctrl+Y keyboard shortcuts do not trigger undo/redo when read-only (AC10)', () => {
+    const undoRedo = TestBed.inject(UndoRedoService);
+    undoRedo.push([makeRect('r1'), makeRect('r2')]);
+    component['objects'].set([makeRect('r1'), makeRect('r2'), makeRect('r3')]);
+    fixture.componentRef.setInput('readOnly', true);
+    fixture.detectChanges();
+
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+    expect(component['objects']()).toHaveLength(3);
+
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: 'y', ctrlKey: true }));
+    expect(undoRedo.canRedo()).toBe(false);
+  });
+
+  it('read-only mode disables toolbar buttons, including undo/redo with a non-empty stack', () => {
+    const undoRedo = TestBed.inject(UndoRedoService);
+    undoRedo.push([makeRect('r1')]);
+    component['objects'].set([makeRect('r1'), makeRect('r2')]);
+    component['onUndo'](); // canUndo()=false, canRedo()=true — proves disabling comes from readOnly, not the stack
+    fixture.componentRef.setInput('readOnly', true);
+    fixture.detectChanges();
+
     const disabledBtns = fixture.nativeElement.querySelectorAll('button[disabled]');
     expect(disabledBtns.length).toBeGreaterThan(0);
+    const ariaDisabledBtns = fixture.nativeElement.querySelectorAll('button[aria-disabled="true"]');
+    expect(ariaDisabledBtns.length).toBeGreaterThan(0);
   });
 
   it('shows read-only banner when readOnly is true', () => {

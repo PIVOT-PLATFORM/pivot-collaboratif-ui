@@ -87,10 +87,12 @@ const HEARTBEAT_OUTGOING_MS = 10000;
  * is resolved server-side from the authenticated STOMP principal and is never trusted
  * from the client payload (CLAUDE.md: no client-supplied `userId`/`tenantId` in body).
  *
- * ## Generic publish API (for US08.3.3)
- * {@link publish} is intentionally generic (`type` + `data`) so that the future
- * undo/redo US can relay an `UNDO { eventId }` message through this same service without
- * requiring a refactor. This service does not implement undo/redo logic itself.
+ * ## Generic publish API (used by US08.3.3 undo/redo)
+ * {@link publish} is intentionally generic (`type` + `data`) — `WhiteboardBoardComponent`
+ * relays an `UNDO { eventId }` message through this same method (US08.3.3 AC5) whenever
+ * `WhiteboardCanvasComponent` emits its `undoAction` output, without requiring any change
+ * to this service. This service still does not implement undo/redo logic itself (that
+ * stays in `UndoRedoService`/`WhiteboardCanvasComponent`) — it only transports the message.
  *
  * ## Known platform gap — WS handshake identity
  * The backend's `StompHandshakeInterceptor` reads caller identity from the
@@ -227,10 +229,11 @@ export class WhiteboardSyncService {
   }
 
   /**
-   * Generic publish entry point — kept deliberately untyped in `data` so that a future
-   * US (US08.3.3, undo/redo) can relay an `UNDO { eventId }` message through this same
-   * service without a refactor. Never includes `userId`/`tenantId`: those are resolved
-   * server-side from the authenticated STOMP principal (CLAUDE.md security rule).
+   * Generic publish entry point — kept deliberately untyped in `data` so callers such as
+   * `WhiteboardBoardComponent` can relay an `UNDO { eventId }` message (US08.3.3 AC5)
+   * through this same service without a refactor. Never includes `userId`/`tenantId`:
+   * those are resolved server-side from the authenticated STOMP principal (CLAUDE.md
+   * security rule).
    *
    * @param type the top-level STOMP action type (`DRAW`, `UNDO`, …)
    * @param data the type-specific payload map
@@ -309,6 +312,20 @@ export class WhiteboardSyncService {
    *   (`WhiteboardChannelInterceptor`) actually uses to signal a denied SUBSCRIBE/SEND
    *   without closing the session (see its Javadoc). Reacting to both keeps this client
    *   correct against the real, deployed backend behaviour rather than only the AC text.
+   *
+   * ## US08.3.3 AC9 — VIEWER `UNDO` rejection shares this same channel
+   * `CanvasActionService#handle` also sends a `VIEWER role cannot send UNDO` error to
+   * `/user/queue/errors` when a `VIEWER` sends `UNDO` (403-equivalent, per US08.3.1's
+   * generic membership/role check — not duplicated client-side here). `ErrorPayload`
+   * only carries a free-text `error` string (no typed reason code), so this handler
+   * cannot reliably distinguish "role rejected this one action" from "no longer a
+   * member of this board" without parsing backend wording — a fragile, one-off coupling
+   * this US deliberately avoids. The chosen behaviour (disconnect + toast + redirect to
+   * `/whiteboard` for *any* denied frame, including a VIEWER's `UNDO`) is a fail-secure
+   * default consistent with every other denial already handled here, not a bug: a
+   * client that just had a SEND rejected is not treated as a trusted board participant.
+   * A future US could split `/user/queue/errors` into typed reason codes server-side if
+   * a softer "keep the viewer on the board" UX is desired — out of scope here.
    */
   private onRevoked(): void {
     this.toast.show(this.transloco.translate('whiteboard.ws.revoked'), 'error');
