@@ -1,0 +1,36 @@
+:host {
+  position: absolute;
+  inset: 0;
+  display: block;
+  // Decorative overlay only (AC "aria-hidden — décoratif") — never intercepts pointer events
+  // meant for the canvas below it. Local cursor capture instead listens at `window` level
+  // (see WhiteboardPresenceComponent.onWindowPointerMove).
+  pointer-events: none;
+  z-index: 5;
+}
+
+.wb-presence-overlay {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.wb-presence-cursor {
+  transition: transform 0.08s linear;
+}
+
+.wb-presence-cursor__pointer {
+  stroke: #ffffff;
+  stroke-width: 1;
+}
+
+.wb-presence-cursor__label {
+  font-size: 12px;
+  font-family: sans-serif;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}

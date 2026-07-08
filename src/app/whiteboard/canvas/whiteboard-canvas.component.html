@@ -174,6 +174,11 @@
     <span id="wb-shortcuts-desc" class="wb-sr-only">
       {{ 'whiteboard.canvas.shortcuts.description' | transloco }}
     </span>
+
+    <!-- Presence overlay slot (US08.3.2c) — projected content is expected to be an absolutely
+         positioned, decorative-only layer (e.g. app-whiteboard-presence) matching this
+         wb-canvas-area's exact bounds, so remote cursors align with the canvas below it. -->
+    <ng-content></ng-content>
   </div>
 
   <!-- ─────────────────────────── Minimap ───────────────────────────────── -->

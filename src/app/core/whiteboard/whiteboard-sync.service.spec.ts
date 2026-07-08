@@ -64,6 +64,7 @@ class FakeRxStomp {
 
 const BOARD_ID = 'board-abc';
 const TOPIC = `/topic/whiteboard/${BOARD_ID}`;
+const PRESENCE_TOPIC = `/topic/whiteboard/${BOARD_ID}/presence`;
 const ERROR_QUEUE = '/user/queue/errors';
 
 describe('WhiteboardSyncService', () => {
@@ -325,14 +326,128 @@ describe('WhiteboardSyncService', () => {
     expect(received).toHaveLength(0);
   });
 
-  it('ignores a known non-DRAW type (JOIN/LEAVE/CURSOR_MOVE/UNDO/PARTICIPANTS_UPDATE — out of scope)', () => {
+  it('ignores a known non-DRAW type on the main topic (JOIN/LEAVE/UNDO — out of scope for remoteActions$)', () => {
     service.connect(BOARD_ID);
     const received: unknown[] = [];
     service.remoteActions$.subscribe(a => received.push(a));
 
-    fake.emit(TOPIC, JSON.stringify({ type: 'CURSOR_MOVE', boardId: BOARD_ID, userId: 'u', data: { x: 1, y: 2 } }));
+    fake.emit(TOPIC, JSON.stringify({ type: 'JOIN', boardId: BOARD_ID, userId: 'u', data: {} }));
+    fake.emit(TOPIC, JSON.stringify({ type: 'LEAVE', boardId: BOARD_ID, userId: 'u', data: {} }));
+    fake.emit(TOPIC, JSON.stringify({ type: 'UNDO', boardId: BOARD_ID, userId: 'u', data: { eventId: 'e1' } }));
 
     expect(received).toHaveLength(0);
+  });
+
+  it('CURSOR_MOVE is routed to cursorMoves$, never to remoteActions$ (US08.3.2c)', () => {
+    service.connect(BOARD_ID);
+    const draws: unknown[] = [];
+    const cursors: unknown[] = [];
+    service.remoteActions$.subscribe(a => draws.push(a));
+    service.cursorMoves$.subscribe(c => cursors.push(c));
+
+    fake.emit(TOPIC, JSON.stringify({ type: 'CURSOR_MOVE', boardId: BOARD_ID, userId: 'user-2', data: { x: 12, y: 34 } }));
+
+    expect(draws).toHaveLength(0);
+    expect(cursors).toEqual([{ userId: 'user-2', x: 12, y: 34 }]);
+  });
+
+  it('ignores a CURSOR_MOVE for a mismatched boardId (isolation, EN08.1)', () => {
+    service.connect(BOARD_ID);
+    const cursors: unknown[] = [];
+    service.cursorMoves$.subscribe(c => cursors.push(c));
+
+    fake.emit(
+      TOPIC,
+      JSON.stringify({ type: 'CURSOR_MOVE', boardId: 'some-other-board', userId: 'user-2', data: { x: 1, y: 2 } }),
+    );
+
+    expect(cursors).toHaveLength(0);
+  });
+
+  it('ignores a CURSOR_MOVE with non-numeric x/y', () => {
+    service.connect(BOARD_ID);
+    const cursors: unknown[] = [];
+    service.cursorMoves$.subscribe(c => cursors.push(c));
+
+    fake.emit(TOPIC, JSON.stringify({ type: 'CURSOR_MOVE', boardId: BOARD_ID, userId: 'user-2', data: { x: '1', y: 2 } }));
+    fake.emit(TOPIC, JSON.stringify({ type: 'CURSOR_MOVE', boardId: BOARD_ID, userId: 'user-2', data: {} }));
+
+    expect(cursors).toHaveLength(0);
+  });
+
+  it('ignores a CURSOR_MOVE with a non-string userId', () => {
+    service.connect(BOARD_ID);
+    const cursors: unknown[] = [];
+    service.cursorMoves$.subscribe(c => cursors.push(c));
+
+    fake.emit(TOPIC, JSON.stringify({ type: 'CURSOR_MOVE', boardId: BOARD_ID, userId: 42, data: { x: 1, y: 2 } }));
+
+    expect(cursors).toHaveLength(0);
+  });
+
+  // ── PARTICIPANTS_UPDATE (presence subtopic, US08.5.1 contract) ──
+
+  it('forwards a valid PARTICIPANTS_UPDATE from the dedicated /presence subtopic', () => {
+    service.connect(BOARD_ID);
+    const updates: unknown[] = [];
+    service.participantsUpdates$.subscribe(p => updates.push(p));
+
+    fake.emit(
+      PRESENCE_TOPIC,
+      JSON.stringify({
+        participants: [
+          { userId: 'u1', displayName: 'Alice', avatarUrl: null, color: '#E91E63', role: 'OWNER' },
+          { userId: 'u2', displayName: 'Bob', avatarUrl: 'https://x/y.png', color: '#2196F3', role: 'VIEWER' },
+        ],
+      }),
+    );
+
+    expect(updates).toEqual([
+      [
+        { userId: 'u1', displayName: 'Alice', avatarUrl: null, color: '#E91E63', role: 'OWNER' },
+        { userId: 'u2', displayName: 'Bob', avatarUrl: 'https://x/y.png', color: '#2196F3', role: 'VIEWER' },
+      ],
+    ]);
+  });
+
+  it('drops individually malformed participant entries without discarding the rest of the list', () => {
+    service.connect(BOARD_ID);
+    const updates: unknown[] = [];
+    service.participantsUpdates$.subscribe(p => updates.push(p));
+
+    fake.emit(
+      PRESENCE_TOPIC,
+      JSON.stringify({
+        participants: [
+          { userId: 'u1', displayName: 'Alice', avatarUrl: null, color: '#E91E63', role: 'OWNER' },
+          { userId: 'u2', displayName: 42, avatarUrl: null, color: '#2196F3', role: 'VIEWER' },
+          'not-an-object',
+        ],
+      }),
+    );
+
+    expect(updates).toEqual([[{ userId: 'u1', displayName: 'Alice', avatarUrl: null, color: '#E91E63', role: 'OWNER' }]]);
+  });
+
+  it('ignores a presence frame without a participants array', () => {
+    service.connect(BOARD_ID);
+    const updates: unknown[] = [];
+    service.participantsUpdates$.subscribe(p => updates.push(p));
+
+    fake.emit(PRESENCE_TOPIC, JSON.stringify({}));
+    fake.emit(PRESENCE_TOPIC, JSON.stringify({ participants: 'nope' }));
+    fake.emit(PRESENCE_TOPIC, JSON.stringify(null));
+
+    expect(updates).toHaveLength(0);
+  });
+
+  it('ignores malformed JSON on the presence subtopic without throwing', () => {
+    service.connect(BOARD_ID);
+    const updates: unknown[] = [];
+    service.participantsUpdates$.subscribe(p => updates.push(p));
+
+    expect(() => fake.emit(PRESENCE_TOPIC, '{not valid json')).not.toThrow();
+    expect(updates).toHaveLength(0);
   });
 
   it('ignores a DRAW message with an unknown sub-type', () => {
@@ -419,6 +534,16 @@ describe('WhiteboardSyncService', () => {
       JSON.stringify({ type: 'DRAW', boardId: BOARD_ID, userId: 'u', data: { type: 'stroke', payload: {} } }),
     );
     expect(received).toHaveLength(0);
+  });
+
+  it('disconnect() also stops applying subsequent presence-subtopic messages', () => {
+    service.connect(BOARD_ID);
+    const updates: unknown[] = [];
+    service.participantsUpdates$.subscribe(p => updates.push(p));
+    service.disconnect();
+
+    fake.emit(PRESENCE_TOPIC, JSON.stringify({ participants: [{ userId: 'u1', displayName: 'Alice', avatarUrl: null, color: '#E91E63', role: 'OWNER' }] }));
+    expect(updates).toHaveLength(0);
   });
 
   it('disconnect() is safe to call without a prior connect()', () => {

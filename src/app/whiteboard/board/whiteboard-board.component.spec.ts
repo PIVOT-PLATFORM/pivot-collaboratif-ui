@@ -26,6 +26,19 @@ class StubCanvasComponent {
   applyRemoteAction = vi.fn();
 }
 
+/**
+ * Stub standing in for `WhiteboardPresenceComponent` (US08.3.2c) — this container test only
+ * needs the selector to resolve; the presence overlay's own behaviour (STOMP wiring, cursor
+ * rendering, throttle, timeout) is fully covered by its own dedicated spec file.
+ */
+@Component({
+  selector: 'app-whiteboard-presence',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: '',
+})
+class StubPresenceComponent {}
+
 const FR: Record<string, unknown> = {
   whiteboard: {
     ws: {
@@ -78,7 +91,7 @@ describe('WhiteboardBoardComponent', () => {
       ],
     })
       .overrideComponent(WhiteboardBoardComponent, {
-        set: { imports: [TranslocoPipe, StubCanvasComponent] },
+        set: { imports: [TranslocoPipe, StubCanvasComponent, StubPresenceComponent] },
       })
       .compileComponents();
 
@@ -116,7 +129,7 @@ describe('WhiteboardBoardComponent', () => {
       ],
     })
       .overrideComponent(WhiteboardBoardComponent, {
-        set: { imports: [TranslocoPipe, StubCanvasComponent] },
+        set: { imports: [TranslocoPipe, StubCanvasComponent, StubPresenceComponent] },
       })
       .compileComponents();
 

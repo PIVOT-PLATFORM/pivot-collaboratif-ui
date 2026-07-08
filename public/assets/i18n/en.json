@@ -200,6 +200,9 @@
       "retryManual": "Retry manually",
       "offline": "Offline mode — changes are not being saved",
       "revoked": "You no longer have access to this board"
+    },
+    "presence": {
+      "cursorLabel": "Cursor of {{name}}"
     }
   }
 }
