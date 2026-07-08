@@ -8,6 +8,8 @@ import type { Mock } from 'vitest';
 import { ToastService } from '../toast/toast.service';
 import { UndoRedoService } from './undo-redo.service';
 import { WhiteboardSyncService } from './whiteboard-sync.service';
+import { COLLABORATIF_API_URL } from './config/tokens';
+const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 
 // `RxStompState` is a plain 4-value enum (CONNECTING/OPEN/CLOSING/CLOSED) — reconstructed
 // here instead of re-exported via `importOriginal` to avoid a module-hoisting TDZ issue
@@ -87,6 +89,7 @@ describe('WhiteboardSyncService', () => {
       providers: [
         provideRouter([]),
         { provide: TranslocoService, useValue: { translate: (key: string) => key } },
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
       ],
     });
 

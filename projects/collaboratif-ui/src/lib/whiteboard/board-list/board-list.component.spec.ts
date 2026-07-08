@@ -9,10 +9,11 @@ import { TranslocoTestingModule } from '@jsverse/transloco';
 import { BoardListComponent } from './board-list.component';
 import { ToastService } from '../../core/toast/toast.service';
 import { Board, BoardPage, WhiteboardTemplate } from '../../core/whiteboard/board.model';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
 
-const BASE = `${environment.apiUrl}/whiteboard/boards`;
-const TEMPLATES_BASE = `${environment.apiUrl}/whiteboard/templates`;
+const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
+const BASE = `${TEST_API_URL}/whiteboard/boards`;
+const TEMPLATES_BASE = `${TEST_API_URL}/whiteboard/templates`;
 
 const FR_TRANSLATIONS = {
   whiteboard: {
@@ -124,6 +125,7 @@ describe('BoardListComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
       ],
     }).compileComponents();
 

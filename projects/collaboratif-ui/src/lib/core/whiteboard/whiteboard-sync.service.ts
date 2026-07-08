@@ -4,7 +4,7 @@ import { TranslocoService } from '@jsverse/transloco';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { ReconnectionTimeMode } from '@stomp/stompjs';
 import { Subject, Subscription } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from './config/tokens';
 import { ToastService } from '../toast/toast.service';
 import { UndoRedoService } from './undo-redo.service';
 
@@ -145,6 +145,7 @@ export class WhiteboardSyncService {
   private readonly toast = inject(ToastService);
   private readonly transloco = inject(TranslocoService);
   private readonly undoRedo = inject(UndoRedoService);
+  private readonly apiUrl = inject(COLLABORATIF_API_URL);
 
   /** Current WS connection status — drives the connecting/lost/failed banners. */
   readonly status = signal<WhiteboardConnectionStatus>('connecting');
@@ -509,12 +510,13 @@ export class WhiteboardSyncService {
   }
 
   /**
-   * Derives the WebSocket URL from `environment.apiUrl`. Handles both the absolute dev
-   * URL (`http://localhost:8083/api/collaboratif`) and the relative production URL
-   * (`/api/collaboratif`, proxied by nginx — see `environment.prod.ts`).
+   * Derives the WebSocket URL from the injected {@link COLLABORATIF_API_URL}. Handles both
+   * the absolute dev URL (`http://localhost:8083/api/collaboratif`) and the relative
+   * production URL (`/api/collaboratif`, proxied by nginx — see `environment.prod.ts` /
+   * `provideCollaboratifUi()`).
    */
   private buildWsUrl(): string {
-    const apiUrl = environment.apiUrl;
+    const apiUrl = this.apiUrl;
     if (/^https?:\/\//.test(apiUrl)) {
       return `${apiUrl.replace(/^http/, 'ws')}/ws/whiteboard`;
     }

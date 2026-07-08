@@ -8,11 +8,12 @@ import { TranslocoTestingModule } from '@jsverse/transloco';
 import { SharePanelComponent } from './share-panel.component';
 import { ToastService } from '../../core/toast/toast.service';
 import { BoardMember, ShareToken } from '../../core/whiteboard/board.model';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
 
+const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 const BOARD_ID = 'board-abc-123';
-const MEMBERS_URL = `${environment.apiUrl}/whiteboard/boards/${BOARD_ID}/members`;
-const SHARE_URL = `${environment.apiUrl}/whiteboard/boards/${BOARD_ID}/share`;
+const MEMBERS_URL = `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/members`;
+const SHARE_URL = `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/share`;
 
 const FR: Record<string, unknown> = {
   whiteboard: {
@@ -84,7 +85,11 @@ describe('SharePanelComponent', () => {
           preloadLangs: true,
         }),
       ],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SharePanelComponent);
@@ -241,7 +246,7 @@ describe('SharePanelComponent', () => {
     fixture.detectChanges();
 
     const req = httpMock.expectOne(
-      r => r.url === `${environment.apiUrl}/whiteboard/boards/${BOARD_ID}/members/${EDITOR.userId}/role` && r.method === 'PATCH',
+      r => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/members/${EDITOR.userId}/role` && r.method === 'PATCH',
     );
     expect(req.request.body).toEqual({ role: 'VIEWER' });
     req.flush({ ...EDITOR, role: 'VIEWER' });
@@ -314,7 +319,7 @@ describe('SharePanelComponent', () => {
     fixture.detectChanges();
 
     httpMock.expectOne(
-      r => r.url === `${environment.apiUrl}/whiteboard/boards/${BOARD_ID}/members/${EDITOR.userId}` && r.method === 'DELETE',
+      r => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/members/${EDITOR.userId}` && r.method === 'DELETE',
     ).flush(null);
     fixture.detectChanges();
 

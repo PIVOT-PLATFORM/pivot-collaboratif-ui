@@ -27,6 +27,12 @@
     },
     {
       "path": "./tsconfig.spec.json"
+    },
+    {
+      "path": "./projects/collaboratif-ui/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/collaboratif-ui/tsconfig.spec.json"
     }
   ]
 }

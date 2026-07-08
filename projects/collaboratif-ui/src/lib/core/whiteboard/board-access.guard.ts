@@ -5,7 +5,7 @@ import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { TranslocoService } from '@jsverse/transloco';
 import { ToastService } from '../toast/toast.service';
-import { environment } from '../../../environments/environment';
+import { COLLABORATIF_API_URL } from './config/tokens';
 
 /**
  * Guard d'accès à un board précis : vérifie les droits via l'API avant d'instancier l'UI canvas.
@@ -25,6 +25,7 @@ export const boardAccessGuard: CanActivateFn = (route): Observable<boolean | Url
   const router = inject(Router);
   const toast = inject(ToastService);
   const transloco = inject(TranslocoService);
+  const apiUrl = inject(COLLABORATIF_API_URL);
   const boardId = route.paramMap.get('boardId');
 
   const denyAccess = (): Observable<UrlTree> => {
@@ -37,7 +38,7 @@ export const boardAccessGuard: CanActivateFn = (route): Observable<boolean | Url
   }
 
   return http
-    .get<unknown>(`${environment.apiUrl}/whiteboard/boards/${boardId}`)
+    .get<unknown>(`${apiUrl}/whiteboard/boards/${boardId}`)
     .pipe(
       map(() => true),
       catchError(() => denyAccess()),
