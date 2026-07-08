@@ -4,7 +4,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { TranslocoPipe, TranslocoTestingModule } from '@jsverse/transloco';
 import { Subject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DrawAction } from '../canvas/whiteboard-canvas.component';
+import { DrawAction, UndoEvent } from '../canvas/whiteboard-canvas.component';
 import {
   SyncDrawAction,
   WhiteboardConnectionStatus,
@@ -22,6 +22,7 @@ import { WhiteboardBoardComponent } from './whiteboard-board.component';
 class StubCanvasComponent {
   readonly readOnly = input<boolean>(false);
   readonly drawAction = output<DrawAction>();
+  readonly undoAction = output<UndoEvent>();
   applyRemoteAction = vi.fn();
 }
 
@@ -48,6 +49,7 @@ class FakeSyncService {
   connect = vi.fn();
   disconnect = vi.fn();
   publishDraw = vi.fn();
+  publish = vi.fn();
   retryManual = vi.fn();
 }
 
@@ -178,6 +180,16 @@ describe('WhiteboardBoardComponent', () => {
     stub.drawAction.emit(action);
 
     expect(sync.publishDraw).toHaveBeenCalledWith('stroke', { id: 'obj-1' });
+  });
+
+  it('relays a local undo as UNDO { eventId } over STOMP (US08.3.3 AC5)', () => {
+    fixture.detectChanges();
+    const stub = fixture.debugElement.query(de => de.name === 'app-whiteboard-canvas')
+      ?.componentInstance as StubCanvasComponent;
+
+    stub.undoAction.emit({ eventId: 'evt-42' });
+
+    expect(sync.publish).toHaveBeenCalledWith('UNDO', { eventId: 'evt-42' });
   });
 
   it('forwards validated remote actions to the canvas via applyRemoteAction', () => {

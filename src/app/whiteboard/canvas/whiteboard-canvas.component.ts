@@ -47,6 +47,11 @@ export interface DrawAction {
 /** Applies a DRAW action received from another participant (called by WhiteboardSyncService). */
 export type ApplyRemoteAction = (action: DrawAction) => void;
 
+/** Emitted after a successful local undo so WhiteboardBoardComponent can relay `UNDO` over STOMP. */
+export interface UndoEvent {
+  eventId: string;
+}
+
 @Component({
   selector: 'app-whiteboard-canvas',
   standalone: true,
@@ -67,6 +72,13 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
 
   /** Emits a DRAW action for STOMP publication (consumed by WhiteboardSyncService). */
   readonly drawAction = output<DrawAction>();
+  /**
+   * Emits once per successful local undo, carrying the id of the undone action
+   * (US08.3.3 AC5). `WhiteboardBoardComponent` relays it as `UNDO { eventId }` via
+   * `WhiteboardSyncService.publish`. Never emitted for redo — the wire contract only
+   * defines `UNDO`.
+   */
+  readonly undoAction = output<UndoEvent>();
 
   // ─── Injected services ───────────────────────────────────────────────────
   private readonly undoRedo = inject(UndoRedoService);
@@ -801,12 +813,31 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
     this.markDirty();
   }
 
+  /**
+   * Undoes the last local action (US08.3.3 AC1). No-op while read-only (WS disconnected
+   * or browser offline, AC10) — checked explicitly here rather than relying solely on
+   * the toolbar `[disabled]`/keyboard-shortcut guards, so that no local mutation is
+   * possible via any call path while read-only. On success, emits {@link undoAction}
+   * so `WhiteboardBoardComponent` can relay `UNDO { eventId }` over STOMP (AC5).
+   */
   protected onUndo(): void {
+    if (this.readOnly()) return;
     const result = this.undoRedo.undo(this.objects());
-    if (result) { this.objects.set(result); this.selectedIds.set(new Set()); this.markDirty(); }
+    if (result) {
+      this.objects.set(result.objects);
+      this.selectedIds.set(new Set());
+      this.markDirty();
+      this.undoAction.emit({ eventId: result.eventId });
+    }
   }
 
+  /**
+   * Redoes the last undone local action (US08.3.3 AC2). No-op while read-only, same
+   * rationale as {@link onUndo}. Purely local — no STOMP message is sent (the wire
+   * contract only defines `UNDO`).
+   */
   protected onRedo(): void {
+    if (this.readOnly()) return;
     const result = this.undoRedo.redo(this.objects());
     if (result) { this.objects.set(result); this.selectedIds.set(new Set()); this.markDirty(); }
   }

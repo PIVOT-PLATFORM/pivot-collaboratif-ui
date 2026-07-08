@@ -36,7 +36,8 @@
   <app-whiteboard-canvas
     #canvas
     [readOnly]="readOnly()"
-    (drawAction)="onDrawAction($event)">
+    (drawAction)="onDrawAction($event)"
+    (undoAction)="onUndoAction($event)">
   </app-whiteboard-canvas>
 
 </div>

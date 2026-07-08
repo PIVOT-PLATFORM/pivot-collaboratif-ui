@@ -10,7 +10,7 @@ import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { Subscription } from 'rxjs';
 import { WhiteboardSyncService } from '../../core/whiteboard/whiteboard-sync.service';
-import { DrawAction, WhiteboardCanvasComponent } from '../canvas/whiteboard-canvas.component';
+import { DrawAction, UndoEvent, WhiteboardCanvasComponent } from '../canvas/whiteboard-canvas.component';
 
 /**
  * Route-level container for a single board (`/whiteboard/{boardId}`, US08.3.2b).
@@ -18,8 +18,9 @@ import { DrawAction, WhiteboardCanvasComponent } from '../canvas/whiteboard-canv
  * Owns the {@link WhiteboardSyncService} lifecycle (connect on init, disconnect on
  * destroy) and renders the connection-state banners/toast (AC7-11) around the local
  * `WhiteboardCanvasComponent` (US08.3.2a), which stays STOMP-unaware by design. Bridges
- * the two: canvas `drawAction` outputs are published over STOMP, and validated remote
- * actions are applied back onto the canvas via {@link WhiteboardCanvasComponent.applyRemoteAction}.
+ * the two: canvas `drawAction` outputs are published over STOMP, validated remote
+ * actions are applied back onto the canvas via {@link WhiteboardCanvasComponent.applyRemoteAction},
+ * and canvas `undoAction` outputs are relayed as `UNDO { eventId }` (US08.3.3 AC5).
  *
  * Board membership is already verified by `boardAccessGuard` before this component is
  * ever activated (route `canActivate`); this component does not repeat that HTTP call —
@@ -72,6 +73,17 @@ export class WhiteboardBoardComponent implements AfterViewInit, OnDestroy {
   /** Publishes a local canvas action emitted by `WhiteboardCanvasComponent` (AC2). */
   protected onDrawAction(action: DrawAction): void {
     this.sync.publishDraw(action.subType, action.payload);
+  }
+
+  /**
+   * Relays a local undo as `UNDO { eventId }` over STOMP (US08.3.3 AC5). Uses the same
+   * generic {@link WhiteboardSyncService.publish} entry point as `DRAW` — no-op while
+   * disconnected (never silently queues), and rejected server-side with a 403-equivalent
+   * STOMP application error for a `VIEWER` (`CanvasActionService`, US08.3.1) without any
+   * duplicated role check here (AC9).
+   */
+  protected onUndoAction(action: UndoEvent): void {
+    this.sync.publish('UNDO', { eventId: action.eventId });
   }
 
   /** Wired to the "Réessayer manuellement" button shown after 3 failed attempts (AC10). */
