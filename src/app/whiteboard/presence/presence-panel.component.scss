@@ -1,0 +1,68 @@
+:host {
+  display: block;
+}
+
+// Positioned by the host page (`WhiteboardBoardComponent`, top-right of the canvas, below its
+// toolbar) — this component only owns its own internal layout, not its placement on the page.
+.pp-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  user-select: none;
+}
+
+.pp-avatars {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pp-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  flex-shrink: 0;
+
+  &:not(:first-child) {
+    margin-left: -8px;
+  }
+}
+
+.pp-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pp-avatar__initials {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.pp-avatar--overflow {
+  background: #616161;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pp-online-label {
+  font-size: 12px;
+  color: #616161;
+  white-space: nowrap;
+}

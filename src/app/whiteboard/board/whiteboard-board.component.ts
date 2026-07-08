@@ -11,6 +11,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { Subscription } from 'rxjs';
 import { WhiteboardSyncService } from '../../core/whiteboard/whiteboard-sync.service';
 import { DrawAction, UndoEvent, WhiteboardCanvasComponent } from '../canvas/whiteboard-canvas.component';
+import { PresencePanelComponent } from '../presence/presence-panel.component';
 import { WhiteboardPresenceComponent } from '../presence/whiteboard-presence.component';
 
 /**
@@ -28,12 +29,20 @@ import { WhiteboardPresenceComponent } from '../presence/whiteboard-presence.com
  * only reconnect-time re-verification happens, and it is entirely server-side (STOMP
  * SUBSCRIBE authorisation, US08.3.1), surfaced here only through {@link WhiteboardSyncService}
  * revocation handling.
+ *
+ * Also renders `PresencePanelComponent` (US08.5.1) — the participants list/avatar panel — as
+ * a plain sibling overlay above the canvas, top-right (see template + its own stylesheet).
+ * Unlike `WhiteboardPresenceComponent` (US08.3.2c, cursor overlay), it is **not** projected
+ * through the canvas's `wb-canvas-area` `<ng-content>` slot: that slot is documented as
+ * decorative/`pointer-events: none` only, while the presence panel needs real interactive
+ * affordances (hover tooltip on the "+N" overflow badge) — see that component's own TSDoc for
+ * the full split between the two.
  */
 @Component({
   selector: 'app-whiteboard-board',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoPipe, WhiteboardCanvasComponent, WhiteboardPresenceComponent],
+  imports: [TranslocoPipe, WhiteboardCanvasComponent, WhiteboardPresenceComponent, PresencePanelComponent],
   templateUrl: './whiteboard-board.component.html',
   styleUrl: './whiteboard-board.component.scss',
 })

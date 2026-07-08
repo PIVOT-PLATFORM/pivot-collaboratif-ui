@@ -202,7 +202,17 @@
       "revoked": "Vous n'avez plus accès à ce tableau"
     },
     "presence": {
-      "cursorLabel": "Curseur de {{name}}"
+      "cursorLabel": "Curseur de {{name}}",
+      "panelAriaLabel": "Participants en ligne",
+      "avatarAriaLabel": "{{name}} — {{role}}",
+      "overflowBadge": "+{{count}}",
+      "overflowAriaLabel": "Et {{count}} autres participants : {{names}}",
+      "online": "en ligne",
+      "role": {
+        "owner": "Propriétaire",
+        "editor": "Éditeur",
+        "viewer": "Lecteur"
+      }
     }
   }
 }
