@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { UndoRedoService } from './undo-redo.service';
-import { ShapeObject, UNDO_STACK_LIMIT } from '../../whiteboard/canvas/model/canvas.model';
+import { CanvasObject, ShapeObject, UNDO_STACK_LIMIT } from '../../whiteboard/canvas/model/canvas.model';
 
 function makeRect(id = 'rect-1', x = 0): ShapeObject {
   return {
@@ -134,12 +134,12 @@ describe('UndoRedoService (US08.3.3)', () => {
       service.push([makeRect(`r${i}`)]);
     }
     let popped = 0;
-    let current: unknown[] = [makeRect('final')];
-    while (true) {
-      const result = service.undo(current as never);
-      if (!result) break;
+    let current: CanvasObject[] = [makeRect('final')];
+    let result = service.undo(current);
+    while (result) {
       current = result.objects;
       popped++;
+      result = service.undo(current);
     }
     expect(popped).toBe(UNDO_STACK_LIMIT);
   });
