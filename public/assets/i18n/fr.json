@@ -170,6 +170,15 @@
       "error429": "Trop de tentatives. Veuillez patienter avant de réessayer.",
       "errorDefault": "Une erreur est survenue. Veuillez réessayer.",
       "retry": "Réessayer"
+    },
+    "ws": {
+      "connecting": "Connexion en cours…",
+      "lost": "Connexion perdue — tentative de reconnexion",
+      "reconnected": "Reconnecté",
+      "failed": "Impossible de rejoindre le tableau",
+      "retryManual": "Réessayer manuellement",
+      "offline": "Mode hors ligne — les modifications ne sont pas sauvegardées",
+      "revoked": "Vous n'avez plus accès à ce tableau"
     }
   }
 }
