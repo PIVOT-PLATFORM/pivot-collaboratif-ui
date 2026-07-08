@@ -1,0 +1,42 @@
+<div class="wb-page">
+
+  @switch (status()) {
+    @case ('connecting') {
+      <div class="wb-status-banner wb-status-banner--info" role="status" aria-live="polite">
+        {{ 'whiteboard.ws.connecting' | transloco }}
+      </div>
+    }
+    @case ('lost') {
+      <div class="wb-status-banner wb-status-banner--warning" role="status" aria-live="polite">
+        {{ 'whiteboard.ws.lost' | transloco }}
+      </div>
+    }
+    @case ('failed') {
+      <div class="wb-status-banner wb-status-banner--error" role="alert" aria-live="assertive">
+        <span>{{ 'whiteboard.ws.failed' | transloco }}</span>
+        <button type="button" class="wb-status-banner__retry" (click)="onRetry()">
+          {{ 'whiteboard.ws.retryManual' | transloco }}
+        </button>
+      </div>
+    }
+  }
+
+  @if (browserOffline()) {
+    <div class="wb-status-banner wb-status-banner--offline" role="status" aria-live="polite">
+      {{ 'whiteboard.ws.offline' | transloco }}
+    </div>
+  }
+
+  @if (showReconnectedToast()) {
+    <div class="wb-toast" role="status" aria-live="polite">
+      {{ 'whiteboard.ws.reconnected' | transloco }}
+    </div>
+  }
+
+  <app-whiteboard-canvas
+    #canvas
+    [readOnly]="readOnly()"
+    (drawAction)="onDrawAction($event)">
+  </app-whiteboard-canvas>
+
+</div>

@@ -1,0 +1,84 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wb-page {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+app-whiteboard-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+// ─── Connection-state banners (AC7-11) ──────────────────────────────────────
+
+.wb-status-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
+  text-align: center;
+
+  &--info {
+    background: #e3f2fd;
+    color: #0d47a1;
+  }
+
+  &--warning {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  &--error {
+    background: #ffebee;
+    color: #b71c1c;
+  }
+
+  &--offline {
+    background: #eceff1;
+    color: #37474f;
+  }
+}
+
+.wb-status-banner__retry {
+  border: 1px solid currentcolor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+}
+
+// ─── "Reconnected" toast (AC9) ───────────────────────────────────────────────
+
+.wb-toast {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 8px 20px;
+  border-radius: 20px;
+  background: #2e7d32;
+  color: #ffffff;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}

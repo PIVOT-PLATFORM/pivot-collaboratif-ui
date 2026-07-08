@@ -12,7 +12,13 @@ import { environment } from '../../../environments/environment';
  *
  * 200 → accès accordé.
  * 403 (membre du tenant mais non-membre du board) / 404 (inexistant ou cross-tenant) / erreur réseau
- * → redirection /home + toast "Vous n'avez pas accès à ce tableau" (fail-closed).
+ * → redirection /whiteboard + toast "Vous n'avez pas accès à ce tableau" (fail-closed).
+ *
+ * Redirect target note (US08.3.2b Gate 1 clarification): originally redirected to `/home`
+ * (EN08.2). US08.3.2b's AC5 explicitly specifies `/whiteboard` for this exact denial path —
+ * updated to match, since `/whiteboard` is guaranteed to exist within this lazy-loaded
+ * module's own route tree (the board list), whereas `/home` is an assumption about a
+ * shell-level (`pivot-ui`) route this repo cannot verify.
  */
 export const boardAccessGuard: CanActivateFn = (route): Observable<boolean | UrlTree> => {
   const http = inject(HttpClient);
@@ -23,7 +29,7 @@ export const boardAccessGuard: CanActivateFn = (route): Observable<boolean | Url
 
   const denyAccess = (): Observable<UrlTree> => {
     toast.show(transloco.translate('whiteboard.guard.accessDenied'), 'error');
-    return of(router.createUrlTree(['/home']));
+    return of(router.createUrlTree(['/whiteboard']));
   };
 
   if (!boardId) {

@@ -191,6 +191,15 @@
       "error429": "Too many attempts. Please wait before trying again.",
       "errorDefault": "An error occurred. Please try again.",
       "retry": "Try again"
+    },
+    "ws": {
+      "connecting": "Connecting…",
+      "lost": "Connection lost — reconnecting",
+      "reconnected": "Reconnected",
+      "failed": "Unable to join the board",
+      "retryManual": "Retry manually",
+      "offline": "Offline mode — changes are not being saved",
+      "revoked": "You no longer have access to this board"
     }
   }
 }

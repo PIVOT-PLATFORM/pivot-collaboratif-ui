@@ -60,7 +60,7 @@ describe('boardAccessGuard', () => {
     expect(await resultPromise).toBe(true);
   });
 
-  it('should redirect to /home and show toast when API returns 403 (non-member)', async () => {
+  it('should redirect to /whiteboard and show toast when API returns 403 (non-member)', async () => {
     const toastSpy = vi.spyOn(toastService, 'show');
     const guard$ = TestBed.runInInjectionContext(() =>
       boardAccessGuard(makeRoute('board-abc'), {} as RouterStateSnapshot),
@@ -73,11 +73,11 @@ describe('boardAccessGuard', () => {
 
     const result = await resultPromise;
     expect(result).toBeInstanceOf(UrlTree);
-    expect(router.serializeUrl(result as UrlTree)).toBe('/home');
+    expect(router.serializeUrl(result as UrlTree)).toBe('/whiteboard');
     expect(toastSpy).toHaveBeenCalledWith('whiteboard.guard.accessDenied', 'error');
   });
 
-  it('should redirect to /home and show toast when API returns 404 (cross-tenant or not found)', async () => {
+  it('should redirect to /whiteboard and show toast when API returns 404 (cross-tenant or not found)', async () => {
     const toastSpy = vi.spyOn(toastService, 'show');
     const guard$ = TestBed.runInInjectionContext(() =>
       boardAccessGuard(makeRoute('board-xyz'), {} as RouterStateSnapshot),
@@ -90,7 +90,7 @@ describe('boardAccessGuard', () => {
 
     const result = await resultPromise;
     expect(result).toBeInstanceOf(UrlTree);
-    expect(router.serializeUrl(result as UrlTree)).toBe('/home');
+    expect(router.serializeUrl(result as UrlTree)).toBe('/whiteboard');
     expect(toastSpy).toHaveBeenCalledWith('whiteboard.guard.accessDenied', 'error');
   });
 
@@ -106,12 +106,12 @@ describe('boardAccessGuard', () => {
 
     const result = await firstValueFrom(guard$);
     expect(result).toBeInstanceOf(UrlTree);
-    expect(router.serializeUrl(result as UrlTree)).toBe('/home');
+    expect(router.serializeUrl(result as UrlTree)).toBe('/whiteboard');
     expect(toastSpy).toHaveBeenCalledWith('whiteboard.guard.accessDenied', 'error');
     httpMock.expectNone(`${API_URL}/`);
   });
 
-  it('should fail-closed (redirect /home) on network error', async () => {
+  it('should fail-closed (redirect /whiteboard) on network error', async () => {
     const toastSpy = vi.spyOn(toastService, 'show');
     const guard$ = TestBed.runInInjectionContext(() =>
       boardAccessGuard(makeRoute('board-abc'), {} as RouterStateSnapshot),
@@ -124,7 +124,7 @@ describe('boardAccessGuard', () => {
 
     const result = await resultPromise;
     expect(result).toBeInstanceOf(UrlTree);
-    expect(router.serializeUrl(result as UrlTree)).toBe('/home');
+    expect(router.serializeUrl(result as UrlTree)).toBe('/whiteboard');
     expect(toastSpy).toHaveBeenCalledWith('whiteboard.guard.accessDenied', 'error');
   });
 });
