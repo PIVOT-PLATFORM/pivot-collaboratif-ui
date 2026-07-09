@@ -1,12 +1,11 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  EventEmitter,
-  Input,
   OnInit,
-  Output,
   computed,
   inject,
+  input,
+  output,
   signal,
 } from '@angular/core';
 import { DatePipe, SlicePipe } from '@angular/common';
@@ -35,10 +34,10 @@ import { BoardMember, ShareToken } from '../../core/whiteboard/board.model';
 })
 export class SharePanelComponent implements OnInit {
   /** Board whose members and share links are managed by this panel. */
-  @Input({ required: true }) boardId!: string;
+  readonly boardId = input.required<string>();
 
   /** Emitted when the user closes the panel (Escape or close button). */
-  @Output() closed = new EventEmitter<void>();
+  readonly closed = output<void>();
 
   private readonly boardService = inject(BoardService);
   private readonly toast = inject(ToastService);
@@ -74,7 +73,7 @@ export class SharePanelComponent implements OnInit {
 
   protected generateLink(): void {
     this.tokenStatus.set('generating');
-    this.boardService.generateShareToken(this.boardId, this.selectedRole()).subscribe({
+    this.boardService.generateShareToken(this.boardId(), this.selectedRole()).subscribe({
       next: token => {
         this.shareToken.set(token);
         this.tokenStatus.set('idle');
@@ -107,7 +106,7 @@ export class SharePanelComponent implements OnInit {
   protected onRoleChange(member: BoardMember, event: Event): void {
     const newRole = (event.target as HTMLSelectElement).value as 'EDITOR' | 'VIEWER';
     this.updatingRoleForUserId.set(member.userId);
-    this.boardService.updateMemberRole(this.boardId, member.userId, newRole).subscribe({
+    this.boardService.updateMemberRole(this.boardId(), member.userId, newRole).subscribe({
       next: updated => {
         this.members.update(list =>
           list.map(m => (m.userId === member.userId ? { ...m, role: updated.role } : m)),
@@ -133,7 +132,7 @@ export class SharePanelComponent implements OnInit {
 
   protected confirmRemove(member: BoardMember): void {
     this.removingMemberId.set(member.userId);
-    this.boardService.removeMember(this.boardId, member.userId).subscribe({
+    this.boardService.removeMember(this.boardId(), member.userId).subscribe({
       next: () => {
         this.members.update(list => list.filter(m => m.userId !== member.userId));
         this.removingMemberId.set(null);
@@ -148,7 +147,7 @@ export class SharePanelComponent implements OnInit {
 
   private loadMembers(): void {
     this.membersStatus.set('loading');
-    this.boardService.listMembers(this.boardId).subscribe({
+    this.boardService.listMembers(this.boardId()).subscribe({
       next: list => {
         this.members.set(list);
         this.membersStatus.set('loaded');
