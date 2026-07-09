@@ -42,6 +42,49 @@ function makeRect(id = 'rect-1', x = 50, y = 50, w = 100, h = 60): ShapeObject {
   };
 }
 
+/**
+ * WCAG 2.1 relative-luminance contrast ratio between two hex colours — the standard formula
+ * (see https://www.w3.org/TR/WCAG21/#contrast-minimum), reimplemented here (test-only) so the
+ * `.wb-minimap-toggle`/`.wb-color-custom__error` colour choices documented in
+ * `whiteboard-canvas.component.scss` are genuinely, automatically re-verified on every run —
+ * not just asserted in a code comment — without requiring a live backend (unlike the axe-core
+ * E2E check, which also covers contrast but only runs against a real `pivot-collaboratif-core`).
+ */
+function contrastRatio(hexA: string, hexB: string): number {
+  const toLinear = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const luminance = (hex: string) => {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+    return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+  };
+  const [l1, l2] = [luminance(hexA), luminance(hexB)].sort((a, b) => b - a);
+  return (l1 + 0.05) / (l2 + 0.05);
+}
+
+describe('WCAG AA contrast — colours fixed by the US08.3.2a Gate 4 audit', () => {
+  const WCAG_AA_NORMAL_TEXT = 4.5;
+
+  it('sanity check: the contrastRatio() helper matches known W3C reference values', () => {
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 0);
+    expect(contrastRatio('#ffffff', '#ffffff')).toBeCloseTo(1, 5);
+  });
+
+  it('previous .wb-minimap-toggle colour (#888) genuinely failed AA — proves the fix was needed', () => {
+    expect(contrastRatio('#888888', '#ffffff')).toBeLessThan(WCAG_AA_NORMAL_TEXT);
+  });
+
+  it('.wb-minimap-toggle colour (#555) passes WCAG AA against its near-white background', () => {
+    expect(contrastRatio('#555555', '#ffffff')).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+  });
+
+  it('.wb-color-custom__error colour (#C2185B) passes WCAG AA against the white color panel', () => {
+    expect(contrastRatio('#C2185B', '#ffffff')).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+  });
+});
+
 // ─── Model unit tests (no DOM required) ──────────────────────────────────────
 
 describe('CanvasModel — COLOR_PALETTE', () => {
