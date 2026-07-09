@@ -8,6 +8,7 @@ export type ToastType = 'info' | 'success' | 'error';
  */
 @Injectable({ providedIn: 'root' })
 export class ToastService {
+  /** Logs a toast message to the console, prefixed with its type. */
   show(message: string, type: ToastType = 'info'): void {
     console.info(`[toast:${type}] ${message}`);
   }

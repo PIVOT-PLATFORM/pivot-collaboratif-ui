@@ -1,7 +1,7 @@
 {
   "app": {
     "title": "PIVOT — Collaboratif",
-    "bootstrapNotice": "Module en cours de bootstrap — aucune fonctionnalité n'est encore implémentée."
+    "devHarnessNotice": "Harnais de développement — les features implémentées sont accessibles via leurs routes (ex. /whiteboard)."
   },
   "whiteboard": {
     "guard": {

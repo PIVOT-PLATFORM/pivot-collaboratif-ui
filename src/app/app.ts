@@ -3,11 +3,13 @@ import { RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 
 /**
- * Composant racine du shell du module Collaboratif.
+ * Composant racine du harnais de développement (dev harness) du module Collaboratif.
  *
- * Bootstrap uniquement : aucune feature (whiteboard, quiz, session live, formulaire) n'est
- * encore implémentée. Ce composant sera lazy-loadé depuis le shell `pivot-ui` une fois ce
- * module intégré (voir `pivot-ui` CLAUDE.md — modules métier lazy-loaded par domaine).
+ * Ce shell ne sert qu'au développement local et à l'exécution des E2E (voir `app.routes.ts`) —
+ * il n'est **jamais** servi en production : le shell réel `pivot-ui` consomme le package publié
+ * `@pivot-platform/collaboratif-ui` en lazy-loading. Le `<router-outlet>` ci-dessous sert les
+ * routes des features réellement implémentées dans ce repo (whiteboard — voir
+ * `projects/collaboratif-ui/src/lib/whiteboard/`), au fil de leur ajout.
  */
 @Component({
   selector: 'app-root',
@@ -17,7 +19,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
   template: `
     <main>
       <h1>{{ 'app.title' | transloco }}</h1>
-      <p>{{ 'app.bootstrapNotice' | transloco }}</p>
+      <p>{{ 'app.devHarnessNotice' | transloco }}</p>
       <router-outlet />
     </main>
   `,
