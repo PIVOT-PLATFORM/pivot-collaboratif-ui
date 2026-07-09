@@ -491,7 +491,13 @@ export class WhiteboardSyncService {
       return false;
     }
     const candidate = value as Record<string, unknown>;
-    return typeof candidate['type'] === 'string' && typeof candidate['boardId'] === 'string';
+    const data = candidate['data'];
+    return (
+      typeof candidate['type'] === 'string' &&
+      typeof candidate['boardId'] === 'string' &&
+      typeof candidate['userId'] === 'string' &&
+      (data === null || (typeof data === 'object' && !Array.isArray(data)))
+    );
   }
 
   private isParticipantInfo(value: unknown): value is ParticipantInfo {
