@@ -30,9 +30,13 @@ import {
   TextObject,
 } from './model/canvas.model';
 import {
+  clampObjectToCanvas,
   getBoundingBox,
   hitTest,
   pointInBBox,
+  resizeAnchor,
+  resizeBBox,
+  scaleObject,
   translateObject,
 } from './model/canvas-geometry';
 import { UndoRedoService } from '../../core/whiteboard/undo-redo.service';
@@ -64,6 +68,7 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mainCanvas') private canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('minimapCanvas') private minimapRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('textInput') private textInputRef!: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('dialogContainer') private dialogRef?: ElementRef<HTMLDivElement>;
 
   /** Board title — shown in aria-label and page title. */
   readonly boardTitle = input<string>('');
@@ -165,10 +170,16 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
   private clipboard: CanvasObject[] = [];
   private resizingHandle: HandlePosition | null = null;
   private resizeOrigin: BoundingBox | null = null;
+  /** Snapshot of the selected objects' geometry taken at resize start (US08.3.2a AC gap fix:
+   *  real per-handle resize is computed from this fixed snapshot + the total pointer delta,
+   *  never from cumulative per-frame deltas, so repeated frames never compound rounding error. */
+  private resizeOriginalObjects: CanvasObject[] | null = null;
   private animFrameId: number | null = null;
   private dirtyFlag = false;
   protected spaceDown = false;
   private lastColor = COLOR_PALETTE[0];
+  /** Element focused before the shortcuts dialog opened — focus returns here on close (a11y). */
+  private dialogTriggerEl: HTMLElement | null = null;
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────
 
@@ -452,6 +463,8 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
           const y2 = Math.max(acc.y + acc.height, bb.y + bb.height);
           return { x, y, width: x2 - x, height: y2 - y };
         }, null as BoundingBox | null);
+        this.resizeOriginalObjects = selObjs.map(o => ({ ...o }));
+        this.snapshotForUndo();
         this.dragStartX = cx;
         this.dragStartY = cy;
         return;
@@ -518,13 +531,14 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    if (this.resizingHandle) {
-      // Simplified resize: only move for now — full resize per-handle in future
+    if (this.resizingHandle && this.resizeOrigin) {
+      // Real per-handle resize (8 handles: corners resize both dimensions, edges resize one).
+      // `dragStartX/Y` are the fixed drag-start point (never reassigned during resize, unlike
+      // the drag-move path) so `dx`/`dy` are the *total* delta from resize start, applied to
+      // the `resizeOriginalObjects` snapshot — never compounded frame-over-frame.
       const dx = cx - this.dragStartX;
       const dy = cy - this.dragStartY;
-      this.moveSelected(dx, dy);
-      this.dragStartX = cx;
-      this.dragStartY = cy;
+      this.resizeSelected(this.resizingHandle, this.resizeOrigin, dx, dy);
       this.markDirty();
       return;
     }
@@ -571,7 +585,15 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
     this.canvasRef.nativeElement.releasePointerCapture(event.pointerId);
 
     if (this.isPanning) { this.isPanning = false; return; }
-    if (this.resizingHandle) { this.resizingHandle = null; this.resizeOrigin = null; return; }
+    if (this.resizingHandle) {
+      const selObjs = this.objects().filter(o => this.selectedIds().has(o.id));
+      this.resizingHandle = null;
+      this.resizeOrigin = null;
+      this.resizeOriginalObjects = null;
+      this.markDirty();
+      this.emitDraw('resize', selObjs);
+      return;
+    }
 
     if (this.isDragging) {
       this.isDragging = false;
@@ -660,6 +682,16 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
+    // Keyboard-shortcuts dialog focus trap (WCAG 2.1 AA — US08.3.2a AC gap fix). While the
+    // dialog is open, Tab/Shift+Tab cycle within it and Escape/'?' close it; every other
+    // shortcut below is swallowed so e.g. Ctrl+Z or a tool letter can never fire "through" the
+    // open modal (standard dialog behaviour: background is inert while it's up).
+    if (this.showShortcutDialog()) {
+      if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); this.closeShortcutDialog(); return; }
+      if (e.key === 'Tab') { this.trapDialogTab(e); return; }
+      return;
+    }
+
     const ctrl = e.ctrlKey || e.metaKey;
 
     // Tool shortcuts
@@ -672,7 +704,7 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
     }
 
     if (e.key === ' ') { this.spaceDown = true; return; }
-    if (e.key === '?') { this.showShortcutDialog.update(v => !v); return; }
+    if (e.key === '?') { this.openShortcutDialog(); return; }
 
     if (ctrl) {
       switch (e.key.toLowerCase()) {
@@ -763,12 +795,19 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
     const originals = this.objects().filter(o => ids.has(o.id));
     const copies = originals.map(obj => {
       const newId = crypto.randomUUID();
-      return translateObject({ ...obj, id: newId }, DUPLICATE_OFFSET, DUPLICATE_OFFSET);
+      return this.clampToCanvas(
+        translateObject({ ...obj, id: newId }, DUPLICATE_OFFSET, DUPLICATE_OFFSET),
+      );
     });
     this.objects.update(objs => [...objs, ...copies]);
     this.selectedIds.set(new Set(copies.map(c => c.id)));
     this.markDirty();
-    for (const c of copies) this.emitDraw('stroke', c);
+    // Real bug fix (US08.3.2a gap): each copy must emit its own DRAW subtype matching its
+    // actual kind — `CanvasObject.kind` ('stroke'|'shape'|'text') maps 1:1 onto the DRAW
+    // subtypes already used for the initial creation of each object type (see onPointerUp /
+    // commitTextEdit above), so mirroring that convention here is a direct passthrough of
+    // `c.kind`, not a new mapping to maintain in parallel.
+    for (const c of copies) this.emitDraw(c.kind, c);
   }
 
   private copy(): void {
@@ -784,7 +823,9 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
     this.snapshotForUndo();
     const copies = this.clipboard.map(obj => {
       const newId = crypto.randomUUID();
-      return translateObject({ ...obj, id: newId }, DUPLICATE_OFFSET, DUPLICATE_OFFSET);
+      return this.clampToCanvas(
+        translateObject({ ...obj, id: newId }, DUPLICATE_OFFSET, DUPLICATE_OFFSET),
+      );
     });
     this.objects.update(objs => [...objs, ...copies]);
     this.selectedIds.set(new Set(copies.map(c => c.id)));
@@ -854,6 +895,61 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
 
   protected toggleMinimap(): void {
     this.showMinimap.update(v => !v);
+  }
+
+  // ─── Keyboard-shortcuts dialog — focus trap (WCAG 2.1 AA) ────────────────
+
+  /** Toggle used by the toolbar `?` button (template) — opens/closes with the same focus
+   *  management as the `?`/`Escape` keyboard shortcuts. */
+  protected toggleShortcutDialog(): void {
+    if (this.showShortcutDialog()) this.closeShortcutDialog();
+    else this.openShortcutDialog();
+  }
+
+  private openShortcutDialog(): void {
+    this.dialogTriggerEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.showShortcutDialog.set(true);
+    // Dialog content is behind `@if` — wait one tick for it to render before moving focus in,
+    // same convention already used by `startTextEdit` for the text-edit overlay below.
+    setTimeout(() => this.focusFirstInDialog(), 0);
+  }
+
+  /** Closes the dialog and returns focus to the element that opened it (WCAG 2.1 AA). */
+  protected closeShortcutDialog(): void {
+    if (!this.showShortcutDialog()) return;
+    this.showShortcutDialog.set(false);
+    this.dialogTriggerEl?.focus();
+    this.dialogTriggerEl = null;
+  }
+
+  private focusFirstInDialog(): void {
+    const container = this.dialogRef?.nativeElement;
+    const focusable = container ? this.getFocusableElements(container) : [];
+    (focusable[0] ?? container)?.focus();
+  }
+
+  /** Traps Tab/Shift+Tab within the dialog while it is open (WCAG 2.1 AA keyboard.checklist). */
+  private trapDialogTab(e: KeyboardEvent): void {
+    const container = this.dialogRef?.nativeElement;
+    if (!container) return;
+    const focusable = this.getFocusableElements(container);
+    if (!focusable.length) { e.preventDefault(); return; }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey) {
+      if (active === first || !container.contains(active)) { e.preventDefault(); last.focus(); }
+    } else if (active === last || !container.contains(active)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  private getFocusableElements(container: HTMLElement): HTMLElement[] {
+    const selector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
+      el => !el.hasAttribute('disabled'),
+    );
   }
 
   protected onGroup(): void { if (!this.readOnly()) this.group(); }
@@ -955,11 +1051,51 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
     );
     this.objects.update(objs => objs.map(o => {
       if (ids.has(o.id) || (o.groupId && groupIds.has(o.groupId))) {
-        return translateObject(o, dx, dy);
+        return this.clampToCanvas(translateObject(o, dx, dy));
       }
       return o;
     }));
     this.markDirty();
+  }
+
+  /**
+   * Resizes the current selection from a drag handle (US08.3.2a AC gap fix — previously this
+   * only translated objects, see git history). `origin` is the union bounding box of the
+   * selection captured at drag start; `dx`/`dy` is the *total* pointer delta since then.
+   *
+   * Every selected object is scaled from {@link resizeOriginalObjects} (its geometry at drag
+   * start) around the handle's fixed anchor point ({@link resizeAnchor}) by the ratio between
+   * the new and original union bbox ({@link resizeBBox}) — a multi-object selection therefore
+   * resizes proportionally as one group, and a single-object selection resizes exactly as
+   * dragged. The result is clamped to canvas bounds via {@link clampToCanvas} so a shape can
+   * never end up with a negative size or drift outside the visible canvas.
+   */
+  private resizeSelected(handle: HandlePosition, origin: BoundingBox, dx: number, dy: number): void {
+    const originals = this.resizeOriginalObjects;
+    if (!originals) return;
+    const newBBox = resizeBBox(origin, handle, dx, dy);
+    const anchor = resizeAnchor(origin, handle);
+    const scaleX = origin.width !== 0 ? newBBox.width / origin.width : 1;
+    const scaleY = origin.height !== 0 ? newBBox.height / origin.height : 1;
+    const byId = new Map(originals.map(o => [o.id, o]));
+
+    this.objects.update(objs => objs.map(o => {
+      const original = byId.get(o.id);
+      if (!original) return o;
+      const scaled = scaleObject(original, anchor.x, anchor.y, scaleX, scaleY);
+      return this.clampToCanvas(scaled);
+    }));
+  }
+
+  /**
+   * Clamps an object's geometry to the canvas bounds (US08.3.2a AC gap fix — {@link clampShape}
+   * previously existed only as unit-tested, dead code; this is the single call site wiring it
+   * into every real drag/resize/move code path via {@link clampObjectToCanvas}, which dispatches
+   * to {@link clampShape} for shapes and generalises the same clamp to strokes/text).
+   */
+  private clampToCanvas(obj: CanvasObject): CanvasObject {
+    const canvas = this.canvasRef.nativeElement;
+    return clampObjectToCanvas(obj, canvas.width, canvas.height);
   }
 
   private selectByMarquee(): void {
