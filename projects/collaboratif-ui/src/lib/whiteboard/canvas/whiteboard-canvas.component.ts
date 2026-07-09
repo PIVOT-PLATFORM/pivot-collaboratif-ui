@@ -769,7 +769,8 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  protected onCustomHexChange(value: string): void {
+  protected onCustomHexChange(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
     this.customHexInput.set(value);
     this.customHexError.set(false);
   }
@@ -1005,6 +1006,15 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
   protected cancelTextEdit(): void {
     this.isEditingText.set(false);
     this.editingObjectId.set(null);
+  }
+
+  // Plain Enter commits the text edit; Shift+Enter inserts a newline instead (left to the
+  // textarea's native behaviour), so the commit only fires when shiftKey is not held.
+  // Angular's $event type inference only covers exact keys of GlobalEventHandlersEventMap
+  // ("keydown"), not key-filtered bindings like "keydown.enter" — the template therefore
+  // supplies a plain Event, narrowed to KeyboardEvent here (native DOM cast, not `any`).
+  protected onTextInputEnter(event: Event, value: string): void {
+    if (!(event as KeyboardEvent).shiftKey) this.commitTextEdit(value);
   }
 
   // ─── Helper methods ───────────────────────────────────────────────────────
