@@ -51,6 +51,8 @@
               maxlength="7"
               placeholder="#rrggbb"
               [attr.aria-label]="'whiteboard.canvas.color.customHex' | transloco"
+              [attr.aria-invalid]="customHexError() || null"
+              [attr.aria-describedby]="customHexError() ? 'wb-custom-hex-error' : null"
               [class.wb-color-custom--error]="customHexError()"
               [value]="customHexInput()"
               (input)="onCustomHexChange($any($event.target).value)"
@@ -60,6 +62,11 @@
               [attr.aria-label]="'whiteboard.canvas.color.applyCustom' | transloco"
               (click)="setCustomColor()">✓</button>
           </div>
+          @if (customHexError()) {
+            <p id="wb-custom-hex-error" class="wb-color-custom__error" role="alert">
+              {{ 'whiteboard.canvas.color.customHexError' | transloco }}
+            </p>
+          }
         </div>
       }
     </div>
@@ -126,7 +133,7 @@
       class="wb-toolbar__btn wb-toolbar__btn--end"
       [attr.aria-label]="'whiteboard.canvas.shortcuts.dialogToggle' | transloco"
       [attr.aria-expanded]="showShortcutDialog()"
-      (click)="showShortcutDialog.update(v => !v)">?</button>
+      (click)="toggleShortcutDialog()">?</button>
   </nav>
 
   <!-- ─────────────────────────── Read-only banner ──────────────────────── -->
@@ -211,8 +218,11 @@
       role="dialog"
       [attr.aria-label]="'whiteboard.canvas.shortcuts.dialogLabel' | transloco"
       aria-modal="true"
-      (click)="showShortcutDialog.set(false)">
-      <div class="wb-dialog" (click)="$event.stopPropagation()">
+      (click)="closeShortcutDialog()">
+      <!-- tabindex=-1: focus fallback target if the dialog ever has no focusable descendant
+           (see focusFirstInDialog()/trapDialogTab()) — Tab/Shift+Tab are trapped within this
+           container while open via the component's window:keydown handler (WCAG 2.1 AA). -->
+      <div #dialogContainer class="wb-dialog" tabindex="-1" (click)="$event.stopPropagation()">
         <h2>{{ 'whiteboard.canvas.shortcuts.dialogLabel' | transloco }}</h2>
         <table class="wb-shortcuts-table">
           <caption class="wb-sr-only">{{ 'whiteboard.canvas.shortcuts.tableCaption' | transloco }}</caption>
@@ -225,7 +235,7 @@
             }
           </tbody>
         </table>
-        <button class="wb-dialog-close" (click)="showShortcutDialog.set(false)">
+        <button class="wb-dialog-close" (click)="closeShortcutDialog()">
           {{ 'whiteboard.canvas.shortcuts.close' | transloco }}
         </button>
       </div>
