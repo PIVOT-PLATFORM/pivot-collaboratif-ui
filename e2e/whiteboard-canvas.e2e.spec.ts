@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from './fixtures';
+import { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -21,15 +22,36 @@ import AxeBuilder from '@axe-core/playwright';
  * border is ever sampled, never the interior.
  */
 
-/** Returns true if any pixel in a small square around (x, y) is "ink" (dark), not background. */
-async function hasInkNear(page: Page, x: number, y: number, radius = 4): Promise<boolean> {
+/**
+ * Returns true if any pixel in a small square around (x, y) is "ink" (dark), not background.
+ *
+ * <p>(x, y) are page-relative viewport coordinates — the same space {@link dragOnCanvas} and
+ * every caller already use via `origin.x + localOffset` — converted here to the canvas's own
+ * coordinate space before sampling: `getImageData` reads relative to the canvas element's own
+ * top-left, not the page's (a toolbar sits above the canvas, so they diverge). Deliberately
+ * *no* bitmap/CSS size-ratio scaling here, even though `canvas.width`/`height` don't match its
+ * CSS-rendered size 1:1 on this component (observed drift: 638px bitmap height vs 675px CSS
+ * height) — `WhiteboardCanvasComponent`'s own drawing math (`event.clientX - rect.left`,
+ * `whiteboard-canvas.component.ts`) uses that same unscaled offset directly as its 2D-context
+ * drawing coordinate, so matching it here (not "correcting" it) is what actually lands on the
+ * real ink.
+ *
+ * <p>Default radius widened from 4 to 10: an unfilled rectangle's stroke anti-aliases at its
+ * corners, so the exact geometric corner point can land a few px short of any actually-painted
+ * pixel (observed: nearest ink ~6px away along each edge) — a real rendering nuance, not a
+ * position bug, and not worth chasing to the pixel for a happy-path E2E assertion.
+ */
+async function hasInkNear(page: Page, x: number, y: number, radius = 10): Promise<boolean> {
   return page.evaluate(
     ({ x, y, radius }) => {
       const canvas = document.querySelector('canvas.wb-canvas') as HTMLCanvasElement;
+      const rect = canvas.getBoundingClientRect();
+      const canvasX = x - rect.left;
+      const canvasY = y - rect.top;
       const ctx = canvas.getContext('2d')!;
       const size = radius * 2;
-      const left = Math.max(0, Math.round(x - radius));
-      const top = Math.max(0, Math.round(y - radius));
+      const left = Math.max(0, Math.round(canvasX - radius));
+      const top = Math.max(0, Math.round(canvasY - radius));
       const data = ctx.getImageData(left, top, size, size).data;
       for (let i = 0; i < data.length; i += 4) {
         const [r, g, b, a] = [data[i], data[i + 1], data[i + 2], data[i + 3]];
@@ -42,6 +64,19 @@ async function hasInkNear(page: Page, x: number, y: number, radius = 4): Promise
 }
 
 /** Drags from one canvas-local point to another via real pointer events. */
+/**
+ * Drags from one canvas-local point to another via real pointer events.
+ *
+ * <p>Settles briefly after `mouseup` before returning. `WhiteboardCanvasComponent`'s own
+ * `pointerdown` handler hit-tests the position it was rendered at on the *previous* frame
+ * (`hitTestHandle`/`findHit`, driven by Angular signals) — chaining two drags back-to-back with
+ * no gap risks a resize/select mousedown landing before a prior move/resize's re-render (and
+ * therefore its handle positions) has actually flushed, silently missing the handle and falling
+ * through to the "clicked empty canvas" branch, which clears the selection instead. Confirmed by
+ * running the full happy-path sequence 6× locally: ~1-in-6 intermittent failures, traced to the
+ * `Dupliquer` toolbar button's `disabled` attribute (mirrors `hasSelection()`) flipping true
+ * right after the resize step — i.e. selection was genuinely lost, not a pixel-sampling flake.
+ */
 async function dragOnCanvas(
   page: Page,
   origin: { x: number; y: number },
@@ -52,6 +87,7 @@ async function dragOnCanvas(
   await page.mouse.down();
   await page.mouse.move(origin.x + to[0], origin.y + to[1], { steps: 8 });
   await page.mouse.up();
+  await page.waitForTimeout(100);
 }
 
 /** Creates a blank board via the board-list UI and waits for navigation into it. Returns the
@@ -66,6 +102,13 @@ async function createBoardAndGetCanvasOrigin(
   await page.getByLabel('Titre du tableau').fill(title);
   await page.getByRole('button', { name: 'Créer' }).click();
   await expect(page).toHaveURL(/\/whiteboard\/[^/]+$/);
+
+  // The read-only banner (`WhiteboardCanvasComponent`, `@if (readOnly())`) is visible while the
+  // STOMP connection is still opening and disappears once connected — a real layout shift, not
+  // test flakiness. Wait for it to be gone before measuring the canvas's bounding box, otherwise
+  // drag coordinates computed from a pre-shift origin land on the wrong pixels once the banner
+  // collapses mid-test.
+  await expect(page.getByRole('status').filter({ hasText: /lecture seule/i })).toBeHidden();
 
   const canvas = page.locator('canvas.wb-canvas');
   await expect(canvas).toBeVisible();
@@ -103,14 +146,20 @@ test.describe('Whiteboard canvas — happy path (US08.3.2a)', () => {
     // 5. Duplicate it (Ctrl+D) — copy offset by +16/+16. Since shapes are unfilled (border-only),
     // the duplicate's own top-left corner sits strictly inside the original's hollow body, so
     // ink there can only come from the copy's border.
+    //
+    // Keyboard shortcuts (Ctrl+D/Z/Y) return as soon as the event dispatches — unlike the mouse
+    // drags above, which take several real pointer-move steps and so incidentally give the
+    // canvas time to repaint before the next assertion, a keyboard action can race ahead of the
+    // app's own (signal-driven) redraw. `expect.poll` retries the pixel sample instead of
+    // asserting once immediately after the keypress.
     await page.keyboard.press('Control+d');
-    expect(await hasInkNear(page, origin.x + 366, origin.y + 166)).toBe(true);
+    await expect.poll(() => hasInkNear(page, origin.x + 366, origin.y + 166)).toBe(true);
 
     // 6. Undo removes the duplicate; redo brings it back.
     await page.keyboard.press('Control+z');
-    expect(await hasInkNear(page, origin.x + 366, origin.y + 166)).toBe(false);
+    await expect.poll(() => hasInkNear(page, origin.x + 366, origin.y + 166)).toBe(false);
     await page.keyboard.press('Control+y');
-    expect(await hasInkNear(page, origin.x + 366, origin.y + 166)).toBe(true);
+    await expect.poll(() => hasInkNear(page, origin.x + 366, origin.y + 166)).toBe(true);
   });
 
   test('AC-canvas-a11y-01: whiteboard canvas page has no axe-core violations', async ({ page }) => {

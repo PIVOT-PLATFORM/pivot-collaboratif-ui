@@ -1,7 +1,10 @@
 <div class="wb-container" [class.wb-readonly]="readOnly()">
 
   <!-- ───────────────────────────── Toolbar ──────────────────────────────── -->
-  <nav class="wb-toolbar" role="toolbar" [attr.aria-label]="'whiteboard.canvas.toolbar.label' | transloco">
+  <!-- role="toolbar" is not an allowed ARIA role on <nav> (axe-core aria-allowed-role) — <nav>
+       carries an implicit "navigation" landmark role, which conflicts with the "toolbar" widget
+       role. A toolbar isn't a navigation landmark anyway; plain <div> is the correct host. -->
+  <div class="wb-toolbar" role="toolbar" [attr.aria-label]="'whiteboard.canvas.toolbar.label' | transloco">
 
     <!-- Drawing tools -->
     <div class="wb-toolbar__group" role="group" [attr.aria-label]="'whiteboard.canvas.toolbar.tools' | transloco">
@@ -134,7 +137,7 @@
       [attr.aria-label]="'whiteboard.canvas.shortcuts.dialogToggle' | transloco"
       [attr.aria-expanded]="showShortcutDialog()"
       (click)="toggleShortcutDialog()">?</button>
-  </nav>
+  </div>
 
   <!-- ─────────────────────────── Read-only banner ──────────────────────── -->
   @if (readOnly()) {
