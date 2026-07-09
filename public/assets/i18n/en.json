@@ -5,9 +5,7 @@
   },
   "whiteboard": {
     "guard": {
-      "moduleDisabled": "Module not available",
-      "accessDenied": "You don't have access to this board",
-      "networkError": "Network error, please try again"
+      "accessDenied": "You don't have access to this board"
     },
     "board": {
       "list": {

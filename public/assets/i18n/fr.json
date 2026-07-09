@@ -5,9 +5,7 @@
   },
   "whiteboard": {
     "guard": {
-      "moduleDisabled": "Module non disponible",
-      "accessDenied": "Vous n'avez pas accès à ce tableau",
-      "networkError": "Erreur réseau, veuillez réessayer"
+      "accessDenied": "Vous n'avez pas accès à ce tableau"
     },
     "board": {
       "list": {
