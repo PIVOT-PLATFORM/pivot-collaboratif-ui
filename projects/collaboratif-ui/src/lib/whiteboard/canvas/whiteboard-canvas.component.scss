@@ -158,6 +158,17 @@
 
     &:hover { background: #e0e0e0; }
   }
+
+  // Contrast computed (WCAG relative-luminance formula) against the panel's white background
+  // (`.wb-color-panel { background: #fff; }`): #C2185B → relative luminance 0.1288 → contrast
+  // ratio 5.873:1 — passes AA (≥ 4.5:1 normal text). The plain error border colour (#E91E63,
+  // 4.347:1) falls just short of AA on its own, hence the darker shade used for the text.
+  &__error {
+    grid-column: 1 / -1;
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: #C2185B;
+  }
 }
 
 // ─── Zoom label ────────────────────────────────────────────────────────────
@@ -251,7 +262,13 @@
   background: transparent;
   cursor: pointer;
   font-size: 10px;
-  color: #888;
+  // Contrast computed (WCAG relative-luminance formula) against the effective background
+  // (`.wb-minimap-wrapper { background: rgba(255,255,255,.95); }` over `.wb-container`'s
+  // #f5f5f5 ≈ #fefefe once composited — effectively white): the previous #888 → relative
+  // luminance 0.2462 → contrast ratio 3.545:1, below the 4.5:1 AA minimum for normal text.
+  // #555 → relative luminance 0.0908 → ratio 7.455:1 — passes AA with margin, and matches
+  // `.wb-zoom-label`'s existing #555 elsewhere in this file for visual consistency.
+  color: #555;
   padding: 0;
   line-height: 1;
 

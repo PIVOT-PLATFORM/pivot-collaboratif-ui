@@ -115,6 +115,7 @@
         "panelLabel": "Color palette",
         "palette": "Color",
         "customHex": "Custom color (hex)",
+        "customHexError": "Invalid color — expected format: # followed by 6 hexadecimal digits (e.g. #1A2B3C)",
         "applyCustom": "Apply custom color"
       },
       "undo": {

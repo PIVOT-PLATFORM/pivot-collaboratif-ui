@@ -1,9 +1,20 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { WhiteboardCanvasComponent } from './whiteboard-canvas.component';
-import { StrokeObject, ShapeObject, COLOR_PALETTE, HEX_REGEX } from './model/canvas.model';
-import { clampShape, getBoundingBox, hitTest, translateObject } from './model/canvas-geometry';
+import { DrawAction, WhiteboardCanvasComponent } from './whiteboard-canvas.component';
+import { StrokeObject, ShapeObject, TextObject, COLOR_PALETTE, HEX_REGEX } from './model/canvas.model';
+import {
+  clampBBox,
+  clampObjectToCanvas,
+  clampShape,
+  getBoundingBox,
+  hitTest,
+  MIN_RESIZE_SIZE,
+  resizeAnchor,
+  resizeBBox,
+  scaleObject,
+  translateObject,
+} from './model/canvas-geometry';
 import { UndoRedoService } from '../../core/whiteboard/undo-redo.service';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -237,6 +248,113 @@ describe('WhiteboardCanvasComponent', () => {
     expect(component['showShortcutDialog']()).toBe(true);
   });
 
+  // ─── Keyboard-shortcuts dialog — focus trap (US08.3.2a Gate 4 gap fix) ─────
+  // The dialog previously had no focus management at all despite `role="dialog"` — these
+  // assert a real trap: focus moves in on open, Tab/Shift+Tab cycle within the dialog,
+  // Escape closes it and returns focus to whatever triggered it.
+
+  async function openDialogAndFlush(): Promise<void> {
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: '?' }));
+    fixture.detectChanges();
+    await new Promise<void>(resolve => setTimeout(resolve, 0)); // openShortcutDialog() defers focus
+    fixture.detectChanges();
+  }
+
+  it('opening the dialog moves focus onto an element inside it', async () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+
+    await openDialogAndFlush();
+
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('.wb-dialog');
+    expect(dialog).toBeTruthy();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    document.body.removeChild(trigger);
+  });
+
+  it('Escape closes the dialog and returns focus to the element that opened it', async () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    await openDialogAndFlush();
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+
+    expect(component['showShortcutDialog']()).toBe(false);
+    expect(document.activeElement).toBe(trigger);
+
+    document.body.removeChild(trigger);
+  });
+
+  it('Tab on the last focusable element wraps focus back to the first (trapped in the dialog)', async () => {
+    await openDialogAndFlush();
+
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('.wb-dialog');
+    const focusable = component['getFocusableElements'](dialog);
+    focusable[focusable.length - 1].focus();
+
+    const event = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true });
+    component['onKeyDown'](event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(focusable[0]);
+  });
+
+  it('Shift+Tab on the first focusable element wraps focus back to the last (trapped in the dialog)', async () => {
+    await openDialogAndFlush();
+
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('.wb-dialog');
+    const focusable = component['getFocusableElements'](dialog);
+    focusable[0].focus();
+
+    const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, cancelable: true });
+    component['onKeyDown'](event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(focusable[focusable.length - 1]);
+  });
+
+  it('other shortcuts (e.g. Ctrl+Z) are swallowed while the dialog is open', async () => {
+    const undoRedo = TestBed.inject(UndoRedoService);
+    undoRedo.push([makeRect('r1')]);
+    component['objects'].set([makeRect('r1'), makeRect('r2')]);
+
+    await openDialogAndFlush();
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+
+    // Undo must not fire "through" the open modal dialog.
+    expect(component['objects']()).toHaveLength(2);
+  });
+
+  it('clicking the dialog overlay (outside the dialog box) closes it too', async () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    await openDialogAndFlush();
+    const overlay: HTMLElement = fixture.nativeElement.querySelector('.wb-dialog-overlay');
+    overlay.click();
+    fixture.detectChanges();
+
+    expect(component['showShortcutDialog']()).toBe(false);
+    expect(document.activeElement).toBe(trigger);
+
+    document.body.removeChild(trigger);
+  });
+
+  it('clicking inside the dialog box itself does not close it (event does not bubble to the overlay)', async () => {
+    await openDialogAndFlush();
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('.wb-dialog');
+    dialog.click();
+    fixture.detectChanges();
+
+    expect(component['showShortcutDialog']()).toBe(true);
+  });
+
   it('select all (Ctrl+A) selects every object', () => {
     component['objects'].set([makeRect('r1'), makeRect('r2'), makeStroke('s1')]);
     component['onKeyDown'](new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }));
@@ -262,6 +380,65 @@ describe('WhiteboardCanvasComponent', () => {
     expect(copy.x).toBe(66);   // 50 + 16
     expect(copy.y).toBe(66);   // 50 + 16
     expect(copy.id).not.toBe('r1');
+  });
+
+  // ─── Real bug fix: duplicate() must emit the copy's actual DRAW subtype ────
+  // Previously every duplicate copy emitted `subType: 'stroke'` unconditionally, regardless
+  // of whether the duplicated object was a shape/stroke/text — these assert the subtype
+  // mirrors the object's own `kind`, exactly like the initial creation of each object type
+  // (onPointerUp / commitTextEdit) already does.
+
+  it('duplicating a shape emits a DRAW action with subType "shape" (not "stroke")', () => {
+    component['objects'].set([makeRect('r1')]);
+    component['selectedIds'].set(new Set(['r1']));
+    const emitted: DrawAction[] = [];
+    component.drawAction.subscribe(a => emitted.push(a));
+
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: 'd', ctrlKey: true }));
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].subType).toBe('shape');
+    expect((emitted[0].payload as ShapeObject).kind).toBe('shape');
+  });
+
+  it('duplicating a stroke emits a DRAW action with subType "stroke"', () => {
+    component['objects'].set([makeStroke('s1')]);
+    component['selectedIds'].set(new Set(['s1']));
+    const emitted: DrawAction[] = [];
+    component.drawAction.subscribe(a => emitted.push(a));
+
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: 'd', ctrlKey: true }));
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].subType).toBe('stroke');
+  });
+
+  it('duplicating a text object emits a DRAW action with subType "text"', () => {
+    const text: TextObject = {
+      id: 't1', kind: 'text', x: 10, y: 20, content: 'hi', fontSize: 16,
+      strokeColor: '#000', fillColor: 'transparent', lineWidth: 1,
+    };
+    component['objects'].set([text]);
+    component['selectedIds'].set(new Set(['t1']));
+    const emitted: DrawAction[] = [];
+    component.drawAction.subscribe(a => emitted.push(a));
+
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: 'd', ctrlKey: true }));
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].subType).toBe('text');
+  });
+
+  it('duplicating a mixed selection emits one DRAW action per object, each with its own subtype', () => {
+    component['objects'].set([makeRect('r1'), makeStroke('s1')]);
+    component['selectedIds'].set(new Set(['r1', 's1']));
+    const emitted: DrawAction[] = [];
+    component.drawAction.subscribe(a => emitted.push(a));
+
+    component['onKeyDown'](new KeyboardEvent('keydown', { key: 'd', ctrlKey: true }));
+
+    expect(emitted).toHaveLength(2);
+    expect(emitted.map(a => a.subType).sort()).toEqual(['shape', 'stroke']);
   });
 
   it('Ctrl+C then Ctrl+V pastes without changing original', () => {
@@ -537,6 +714,36 @@ describe('WhiteboardCanvasComponent', () => {
     expect(component['customHexError']()).toBe(true);
   });
 
+  it('an invalid hex input renders a visible, translated error linked via aria-describedby', () => {
+    component['showColorPicker'].set(true);
+    component['customHexInput'].set('notvalid');
+    component['setCustomColor']();
+    fixture.detectChanges();
+
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('.wb-color-custom input');
+    const describedBy = input.getAttribute('aria-describedby');
+    expect(describedBy).toBe('wb-custom-hex-error');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+
+    const errorEl = fixture.nativeElement.querySelector(`#${describedBy}`);
+    expect(errorEl).toBeTruthy();
+    expect(errorEl.textContent.trim().length).toBeGreaterThan(0);
+  });
+
+  it('aria-describedby is absent once the hex input is valid again', () => {
+    component['showColorPicker'].set(true);
+    component['customHexInput'].set('notvalid');
+    component['setCustomColor']();
+    fixture.detectChanges();
+
+    component['onCustomHexChange']('3F51B5');
+    fixture.detectChanges();
+
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('.wb-color-custom input');
+    expect(input.getAttribute('aria-describedby')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#wb-custom-hex-error')).toBeNull();
+  });
+
   it('setCustomColor auto-prepends # when missing', () => {
     component['customHexInput'].set('2196F3');
     component['setCustomColor']();
@@ -783,6 +990,173 @@ describe('canvas-geometry — strokeBBox min/max branches', () => {
   });
 });
 
+// ─── Geometry unit tests — real resize + canvas-bounds clamping ──────────────
+// (US08.3.2a Gate 4 gaps: resize handles previously only translated objects, and
+// `clampShape` existed as dead code never called from the component — see
+// `whiteboard-canvas.component.ts` `resizeSelected()`/`clampToCanvas()`.)
+
+describe('clampBBox', () => {
+  it('normalizes negative width/height and clamps position within [0, canvasW/H]', () => {
+    const clamped = clampBBox({ x: -10, y: -10, width: -50, height: -30 }, 400, 300);
+    expect(clamped.width).toBe(50);
+    expect(clamped.height).toBe(30);
+    expect(clamped.x).toBe(0);
+    expect(clamped.y).toBe(0);
+  });
+
+  it('pulls a bbox back inside canvas bounds when it overflows the right/bottom edge', () => {
+    const clamped = clampBBox({ x: 380, y: 290, width: 50, height: 40 }, 400, 300);
+    expect(clamped.x).toBe(350); // 400 - 50
+    expect(clamped.y).toBe(260); // 300 - 40
+    expect(clamped.width).toBe(50);
+    expect(clamped.height).toBe(40);
+  });
+});
+
+describe('clampObjectToCanvas', () => {
+  it('clamps a shape by delegating to clampShape', () => {
+    const rect = makeRect('r', 780, 580, 100, 60);
+    const clamped = clampObjectToCanvas(rect, 800, 600) as ShapeObject;
+    expect(clamped.x).toBe(700); // 800 - 100
+    expect(clamped.y).toBe(540); // 600 - 60
+  });
+
+  it('translates a stroke back within bounds without altering its shape', () => {
+    const stroke = makeStroke('s');
+    const outOfBounds: StrokeObject = { ...stroke, points: [[790, 590], [820, 620]] };
+    const clamped = clampObjectToCanvas(outOfBounds, 800, 600) as StrokeObject;
+    // The stroke's bbox must fit within [0,800]x[0,600] after clamping.
+    const bb = getBoundingBox(clamped);
+    expect(bb.x + bb.width).toBeLessThanOrEqual(800);
+    expect(bb.y + bb.height).toBeLessThanOrEqual(600);
+  });
+
+  it('leaves position unchanged when the object is already within bounds', () => {
+    const rect = makeRect('r', 50, 50, 100, 60);
+    const clamped = clampObjectToCanvas(rect, 800, 600) as ShapeObject;
+    expect(clamped.x).toBe(50);
+    expect(clamped.y).toBe(50);
+  });
+
+  it('returns the same reference for a stroke already within bounds (no translation needed)', () => {
+    const stroke = makeStroke('s');
+    const clamped = clampObjectToCanvas(stroke, 800, 600);
+    expect(clamped).toBe(stroke); // non-shape path short-circuits when dx===0 && dy===0
+  });
+});
+
+describe('resizeBBox — per-handle resize geometry', () => {
+  const origin = { x: 50, y: 50, width: 100, height: 60 };
+
+  it('br handle grows width/height, anchoring the top-left corner', () => {
+    const result = resizeBBox(origin, 'br', 50, 30);
+    expect(result).toEqual({ x: 50, y: 50, width: 150, height: 90 });
+  });
+
+  it('tl handle shrinks from the top-left, anchoring the bottom-right corner', () => {
+    const result = resizeBBox(origin, 'tl', 20, 10);
+    expect(result.x).toBe(70);
+    expect(result.y).toBe(60);
+    expect(result.width).toBe(80);
+    expect(result.height).toBe(50);
+    expect(result.x + result.width).toBe(origin.x + origin.width); // right edge fixed
+    expect(result.y + result.height).toBe(origin.y + origin.height); // bottom edge fixed
+  });
+
+  it('r (edge) handle changes only the width, never the height', () => {
+    const result = resizeBBox(origin, 'r', 40, 999);
+    expect(result.width).toBe(140);
+    expect(result.height).toBe(60);
+    expect(result.y).toBe(50);
+  });
+
+  it('t (edge) handle changes only the height, never the width', () => {
+    const result = resizeBBox(origin, 't', 999, -20);
+    expect(result.height).toBe(80);
+    expect(result.width).toBe(100);
+    expect(result.x).toBe(50);
+  });
+
+  it('never produces a negative or zero size — clamps to MIN_RESIZE_SIZE instead of flipping', () => {
+    const result = resizeBBox(origin, 'r', -500, 0);
+    expect(result.width).toBe(MIN_RESIZE_SIZE);
+    expect(result.width).toBeGreaterThan(0);
+  });
+
+  it('clamps both dimensions to MIN_RESIZE_SIZE when a corner handle is dragged past the anchor', () => {
+    const result = resizeBBox(origin, 'br', -500, -500);
+    expect(result.width).toBe(MIN_RESIZE_SIZE);
+    expect(result.height).toBe(MIN_RESIZE_SIZE);
+  });
+
+  it('clamps width to MIN_RESIZE_SIZE from the left when the l (edge) handle is dragged past the right anchor', () => {
+    const result = resizeBBox(origin, 'l', 500, 0);
+    expect(result.width).toBe(MIN_RESIZE_SIZE);
+    expect(result.x + result.width).toBe(origin.x + origin.width); // right anchor still fixed
+  });
+
+  it('clamps both dimensions from the top-left when the tl handle is dragged past the anchor', () => {
+    const result = resizeBBox(origin, 'tl', 500, 500);
+    expect(result.width).toBe(MIN_RESIZE_SIZE);
+    expect(result.height).toBe(MIN_RESIZE_SIZE);
+    expect(result.x + result.width).toBe(origin.x + origin.width);
+    expect(result.y + result.height).toBe(origin.y + origin.height);
+  });
+});
+
+describe('resizeAnchor', () => {
+  const origin = { x: 50, y: 50, width: 100, height: 60 };
+
+  it('br handle anchors the top-left corner', () => {
+    expect(resizeAnchor(origin, 'br')).toEqual({ x: 50, y: 50 });
+  });
+
+  it('tl handle anchors the bottom-right corner', () => {
+    expect(resizeAnchor(origin, 'tl')).toEqual({ x: 150, y: 110 });
+  });
+
+  it('l (edge) handle anchors the right edge on the x-axis', () => {
+    expect(resizeAnchor(origin, 'l').x).toBe(150);
+  });
+
+  it('"move" (defensive/exhaustiveness branch — never issued by hitTestHandle) anchors nothing', () => {
+    expect(resizeAnchor(origin, 'move')).toEqual({ x: 50, y: 50 });
+    expect(resizeBBox(origin, 'move', 999, 999)).toEqual(origin);
+  });
+});
+
+describe('scaleObject', () => {
+  it('scales a shape around a fixed anchor point', () => {
+    const rect = makeRect('r', 50, 50, 100, 60);
+    const scaled = scaleObject(rect, 50, 50, 2, 1.5) as ShapeObject;
+    expect(scaled.x).toBe(50);
+    expect(scaled.y).toBe(50);
+    expect(scaled.width).toBe(200);
+    expect(scaled.height).toBe(90);
+  });
+
+  it('scales every point of a stroke around the anchor', () => {
+    const stroke = makeStroke('s'); // points: [10,10],[20,20],[30,30]
+    const scaled = scaleObject(stroke, 10, 10, 2, 2) as StrokeObject;
+    expect(scaled.points[0]).toEqual([10, 10]); // anchor point itself is invariant
+    expect(scaled.points[2]).toEqual([50, 50]); // (30-10)*2+10 = 50
+  });
+
+  it('scales a text object\'s font size and repositions it, clamped to a sane range', () => {
+    const text: TextObject = {
+      id: 't', kind: 'text', x: 100, y: 100, content: 'hi', fontSize: 16,
+      strokeColor: '#000', fillColor: 'transparent', lineWidth: 1,
+    };
+    const scaled = scaleObject(text, 100, 100, 1, 3) as TextObject;
+    expect(scaled.fontSize).toBe(48);
+    // Absurd scale factors must not produce an unreadable or runaway font size.
+    const extreme = scaleObject(text, 100, 100, 1, 1000) as TextObject;
+    expect(extreme.fontSize).toBeLessThanOrEqual(400);
+    const tiny = scaleObject(text, 100, 100, 1, 0.001) as TextObject;
+    expect(tiny.fontSize).toBeGreaterThanOrEqual(8);
+  });
+});
+
 // ─── Component private helper tests ──────────────────────────────────────────
 
 describe('WhiteboardCanvasComponent — private helpers & pointer paths', () => {
@@ -988,6 +1362,132 @@ describe('WhiteboardCanvasComponent — private helpers & pointer paths', () => 
     component['onPointerDown'](new PointerEvent('pointerdown', { clientX: 46, clientY: 46, ...opts }));
     // The handle was hit — resizingHandle is set
     expect(component['resizingHandle']).not.toBeNull();
+  });
+
+  // ─── Real per-handle resize (US08.3.2a Gate 4 gap fix) ─────────────────────
+  // Previously `resizingHandle` drag only called `moveSelected` (a plain translate) — these
+  // drive the actual pointerdown → pointermove → pointerup flow end-to-end and assert the
+  // object's width/height genuinely change, matching the handle dragged.
+
+  it('dragging the br handle actually resizes width/height, not just position', () => {
+    const rect = makeRect('r1', 50, 50, 100, 60); // br handle center = (154, 114)
+    component['objects'].set([rect]);
+    component['selectedIds'].set(new Set(['r1']));
+    component['activeTool'].set('select');
+    const opts = { pointerId: 1, bubbles: true };
+
+    component['onPointerDown'](new PointerEvent('pointerdown', { clientX: 154, clientY: 114, ...opts }));
+    expect(component['resizingHandle']).toBe('br');
+    component['onPointerMove'](new PointerEvent('pointermove', { clientX: 254, clientY: 174, ...opts }));
+    component['onPointerUp'](new PointerEvent('pointerup', { clientX: 254, clientY: 174, ...opts }));
+
+    const resized = component['objects']()[0] as ShapeObject;
+    expect(resized.x).toBe(50); // top-left anchor unchanged
+    expect(resized.y).toBe(50);
+    expect(resized.width).toBeCloseTo(200); // 100 + 100
+    expect(resized.height).toBeCloseTo(120); // 60 + 60
+    expect(component['resizingHandle']).toBeNull(); // cleared after pointerup
+  });
+
+  it('dragging the tl handle resizes while keeping the bottom-right corner anchored', () => {
+    const rect = makeRect('r1', 50, 50, 100, 60); // tl handle center = (46, 46)
+    component['objects'].set([rect]);
+    component['selectedIds'].set(new Set(['r1']));
+    component['activeTool'].set('select');
+    const opts = { pointerId: 1, bubbles: true };
+
+    component['onPointerDown'](new PointerEvent('pointerdown', { clientX: 46, clientY: 46, ...opts }));
+    component['onPointerMove'](new PointerEvent('pointermove', { clientX: 26, clientY: 36, ...opts }));
+    component['onPointerUp'](new PointerEvent('pointerup', { clientX: 26, clientY: 36, ...opts }));
+
+    const resized = component['objects']()[0] as ShapeObject;
+    expect(resized.x + resized.width).toBeCloseTo(150); // original br.x unchanged
+    expect(resized.y + resized.height).toBeCloseTo(110); // original br.y unchanged
+    expect(resized.width).toBeGreaterThan(100); // grew (dragged outward/up-left)
+  });
+
+  it('dragging an edge handle (r) changes only the width, never the height', () => {
+    const rect = makeRect('r1', 50, 50, 100, 60); // r handle center = (154, 80)
+    component['objects'].set([rect]);
+    component['selectedIds'].set(new Set(['r1']));
+    component['activeTool'].set('select');
+    const opts = { pointerId: 1, bubbles: true };
+
+    component['onPointerDown'](new PointerEvent('pointerdown', { clientX: 154, clientY: 80, ...opts }));
+    expect(component['resizingHandle']).toBe('r');
+    component['onPointerMove'](new PointerEvent('pointermove', { clientX: 204, clientY: 500, ...opts }));
+    component['onPointerUp'](new PointerEvent('pointerup', { clientX: 204, clientY: 500, ...opts }));
+
+    const resized = component['objects']()[0] as ShapeObject;
+    expect(resized.width).toBeCloseTo(150); // 100 + 50
+    expect(resized.height).toBeCloseTo(60); // unchanged despite huge dy
+    expect(resized.y).toBeCloseTo(50);
+  });
+
+  it('resize never produces a negative/zero size when dragged past the opposite edge', () => {
+    const rect = makeRect('r1', 50, 50, 100, 60);
+    component['objects'].set([rect]);
+    component['selectedIds'].set(new Set(['r1']));
+    component['activeTool'].set('select');
+    const opts = { pointerId: 1, bubbles: true };
+
+    component['onPointerDown'](new PointerEvent('pointerdown', { clientX: 154, clientY: 80, ...opts })); // r handle
+    component['onPointerMove'](new PointerEvent('pointermove', { clientX: -900, clientY: 80, ...opts }));
+    component['onPointerUp'](new PointerEvent('pointerup', { clientX: -900, clientY: 80, ...opts }));
+
+    const resized = component['objects']()[0] as ShapeObject;
+    expect(resized.width).toBeGreaterThan(0);
+    expect(resized.width).toBe(MIN_RESIZE_SIZE);
+  });
+
+  it('resize clamps the result to stay within the canvas bounds', () => {
+    // Canvas mocked at 800x600 (see getBoundingClientRect above) — dragging br far beyond
+    // the canvas must not let the shape drift past [0,800]x[0,600].
+    const rect = makeRect('r1', 700, 500, 50, 40); // br handle around (754, 544)
+    component['objects'].set([rect]);
+    component['selectedIds'].set(new Set(['r1']));
+    component['activeTool'].set('select');
+    const opts = { pointerId: 1, bubbles: true };
+
+    component['onPointerDown'](new PointerEvent('pointerdown', { clientX: 754, clientY: 544, ...opts }));
+    component['onPointerMove'](new PointerEvent('pointermove', { clientX: 5000, clientY: 5000, ...opts }));
+    component['onPointerUp'](new PointerEvent('pointerup', { clientX: 5000, clientY: 5000, ...opts }));
+
+    const resized = component['objects']()[0] as ShapeObject;
+    expect(resized.x).toBeGreaterThanOrEqual(0);
+    expect(resized.y).toBeGreaterThanOrEqual(0);
+    expect(resized.x).toBeLessThanOrEqual(800);
+    expect(resized.y).toBeLessThanOrEqual(600);
+  });
+
+  it('completing a resize emits a DRAW action with subType "resize" (not "move")', () => {
+    const rect = makeRect('r1', 50, 50, 100, 60);
+    component['objects'].set([rect]);
+    component['selectedIds'].set(new Set(['r1']));
+    component['activeTool'].set('select');
+    const opts = { pointerId: 1, bubbles: true };
+
+    const emitted: DrawAction[] = [];
+    component.drawAction.subscribe(a => emitted.push(a));
+
+    component['onPointerDown'](new PointerEvent('pointerdown', { clientX: 154, clientY: 114, ...opts }));
+    component['onPointerMove'](new PointerEvent('pointermove', { clientX: 200, clientY: 150, ...opts }));
+    component['onPointerUp'](new PointerEvent('pointerup', { clientX: 200, clientY: 150, ...opts }));
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].subType).toBe('resize');
+  });
+
+  it('moveSelected clamps a dragged object to stay within the canvas bounds', () => {
+    const rect = makeRect('r1', 50, 50, 100, 60);
+    component['objects'].set([rect]);
+    component['selectedIds'].set(new Set(['r1']));
+    // Directly exercises the private helper with an extreme delta — the drag/arrow-key
+    // paths both funnel through this method, so this is the single wiring point.
+    component['moveSelected'](5000, 5000);
+    const moved = component['objects']()[0] as ShapeObject;
+    expect(moved.x).toBe(700); // 800 - 100 (canvas width - object width)
+    expect(moved.y).toBe(540); // 600 - 60
   });
 
   it('dragging a selected object triggers moveSelected', () => {
