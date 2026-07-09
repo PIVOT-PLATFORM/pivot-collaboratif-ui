@@ -30,7 +30,11 @@ env:
   # NOT ghcr.io/<owner>/pivot-collaboratif-core/pivot-collaboratif-core — the repo name isn't
   # repeated (that doubled-path bug, same one fixed on pivot-core and pivot-ui, was itself
   # fixed in pivot-collaboratif-core's release.yml, v0.1.1).
-  CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core:latest
+  #
+  # No tag here anymore — pivot-collaboratif-core#56 removed the forbidden mutable `:latest`
+  # tag (`.plumber.yaml` containerImageMustNotUseForbiddenTags). The tag is resolved dynamically
+  # per-run below (step "Resolve pivot-collaboratif-core image tag").
+  CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core
 
 jobs:
   e2e:
@@ -78,6 +82,42 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve pivot-collaboratif-core image tag
+        # pivot-collaboratif-core's release.yml only pushes ${GITHUB_SHA}/${VERSION} image tags
+        # from its `release` job, itself gated on an explicit "Release-Trigger: true" commit
+        # trailer (pivot-collaboratif-core/CLAUDE.md, "Workflow — Release") — NOT on every push
+        # to main. Resolving main's HEAD commit SHA (e.g. via `gh api .../commits/main`) and
+        # assuming a matching image tag exists is unsound: verified empirically 2026-07-10,
+        # main's HEAD there is itself the semantic-release "chore(release): x.y.z [skip ci]"
+        # commit pushed by @semantic-release/git AFTER the image build/push, so it has no
+        # matching ${GITHUB_SHA} tag in GHCR at all — pulling it would reproduce the exact
+        # "manifest unknown" failure this fix is meant to remove (see issue #39).
+        #
+        # The reliable, always-published reference is the latest GitHub Release's tag_name —
+        # release.yml tags+pushes ${IMAGE}:${VERSION} in the SAME job that creates the GitHub
+        # Release, so this tag is guaranteed to exist in GHCR whenever the Releases API returns
+        # it. It's also public-repo metadata (pivot-collaboratif-core is a public repo), so no
+        # extra token scope beyond the default GITHUB_TOKEN is needed to read it.
+        #
+        # This has the exact same freshness cadence the old `:latest` tag had (both were pushed
+        # together, in the same release job run) — no regression versus the pre-#56 behaviour,
+        # just an immutable tag instead of a forbidden mutable one. It does mean E2E here always
+        # lags behind pivot-collaboratif-core's actual main branch until that repo publishes an
+        # image on every merge instead of only at end-of-sprint release — same known gap as
+        # TODO-SETUP.md Bloquant #2 / issue #39, now made explicit instead of silently assumed.
+        id: core-image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=$(gh api repos/PIVOT-PLATFORM/pivot-collaboratif-core/releases/latest --jq .tag_name)
+          if [ -z "${TAG_NAME}" ] || [ "${TAG_NAME}" = "null" ]; then
+            echo "::error::Could not resolve pivot-collaboratif-core's latest GitHub Release tag_name — no release published yet?"
+            exit 1
+          fi
+          VERSION="${TAG_NAME#v}"
+          echo "::warning::E2E runs against pivot-collaboratif-core's latest RELEASED image (${VERSION}), not the HEAD of its main branch — that repo only publishes images at end-of-sprint release (see its CLAUDE.md, 'Workflow — Release'). Signal here will lag behind pivot-collaboratif-core's own main until it publishes an image on every merge (tracked: TODO-SETUP.md Bloquant #2 / issue #39)."
+          echo "tag=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Seed public schema + real bearer token (pivot-core mirror)
         # EN08.3 (pivot-collaboratif-core#46) added real FK constraints from collaboratif.board/
@@ -143,7 +183,7 @@ jobs:
             -e SPRING_DATA_REDIS_HOST=redis \
             -e SPRING_DATA_REDIS_PORT=6379 \
             -e SPRING_PROFILES_ACTIVE=test \
-            ${{ env.CORE_IMAGE }}
+            ${{ env.CORE_IMAGE }}:${{ steps.core-image.outputs.tag }}
 
       - name: Wait for pivot-collaboratif-core
         run: |
