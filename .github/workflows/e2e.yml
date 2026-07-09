@@ -2,12 +2,9 @@ name: E2E
 
 # Tests E2E Playwright contre une stack pivot-collaboratif-core reelle (image GHCR + postgres +
 # redis). Pas un required status check ici (voir TODO-SETUP.md — pas encore ajoute a la liste des
-# required checks). pivot-collaboratif-core a publie sa premiere image GHCR (release v1.0.0,
-# 2026-07-06) — le "manifest unknown" (image absente) du tout debut du bootstrap ne se reproduit
-# plus. Mais `docker run` echoue desormais avec "denied" APRES un login GHCR reussi : le package
-# GHCR de pivot-collaboratif-core est prive et n'accorde pas d'acces cross-repo aux Actions de ce
-# repo. Correctif hors de portee d'une PR pivot-collaboratif-ui (action mainteneur cote package
-# settings) — voir TODO-SETUP.md.
+# required checks). Le package GHCR pivot-collaboratif-core est prive — l'acces cross-repo Actions
+# a ete accorde a ce repo le 2026-07-09 (Package settings > Manage Actions access), levant le
+# "denied" qui bloquait `docker run` depuis la premiere image publiee (v0.1.0/v1.0.0).
 
 on:
   push:
@@ -32,10 +29,7 @@ concurrency:
 env:
   # NOT ghcr.io/<owner>/pivot-collaboratif-core/pivot-collaboratif-core — the repo name isn't
   # repeated (that doubled-path bug, same one fixed on pivot-core and pivot-ui, was itself
-  # fixed in pivot-collaboratif-core's release.yml, v0.1.1). Image publié depuis v0.1.0
-  # (2026-07-09), mais le pull échoue toujours avec "denied" tant que le package GHCR
-  # n'accorde pas l'accès Actions cross-repo à pivot-collaboratif-ui (voir TODO-SETUP.md —
-  # action mainteneur : package privé, "Manage Actions access" doit lister ce repo).
+  # fixed in pivot-collaboratif-core's release.yml, v0.1.1).
   CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core:latest
 
 jobs:
@@ -84,6 +78,22 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Seed minimal public schema (pivot-core FK targets)
+        # EN08.3 (pivot-collaboratif-core#46) added real FK constraints from collaboratif.board/
+        # canvas_event/board_member/board_share_token/whiteboard_template into public.tenants(id)/
+        # public.users(id) — owned by pivot-core's own Flyway, never run in this E2E stack. Without
+        # these two tables, collaboratif-core's own Flyway migration (V1__schema_init.sql) fails
+        # with "relation public.tenants does not exist" and the container never becomes healthy.
+        # The E2E spec (app.e2e.spec.ts) only checks the app loads — no authenticated flow — so
+        # empty tables satisfying the FK shape are enough, no need for real seed rows.
+        env:
+          PGPASSWORD: pivot_e2e
+        run: |
+          psql -h localhost -U pivot -d pivot_e2e -c "
+            CREATE TABLE IF NOT EXISTS public.tenants (id BIGSERIAL PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS public.users (id BIGSERIAL PRIMARY KEY);
+          "
 
       - name: Start pivot-collaboratif-core (E2E seed profile)
         run: |
