@@ -79,21 +79,58 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Seed minimal public schema (pivot-core FK targets)
+      - name: Seed public schema + real bearer token (pivot-core mirror)
         # EN08.3 (pivot-collaboratif-core#46) added real FK constraints from collaboratif.board/
         # canvas_event/board_member/board_share_token/whiteboard_template into public.tenants(id)/
         # public.users(id) — owned by pivot-core's own Flyway, never run in this E2E stack. Without
-        # these two tables, collaboratif-core's own Flyway migration (V1__schema_init.sql) fails
-        # with "relation public.tenants does not exist" and the container never becomes healthy.
-        # The E2E spec (app.e2e.spec.ts) only checks the app loads — no authenticated flow — so
-        # empty tables satisfying the FK shape are enough, no need for real seed rows.
+        # these tables, collaboratif-core's own Flyway migration (V1__schema_init.sql) fails with
+        # "relation public.tenants does not exist" and the container never becomes healthy.
+        #
+        # A minimal empty-tables seed is enough for that, but EN08.3 also replaced the old
+        # X-Pivot-User-Id header stub with real bearer-token validation — and this repo's own
+        # frontend has NO auth interceptor (CLAUDE.md, "Auth (différée)": no AuthService/
+        # AuthInterceptor exists here, deferred until @pivot-platform/ui-core is published). Any
+        # spec exercising a real API call (board creation, canvas, etc. — not just app.e2e.spec.ts's
+        # trivial "app loads") needs a request carrying a token collaboratif-core will actually
+        # accept. Rather than reimplementing an Angular-side auth mechanism (explicitly forbidden
+        # by this repo's own CLAUDE.md — "doit venir exclusivement de @pivot-platform/ui-core"),
+        # this stays entirely inside the E2E harness: seed one real user/tenant/access_token row
+        # (same shape TokenValidationService reads — see PlatformUser/PlatformTenant/
+        # PlatformAccessToken in pivot-collaboratif-core) and have Playwright itself attach the
+        # matching bearer token to every request (playwright.config.ts, extraHTTPHeaders).
+        id: seed
         env:
           PGPASSWORD: pivot_e2e
         run: |
+          RAW_TOKEN=$(openssl rand -hex 32)
+          TOKEN_HASH=$(printf '%s' "$RAW_TOKEN" | sha256sum | cut -d' ' -f1)
           psql -h localhost -U pivot -d pivot_e2e -c "
-            CREATE TABLE IF NOT EXISTS public.tenants (id BIGSERIAL PRIMARY KEY);
-            CREATE TABLE IF NOT EXISTS public.users (id BIGSERIAL PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS public.tenants (
+              id BIGSERIAL PRIMARY KEY,
+              tenant_invalidation_timestamp TIMESTAMPTZ
+            );
+            CREATE TABLE IF NOT EXISTS public.users (
+              id BIGSERIAL PRIMARY KEY,
+              tenant_id BIGINT NOT NULL,
+              role VARCHAR(50) NOT NULL,
+              is_active BOOLEAN NOT NULL DEFAULT true
+            );
+            CREATE TABLE IF NOT EXISTS public.access_tokens (
+              id BIGSERIAL PRIMARY KEY,
+              user_id BIGINT NOT NULL,
+              token_hash VARCHAR(64) NOT NULL,
+              status VARCHAR(10) NOT NULL,
+              expires_at TIMESTAMPTZ NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+            INSERT INTO public.tenants (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+            INSERT INTO public.users (id, tenant_id, role, is_active)
+              VALUES (1, 1, 'ROLE_USER', true) ON CONFLICT (id) DO NOTHING;
+            INSERT INTO public.access_tokens (user_id, token_hash, status, expires_at)
+              VALUES (1, '${TOKEN_HASH}', 'active', now() + interval '1 day');
           "
+          echo "::add-mask::${RAW_TOKEN}"
+          echo "raw_token=${RAW_TOKEN}" >> "$GITHUB_OUTPUT"
 
       - name: Start pivot-collaboratif-core (E2E seed profile)
         run: |
@@ -139,6 +176,7 @@ jobs:
       - name: Run Playwright
         env:
           PIVOT_API_URL: http://localhost:8083
+          E2E_BEARER_TOKEN: ${{ steps.seed.outputs.raw_token }}
         run: npx playwright test --project=chromium
 
       - name: Dump pivot-collaboratif-core logs on failure

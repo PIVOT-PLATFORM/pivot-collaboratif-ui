@@ -206,6 +206,7 @@ export class WhiteboardSyncService {
       reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
       heartbeatIncoming: HEARTBEAT_INCOMING_MS,
       heartbeatOutgoing: HEARTBEAT_OUTGOING_MS,
+      connectHeaders: this.buildConnectHeaders(),
     });
     this.rxStomp = rxStomp;
 
@@ -522,5 +523,24 @@ export class WhiteboardSyncService {
     }
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
     return `${scheme}://${window.location.host}${apiUrl}/ws/whiteboard`;
+  }
+
+  /**
+   * Builds the STOMP `CONNECT` frame headers — {} in real usage today.
+   *
+   * <p>This repo has no Angular-side auth mechanism yet (no `AuthService`/`AuthInterceptor` —
+   * deferred to `@pivot-platform/ui-core`, not yet published; see this repo's own `CLAUDE.md`,
+   * "Auth (différée)"). `pivot-collaboratif-core`'s STOMP endpoint requires a bearer token on
+   * `CONNECT` since EN08.3 (a custom header cannot be set on the WS handshake itself, so REST's
+   * `Authorization` header convention doesn't apply here — the token travels as a native STOMP
+   * frame header instead). Until real auth ships, the only source for a token is this narrow,
+   * explicitly-named test hook — `window.__PIVOT_E2E_BEARER_TOKEN__`, set only by the E2E harness
+   * (`playwright.config.ts` `page.addInitScript`) — never read from any real storage. Remove this
+   * method (and call it directly with real headers) once `@pivot-platform/ui-core` ships.
+   */
+  private buildConnectHeaders(): Record<string, string> {
+    const token = (window as unknown as { __PIVOT_E2E_BEARER_TOKEN__?: string })
+      .__PIVOT_E2E_BEARER_TOKEN__;
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 }
