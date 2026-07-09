@@ -40,7 +40,21 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           npm --prefix dist/collaboratif-ui version "$VERSION" --no-git-tag-version
 
-      - name: Publish to GitHub Packages
-        run: npm publish ./dist/collaboratif-ui
+      - name: Publish to GitHub Packages (idempotent — skip if this version already exists)
+        # This job runs on every push to main (see `on:` above — no git-tag convention exists for
+        # this package, confirmed: `projects/collaboratif-ui/package.json`'s version has been
+        # "0.1.0" since the one commit that set it, #36; no release/tag has bumped it since), but
+        # `npm publish` hard-fails if that exact version is already on the registry — which it is,
+        # after the very first successful publish. Every ordinary merge after that point failed
+        # here with "cannot publish over the previously published version". Skip gracefully
+        # instead of failing when the current version is already published; a real version bump in
+        # package.json still publishes normally.
+        run: |
+          PKG_VERSION=$(node -p "require('./dist/collaboratif-ui/package.json').version")
+          if npm view "@pivot-platform/collaboratif-ui@${PKG_VERSION}" version 2>/dev/null; then
+            echo "::notice::${PKG_VERSION} already published — skipping (no version bump since last publish)."
+          else
+            npm publish ./dist/collaboratif-ui
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
