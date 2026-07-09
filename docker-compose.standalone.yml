@@ -1,0 +1,37 @@
+# Déploiement QA/preview du conteneur standalone pivot-collaboratif-ui (harnais dev/E2E) sur le
+# serveur de production partagé de la plateforme — CE N'EST PAS le chemin de consommation
+# production de ce module.
+#
+# En production réelle, ce module est lazy-loadé DANS le shell pivot-ui/nginx via la librairie
+# npm `@pivot-platform/collaboratif-ui` (voir pivot-ui/docker-compose.prod.yml + son propre
+# deploy.yml, service `nginx`) — totalement indépendant de ce fichier. Ce compose déploie
+# uniquement l'image Docker autonome de CE repo (Dockerfile + nginx.conf à la racine), utile pour
+# que l'équipe puisse vérifier/QA le module whiteboard de façon isolée, sans dépendre de
+# l'intégration pivot-ui.
+#
+# Délibérément SÉPARÉ de docker-compose.prod.yml (convention "module-core", backend uniquement,
+# partagée par pivot-core/pivot-ui) — un déploiement mono-conteneur QA n'a pas besoin du fichier
+# compose multi-services partagé, et l'y mélanger brouillerait la frontière "quel compose
+# gouverne quel conteneur".
+#
+# Synchronisé sur le serveur à $PROD_DEPLOY_PATH_COLLABORATIF_UI_STANDALONE hors CI (même
+# convention que docker-compose.prod.yml pour pivot-ui/pivot-core — voir leurs deploy.yml) : ce
+# fichier existe dans CE repo comme source de vérité versionnée, mais son déploiement effectif
+# (`.github/workflows/deploy.yml`) suppose qu'une copie à jour est déjà présente sur le serveur
+# au chemin ci-dessus — le pull de code sur le serveur reste hors périmètre de ce workflow.
+services:
+  collaboratif-ui-standalone:
+    # Chemin d'image ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui — segment
+    # de repo dupliqué, PAS une faute de frappe de ce fichier : c'est le chemin réellement publié
+    # par release.yml aujourd'hui (bug connu déjà corrigé côté pivot-core/pivot-ui/
+    # pivot-collaboratif-core, PAS encore corrigé dans le release.yml de CE repo — voir
+    # deploy.yml et la description de la PR). À mettre à jour en lockstep si/quand ce bug est
+    # corrigé ici.
+    image: ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui:${COLLABORATIF_UI_STANDALONE_VERSION:?COLLABORATIF_UI_STANDALONE_VERSION not set}
+    container_name: pivot-collaboratif-ui-standalone
+    restart: unless-stopped
+    ports:
+      # 8090, PAS 80/443 — ces ports appartiennent au nginx pivot-ui partagé sur ce même serveur.
+      # Aucune convention de port établie pour un déploiement QA/preview mono-module à ce jour —
+      # choix à confirmer explicitement par le mainteneur (voir description de la PR).
+      - "8090:80"

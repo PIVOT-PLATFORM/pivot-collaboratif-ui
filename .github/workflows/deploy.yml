@@ -1,26 +1,260 @@
 name: Deploy
 
-# Déploiement production — déclenché UNIQUEMENT à la publication d'une GitHub Release (créée
-# par Semantic Release dans release.yml). Event-based : ne tourne que sur de vraies releases
-# (jamais "skipped") et conserve les garde-fous de l'environnement `production` : approvals,
-# secrets d'environnement, règles de déploiement, historique des deployments.
+# Déploiement QA/preview — EN07.5, en réponse à l'issue #56 ("[CRITIQUE] Déploiement production
+# non implémenté"). LIRE ATTENTIVEMENT avant de considérer #56 comme résolue :
+#
+# CE WORKFLOW NE DÉPLOIE PAS LE CHEMIN DE CONSOMMATION PRODUCTION DE CE MODULE.
+#
+# En production réelle, pivot-collaboratif-ui est consommé comme librairie npm
+# (`@pivot-platform/collaboratif-ui`, publiée par publish-collaboratif-ui.yml), lazy-loadée DANS
+# le shell pivot-ui/nginx qui route déjà `/api/collaboratif/` (voir nginx.conf, le commentaire
+# au-dessus du bloc `location /api/collaboratif/` documente exactement cette architecture, et
+# pivot-docs/docs/architecture/platform-overview.md). Ce chemin de conso est géré par le
+# deploy.yml DE PIVOT-UI, jamais par celui-ci.
+#
+# Ce que ce workflow déploie : l'image Docker STANDALONE de ce repo (Dockerfile + nginx.conf à la
+# racine — le harnais dev/E2E qui héberge les routes whiteboard pour test isolé), sur le serveur
+# de production partagé de la plateforme, mais sur un port dédié qui ne touche jamais 80/443
+# (propriété du nginx pivot-ui). Objectif : donner à l'équipe un moyen d'accéder/vérifier le
+# module whiteboard de façon autonome, PAS de servir du trafic PIVOT réel. Voir
+# docker-compose.standalone.yml pour le détail, et la description de la PR qui a introduit ce
+# fichier pour la recommandation faite au mainteneur sur le sort de #56.
+#
+# Structure calquée sur pivot-ui/deploy.yml et pivot-core/deploy.yml (déclenchement, résolution
+# de version, SSH, smoke test + rollback, notification) — simplifiée car ce déploiement ne fait
+# PAS partie du docker-compose.prod.yml partagé (convention "module-core", backend uniquement) :
+# un seul conteneur, son propre docker-compose.standalone.yml dédié.
+#
+# --- BLOCAGES RÉELS CONSTATÉS EN ÉCRIVANT CE WORKFLOW (à lire avant le premier run) ---
+#
+# 1. Pas de tag semver publié aujourd'hui. release.yml (au moment de l'écriture de ce fichier)
+#    ne pousse que `${GITHUB_SHA}` et `latest` (voir son job `release`, step "Build & load Docker
+#    image") — AUCUN tag `${VERSION}` (semver) n'existe. Ce workflow est écrit pour consommer un
+#    tag semver (même raisonnement que pivot-core/pivot-ui : le tag Git observé par
+#    `release: published` pointe sur le commit de bump semantic-release, pas sur le commit
+#    buildé — `${GITHUB_SHA}` résolu ici ne correspondrait pas à l'image buildée pour CETTE
+#    release) — mais tant que release.yml n'ajoute pas ce tag, le step "Deploy" ci-dessous
+#    échouera (`docker compose pull` 404, tag introuvable). Fix nécessaire côté release.yml,
+#    volontairement PAS fait dans cette PR (voir sa description : pas de tag deviné).
+# 2. Chemin d'image GHCR dupliqué. release.yml construit l'image à
+#    `ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui` (segment de repo répété
+#    — même bug déjà corrigé sur pivot-core, pivot-ui et pivot-collaboratif-core, voir le
+#    commentaire de tête de e2e.yml de CE repo, et PR #52 qui n'a corrigé QUE la référence dans
+#    e2e.yml, pas la source dans release.yml). Ce workflow utilise donc ce chemin dupliqué —
+#    c'est le chemin RÉELLEMENT publié aujourd'hui, pas une supposition — jusqu'à ce que
+#    release.yml soit corrigé. Toute correction future de release.yml doit s'accompagner d'une
+#    mise à jour en lockstep de `IMAGE` ci-dessous et de docker-compose.standalone.yml.
+# 3. `latest` encore poussé par release.yml aujourd'hui — interdit par `.plumber.yaml`
+#    (`containerImageMustNotUseForbiddenTags`). PR #62 ("fix(ci): remove forbidden 'latest'
+#    Docker tag from release push") est ouverte pour ce sujet, pas encore mergée — hors périmètre
+#    de cette PR, mentionné ici pour traçabilité.
+#
+# Secrets requis :
+#   - PROD_SSH_HOST, PROD_SSH_USER, PROD_SSH_KEY   : accès SSH au serveur de production —
+#                                                     mêmes noms que pivot-core/pivot-ui
+#                                                     (secrets d'organisation partagés, confirmé
+#                                                     par le mainteneur : infra partagée).
+#   - PROD_SSH_PORT                                : optionnel, défaut 22.
+#   - PROD_DEPLOY_PATH_COLLABORATIF_UI_STANDALONE  : NOUVEAU secret dédié — répertoire serveur
+#                                                     contenant docker-compose.standalone.yml
+#                                                     (synchronisé sur le serveur hors CI, même
+#                                                     convention que PROD_DEPLOY_PATH pour
+#                                                     docker-compose.prod.yml). Délibérément
+#                                                     PAS une réutilisation de `PROD_DEPLOY_PATH`
+#                                                     de pivot-ui/pivot-core : ce déploiement QA
+#                                                     n'a rien à voir avec le stack partagé, et
+#                                                     réutiliser le même répertoire créerait une
+#                                                     ambiguïté ("quel compose gouverne quel
+#                                                     conteneur ?") et un risque de collision de
+#                                                     nom de fichier/conteneur. Sous-répertoire
+#                                                     distinct, à créer par le mainteneur.
+#   - GH_PACKAGES_USERNAME, GH_PACKAGES_TOKEN      : login GHCR sur le serveur avant
+#                                                     `docker compose pull` — package privé par
+#                                                     défaut (org), même besoin que pivot-core/
+#                                                     pivot-ui (confirmé bloquant en déployant une
+#                                                     vraie instance, 2026-07-09 — voir leurs
+#                                                     deploy.yml). Token = PAT dédié, scope
+#                                                     `read:packages` uniquement.
+#   - SLACK_WEBHOOK_URL                            : optionnel — absent = notification Slack
+#                                                     dégradée en warning explicite, run visible
+#                                                     sans aucun secret via l'onglet
+#                                                     Environments/Deployments (natif GitHub).
+#
+# NOTE : ce repo n'a jamais référencé PROD_SSH_*/GH_PACKAGES_* avant cette PR (vérifié : absent
+# de tout autre workflow ici) — à confirmer que les secrets d'organisation partagés sont bien
+# scopés "All repositories" (ou incluent explicitement pivot-collaboratif-ui), sinon le
+# mainteneur doit les y ajouter. Même incertitude déjà documentée dans TODO-SETUP.md pour
+# d'autres secrets d'organisation.
+#
+# Provenance / durcissement supply-chain : release.yml génère bien une attestation SLSA L3 pour
+# l'image (job `provenance-container`, `slsa-framework/slsa-github-generator/
+# .github/workflows/generator_container_slsa3.yml@v2.1.0`, sur le digest réellement poussé) —
+# vérifiée ci-dessous avant tout déploiement (`gh attestation verify`), gate dur : le job échoue
+# avant de toucher le serveur si la provenance ne vérifie pas.
 
 on:
   release:
     types: [published]
-  workflow_dispatch:   # déclenchement manuel possible (rollback, re-déploiement)
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Version à (re)déployer (ex. "1.4.0", sans le préfixe "v"). Optionnel si le run suit un
+          événement "release" (résolue depuis le tag) — obligatoire en déclenchement manuel.
+        required: false
+        type: string
 
 permissions: read-all
 
+# Un déploiement à la fois — même raisonnement que pivot-core/pivot-ui deploy.yml : éviter deux
+# `docker compose up -d` concurrents sur ce conteneur, mettre en file plutôt qu'annuler.
+concurrency:
+  group: deploy-collaboratif-ui-standalone
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    name: Deploy to production
+    name: Deploy standalone QA/preview container
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: production
+    # Environnement dédié — délibérément DIFFÉRENT de l'environnement "production" utilisé par
+    # pivot-ui/pivot-core (chacun un onglet Deployments propre à son repo de toute façon, mais un
+    # nom distinct évite qu'un lecteur pressé de la liste des Environments de CE repo ne
+    # confonde ce déploiement QA avec "la" production du module).
+    environment: production-qa-standalone
     permissions:
       contents: read
+      packages: read # nécessaire à `gh attestation verify` / `docker login` sur un package privé
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # Chemin dupliqué — voir bloc de commentaires "BLOCAGES RÉELS" en tête de fichier (point 2).
+      IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui
 
     steps:
-      - name: Deploy (TODO)
-        run: echo "TODO — brancher ici le déploiement (image nginx -> SSH / k8s / etc.)"
+      - name: Resolve target version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          DISPATCH_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DISPATCH_VERSION:-}" ]; then
+            VERSION="${DISPATCH_VERSION#v}"
+          elif [ -n "${RELEASE_TAG:-}" ]; then
+            VERSION="${RELEASE_TAG#v}"
+          else
+            echo "::error::Aucune version résolue — déclenchement manuel sans input 'version' et hors événement 'release'."
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Version cible : ${IMAGE}:${VERSION}"
+
+      - name: Verify build provenance (SLSA L3 attestation) — gate dur avant tout déploiement
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          echo "${GH_TOKEN}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          gh attestation verify "oci://${IMAGE}:${VERSION}" --repo PIVOT-PLATFORM/pivot-collaboratif-ui
+
+      - name: Deploy — pull image & restart container
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          COLLABORATIF_UI_STANDALONE_VERSION: ${{ steps.version.outputs.version }}
+          DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH_COLLABORATIF_UI_STANDALONE }}
+          GH_PACKAGES_USERNAME: ${{ secrets.GH_PACKAGES_USERNAME }}
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT || '22' }}
+          envs: COLLABORATIF_UI_STANDALONE_VERSION,DEPLOY_PATH,GH_PACKAGES_USERNAME,GH_PACKAGES_TOKEN
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:?PROD_DEPLOY_PATH_COLLABORATIF_UI_STANDALONE not set}"
+            echo "${GH_PACKAGES_TOKEN}" | docker login ghcr.io -u "${GH_PACKAGES_USERNAME}" --password-stdin
+            echo "Pull + restart collaboratif-ui-standalone (${COLLABORATIF_UI_STANDALONE_VERSION})"
+            export COLLABORATIF_UI_STANDALONE_VERSION
+            docker compose -f docker-compose.standalone.yml pull collaboratif-ui-standalone
+            docker compose -f docker-compose.standalone.yml up -d collaboratif-ui-standalone
+
+      - name: Smoke test + automatic rollback on failure
+        id: smoke
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          COLLABORATIF_UI_STANDALONE_VERSION: ${{ steps.version.outputs.version }}
+          DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH_COLLABORATIF_UI_STANDALONE }}
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT || '22' }}
+          envs: COLLABORATIF_UI_STANDALONE_VERSION,DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH:?PROD_DEPLOY_PATH_COLLABORATIF_UI_STANDALONE not set}"
+
+            # Même mécanisme de marqueur que pivot-core/pivot-ui deploy.yml — fichier plutôt
+            # qu'inspection docker, écrit uniquement après un smoke test réussi.
+            VERSION_FILE=".pivot-collaboratif-ui-standalone-version"
+            NEW_VERSION="${COLLABORATIF_UI_STANDALONE_VERSION}"
+            PREVIOUS_VERSION="$(cat "${VERSION_FILE}" 2>/dev/null || true)"
+
+            # Ce conteneur nginx (Dockerfile à la racine, nginx:alpine sans curl installé) publie
+            # le port 8090 sur l'hôte (docker-compose.standalone.yml) — curl direct sur
+            # localhost:8090 depuis le serveur, pas de `docker compose exec` (curl absent de
+            # l'image). SPA statique : `location /` de nginx.conf sert index.html via
+            # `try_files $uri $uri/ /index.html` — pas d'endpoint /health dédié, `/` est le seul
+            # signal disponible, une réponse 2xx suffit à confirmer que nginx sert le build.
+            smoke_test() {
+              for _ in $(seq 1 10); do
+                if curl -fsS -m 5 http://localhost:8090/ >/dev/null 2>&1; then
+                  return 0
+                fi
+                sleep 6
+              done
+              return 1
+            }
+
+            if smoke_test; then
+              echo "${NEW_VERSION}" > "${VERSION_FILE}"
+              echo "Smoke test OK — collaboratif-ui-standalone:${NEW_VERSION} déployé, marqué comme dernière version saine."
+              exit 0
+            fi
+
+            echo "::error::Smoke test échoué pour collaboratif-ui-standalone:${NEW_VERSION}."
+
+            if [ -z "${PREVIOUS_VERSION}" ]; then
+              echo "::error::Aucune version précédente connue (${VERSION_FILE} absent — probablement le tout premier déploiement) — rollback impossible, intervention manuelle requise."
+              exit 1
+            fi
+
+            echo "Rollback automatique vers collaboratif-ui-standalone:${PREVIOUS_VERSION}…"
+            export COLLABORATIF_UI_STANDALONE_VERSION="${PREVIOUS_VERSION}"
+            docker compose -f docker-compose.standalone.yml pull collaboratif-ui-standalone
+            docker compose -f docker-compose.standalone.yml up -d collaboratif-ui-standalone
+
+            if smoke_test; then
+              echo "::error::Rollback vers collaboratif-ui-standalone:${PREVIOUS_VERSION} réussi et sain — collaboratif-ui-standalone:${NEW_VERSION} n'a PAS été retenu. Investiguer avant de retenter ce déploiement."
+            else
+              echo "::error::Rollback vers collaboratif-ui-standalone:${PREVIOUS_VERSION} a AUSSI échoué le smoke test — état du serveur incertain, intervention manuelle URGENTE."
+            fi
+            exit 1
+
+      - name: Notify — Slack
+        if: always() && env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && ':white_check_mark:' || ':x:' }} Déploiement collaboratif-ui-standalone (QA/preview, PAS le trafic prod du module) ${{ steps.version.outputs.version }} — ${{ job.status }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+
+      - name: Notify — fallback (aucun webhook configuré)
+        if: always() && env.SLACK_WEBHOOK_URL == ''
+        run: |
+          echo "::warning::Aucun secret SLACK_WEBHOOK_URL configuré — notification Slack non envoyée. Statut de ce déploiement visible sans aucun secret via l'onglet Environments/Deployments (natif GitHub, déjà actif) : ${{ github.server_url }}/${{ github.repository }}/deployments"
