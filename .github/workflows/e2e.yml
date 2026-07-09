@@ -30,12 +30,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # pivot-collaboratif-core publie son image sous ghcr.io/<owner>/pivot-collaboratif-core/
-  # pivot-collaboratif-core (le nom de repo est répété, cf. pivot-core). Image disponible
-  # depuis la release v1.0.0 de pivot-collaboratif-core (2026-07-06), mais le pull échoue
-  # avec "denied" tant que le package GHCR n'accorde pas l'accès Actions cross-repo à
-  # pivot-collaboratif-ui (voir TODO-SETUP.md — action mainteneur).
-  CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core/pivot-collaboratif-core:latest
+  # NOT ghcr.io/<owner>/pivot-collaboratif-core/pivot-collaboratif-core — the repo name isn't
+  # repeated (that doubled-path bug, same one fixed on pivot-core and pivot-ui, was itself
+  # fixed in pivot-collaboratif-core's release.yml, v0.1.1). Image publié depuis v0.1.0
+  # (2026-07-09), mais le pull échoue toujours avec "denied" tant que le package GHCR
+  # n'accorde pas l'accès Actions cross-repo à pivot-collaboratif-ui (voir TODO-SETUP.md —
+  # action mainteneur : package privé, "Manage Actions access" doit lister ce repo).
+  CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core:latest
 
 jobs:
   e2e:
