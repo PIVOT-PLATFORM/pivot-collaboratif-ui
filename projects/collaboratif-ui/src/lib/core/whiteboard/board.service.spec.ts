@@ -47,6 +47,27 @@ describe('BoardService', () => {
     req.flush({ boards: [], totalElements: 0, totalPages: 0, currentPage: 2, hasNext: false });
   });
 
+  // ── getBoard ──
+  it('getBoard() sends GET to /boards/{boardId}', () => {
+    const boardId = 'board-g1';
+    const board = { id: boardId, title: 'Mon tableau', role: 'owner', createdAt: '', updatedAt: '', thumbnailUrl: null, activeParticipantCount: 0 };
+
+    let result: unknown;
+    service.getBoard(boardId).subscribe(r => { result = r; });
+
+    const req = httpMock.expectOne(`${BASE}/${boardId}`);
+    expect(req.request.method).toBe('GET');
+    req.flush(board);
+    expect(result).toEqual(board);
+  });
+
+  it('getBoard() propagates HTTP errors', () => {
+    let caught = false;
+    service.getBoard('bid').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(`${BASE}/bid`).flush('', { status: 404, statusText: 'Not Found' });
+    expect(caught).toBe(true);
+  });
+
   it('getBoards() propagates HTTP errors', () => {
     let caught = false;
     service.getBoards().subscribe({ error: () => { caught = true; } });

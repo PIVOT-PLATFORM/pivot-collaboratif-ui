@@ -2,9 +2,11 @@ import { ChangeDetectionStrategy, Component, input, output, signal } from '@angu
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { TranslocoPipe, TranslocoTestingModule } from '@jsverse/transloco';
-import { Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DrawAction, UndoEvent } from '../canvas/whiteboard-canvas.component';
+import { Board } from '../../core/whiteboard/board.model';
+import { BoardService } from '../../core/whiteboard/board.service';
 import {
   SyncDrawAction,
   WhiteboardConnectionStatus,
@@ -21,9 +23,25 @@ import { WhiteboardBoardComponent } from './whiteboard-board.component';
 })
 class StubCanvasComponent {
   readonly readOnly = input<boolean>(false);
+  readonly boardTitle = input<string>('');
   readonly drawAction = output<DrawAction>();
   readonly undoAction = output<UndoEvent>();
   applyRemoteAction = vi.fn();
+}
+
+const TEST_BOARD: Board = {
+  id: 'board-42',
+  title: 'Mon tableau',
+  role: 'owner',
+  createdAt: '',
+  updatedAt: '',
+  thumbnailUrl: null,
+  activeParticipantCount: 0,
+};
+
+/** Fake `BoardService` — this container test only needs `getBoard()` to resolve (#41). */
+class FakeBoardService {
+  getBoard = vi.fn().mockReturnValue(of(TEST_BOARD));
 }
 
 /**
@@ -82,9 +100,11 @@ class FakeSyncService {
 describe('WhiteboardBoardComponent', () => {
   let fixture: ComponentFixture<WhiteboardBoardComponent>;
   let sync: FakeSyncService;
+  let boardService: FakeBoardService;
 
   beforeEach(async () => {
     sync = new FakeSyncService();
+    boardService = new FakeBoardService();
 
     await TestBed.configureTestingModule({
       imports: [
@@ -97,6 +117,7 @@ describe('WhiteboardBoardComponent', () => {
       ],
       providers: [
         { provide: WhiteboardSyncService, useValue: sync },
+        { provide: BoardService, useValue: boardService },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ boardId: 'board-42' }) } },
@@ -129,6 +150,7 @@ describe('WhiteboardBoardComponent', () => {
   it('falls back to an empty boardId when the route param is absent (defensive)', async () => {
     TestBed.resetTestingModule();
     sync = new FakeSyncService();
+    boardService = new FakeBoardService();
     await TestBed.configureTestingModule({
       imports: [
         WhiteboardBoardComponent,
@@ -140,6 +162,7 @@ describe('WhiteboardBoardComponent', () => {
       ],
       providers: [
         { provide: WhiteboardSyncService, useValue: sync },
+        { provide: BoardService, useValue: boardService },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({}) } } },
       ],
     })
@@ -239,5 +262,22 @@ describe('WhiteboardBoardComponent', () => {
     const stub = (fixture.debugElement.query(de => de.name === 'app-whiteboard-canvas'))
       ?.componentInstance as StubCanvasComponent;
     expect(stub.readOnly()).toBe(true);
+  });
+
+  it('fetches the board and binds its title to the canvas boardTitle input (#41 a11y fix)', () => {
+    fixture.detectChanges();
+    expect(boardService.getBoard).toHaveBeenCalledWith('board-42');
+    const stub = (fixture.debugElement.query(de => de.name === 'app-whiteboard-canvas'))
+      ?.componentInstance as StubCanvasComponent;
+    expect(stub.boardTitle()).toBe('Mon tableau');
+  });
+
+  it('falls back to an empty boardTitle when the board fetch fails (non-fatal)', () => {
+    boardService.getBoard.mockReturnValue(throwError(() => new Error('network error')));
+    const failingFixture = TestBed.createComponent(WhiteboardBoardComponent);
+    failingFixture.detectChanges();
+    const stub = (failingFixture.debugElement.query(de => de.name === 'app-whiteboard-canvas'))
+      ?.componentInstance as StubCanvasComponent;
+    expect(stub.boardTitle()).toBe('');
   });
 });
