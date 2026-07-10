@@ -788,7 +788,9 @@ describe('WhiteboardCanvasComponent', () => {
     component['setCustomColor']();
     fixture.detectChanges();
 
-    component['onCustomHexChange']('3F51B5');
+    const hexInput = document.createElement('input');
+    hexInput.value = '3F51B5';
+    component['onCustomHexChange']({ target: hexInput } as unknown as Event);
     fixture.detectChanges();
 
     const input: HTMLInputElement = fixture.nativeElement.querySelector('.wb-color-custom input');

@@ -58,7 +58,7 @@
               [attr.aria-describedby]="customHexError() ? 'wb-custom-hex-error' : null"
               [class.wb-color-custom--error]="customHexError()"
               [value]="customHexInput()"
-              (input)="onCustomHexChange($any($event.target).value)"
+              (input)="onCustomHexChange($event)"
               (keydown.enter)="setCustomColor()" />
             <button
               class="wb-color-custom__apply"
@@ -176,7 +176,7 @@
         maxlength="500"
         (blur)="commitTextEdit(textInput.value)"
         (keydown.escape)="cancelTextEdit()"
-        (keydown.enter)="$any($event).shiftKey || commitTextEdit(textInput.value)">
+        (keydown.enter)="onTextInputEnter($event, textInput.value)">
       </textarea>
     }
 
