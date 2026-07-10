@@ -18,14 +18,67 @@ on:
 permissions: read-all
 
 env:
-  CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core:latest
+  # No tag here anymore — pivot-collaboratif-core#56 removed the forbidden mutable `:latest`
+  # tag (`.plumber.yaml` containerImageMustNotUseForbiddenTags). Resolved dynamically once by
+  # the `resolve-core-tag` job below (see that job for why HEAD-of-main-SHA resolution doesn't
+  # actually work here) and shared by both ZAP jobs.
+  CORE_IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-core
 
 jobs:
+  #
+  # JOB 0 - Resolve pivot-collaboratif-core image tag (shared by both ZAP jobs below)
+  #
+  resolve-core-tag:
+    name: Resolve pivot-collaboratif-core image tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.core-image.outputs.tag }}
+    steps:
+      - name: Resolve pivot-collaboratif-core image tag
+        # pivot-collaboratif-core's release.yml only pushes ${GITHUB_SHA}/${VERSION} image tags
+        # from its `release` job, itself gated on an explicit "Release-Trigger: true" commit
+        # trailer (pivot-collaboratif-core/CLAUDE.md, "Workflow — Release") — NOT on every push
+        # to main. Resolving main's HEAD commit SHA (e.g. via `gh api .../commits/main`) and
+        # assuming a matching image tag exists is unsound: verified empirically 2026-07-10,
+        # main's HEAD there is itself the semantic-release "chore(release): x.y.z [skip ci]"
+        # commit pushed by @semantic-release/git AFTER the image build/push, so it has no
+        # matching ${GITHUB_SHA} tag in GHCR at all — pulling it would reproduce the exact
+        # "manifest unknown" failure this fix is meant to remove (see issue #39).
+        #
+        # The reliable, always-published reference is the latest GitHub Release's tag_name —
+        # release.yml tags+pushes ${IMAGE}:${VERSION} in the SAME job that creates the GitHub
+        # Release, so this tag is guaranteed to exist in GHCR whenever the Releases API returns
+        # it. It's also public-repo metadata (pivot-collaboratif-core is a public repo), so no
+        # extra token scope beyond the default GITHUB_TOKEN is needed to read it.
+        #
+        # This has the exact same freshness cadence the old `:latest` tag had (both were pushed
+        # together, in the same release job run) — no regression versus the pre-#56 behaviour,
+        # just an immutable tag instead of a forbidden mutable one. It does mean DAST here always
+        # lags behind pivot-collaboratif-core's actual main branch until that repo publishes an
+        # image on every merge instead of only at end-of-sprint release — same known gap as
+        # TODO-SETUP.md Bloquant #2 / issue #39, now made explicit instead of silently assumed.
+        id: core-image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=$(gh api repos/PIVOT-PLATFORM/pivot-collaboratif-core/releases/latest --jq .tag_name)
+          if [ -z "${TAG_NAME}" ] || [ "${TAG_NAME}" = "null" ]; then
+            echo "::error::Could not resolve pivot-collaboratif-core's latest GitHub Release tag_name — no release published yet?"
+            exit 1
+          fi
+          VERSION="${TAG_NAME#v}"
+          echo "::warning::DAST runs against pivot-collaboratif-core's latest RELEASED image (${VERSION}), not the HEAD of its main branch — that repo only publishes images at end-of-sprint release (see its CLAUDE.md, 'Workflow — Release'). Signal here will lag behind pivot-collaboratif-core's own main until it publishes an image on every merge (tracked: TODO-SETUP.md Bloquant #2 / issue #39)."
+          echo "tag=${VERSION}" >> "$GITHUB_OUTPUT"
+
   #
   # JOB 1 - Scan ROLE_USER
   #
   zap-full-user:
     name: ZAP Full Scan - ROLE_USER
+    needs: [resolve-core-tag]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     continue-on-error: true
@@ -87,7 +140,7 @@ jobs:
             -e SPRING_DATA_REDIS_PORT=6379 \
             -e JWT_SECRET=ci-dast-full-scan-secret-key-for-pivot-application-zap-testing-must-be-64-chars-xxxx \
             -e SPRING_PROFILES_ACTIVE=test,dast-seed \
-            ${{ env.CORE_IMAGE }}
+            ${{ env.CORE_IMAGE }}:${{ needs.resolve-core-tag.outputs.tag }}
 
       - name: Wait for pivot-collaboratif-core
         run: curl --retry 25 --retry-delay 3 --retry-connrefused --silent --output /dev/null http://localhost:8083/api/collaboratif/actuator/health
@@ -160,6 +213,7 @@ jobs:
   #
   zap-full-admin:
     name: ZAP Full Scan - ROLE_ADMIN
+    needs: [resolve-core-tag]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     continue-on-error: true
@@ -221,7 +275,7 @@ jobs:
             -e SPRING_DATA_REDIS_PORT=6379 \
             -e JWT_SECRET=ci-dast-full-scan-secret-key-for-pivot-application-zap-testing-must-be-64-chars-xxxx \
             -e SPRING_PROFILES_ACTIVE=test,dast-seed \
-            ${{ env.CORE_IMAGE }}
+            ${{ env.CORE_IMAGE }}:${{ needs.resolve-core-tag.outputs.tag }}
 
       - name: Wait for pivot-collaboratif-core
         run: curl --retry 25 --retry-delay 3 --retry-connrefused --silent --output /dev/null http://localhost:8083/api/collaboratif/actuator/health
