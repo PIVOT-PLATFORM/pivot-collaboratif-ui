@@ -7,10 +7,14 @@ whiteboard collaboratif temps réel, quiz interactif, session live (facilitation
 formulaire. Repo module dédié — voir backlog `pivot-docs/docs/backlog/EPIC-collaboration/README.md`
 (EPIC **E30**, dont le noyau whiteboard F08.x/EN08.x garde sa propre `Phase: Socle`).
 
-**Statut actuel : bootstrap.** Ce repo ne contient qu'un shell Angular minimal (build, CI/CD,
-sécurité) — **aucune feature métier n'est implémentée**. Une fois développé, ce module sera
-lazy-loadé depuis le shell **pivot-ui** (`loadChildren`), jamais servi comme application
-autonome en production.
+**Statut actuel : Sprint 5 (premier sprint de feature métier) livré.** Le noyau whiteboard
+(F08.x/EN08.x, 10 US) est implémenté : `projects/collaboratif-ui/src/lib/whiteboard/` (7
+composants — liste de tableaux, canvas, présence, partage, galerie de modèles, rejoindre un
+tableau) et `projects/collaboratif-ui/src/lib/core/` (6 services — board, template, sync
+WebSocket, undo/redo, guard d'accès, toast). Ce module est publié comme package npm
+(`@pivot-platform/collaboratif-ui`) et sera consommé en lazy-loading depuis le shell **pivot-ui**
+(`loadChildren`) — ce repo lui-même n'est jamais servi comme application autonome en production ;
+`src/app/` n'est qu'un harnais de développement local/E2E (voir `app.ts`).
 
 Backend associé : **pivot-collaboratif-core** (Java/Spring Boot, port 8083, schéma `collaboratif`).
 Shell frontend (header/footer, OIDC, portail) : **pivot-ui**. Documentation générale et backlog :
@@ -73,7 +77,7 @@ Concise et directe. Techniquement précise. Pas de récapitulatifs inutiles.
 | Temps réel | WebSocket STOMP — `@stomp/rx-stomp` ajouté au `package.json` au bootstrap (dépendance présente), **aucun client STOMP implémenté** — à construire avec la première US qui l'exige (`EN08.1`) |
 | Tests unitaires | Vitest |
 | Tests E2E | Playwright (Chromium) |
-| i18n | Transloco — FR par défaut, EN. Deux clés placeholder (`app.title`, `app.bootstrapNotice`) |
+| i18n | Transloco — FR par défaut, EN. Clés shell (`app.title`, `app.devHarnessNotice`) + arborescence `whiteboard.*` (feature implémentée) |
 | Build | Angular CLI · esbuild |
 | CI/CD | GitHub Actions · SonarCloud (à finaliser côté secrets, voir `TODO-SETUP.md`) · Semantic Release · Plumber |
 | Déploiement | Docker (nginx) |
@@ -85,26 +89,33 @@ Concise et directe. Techniquement précise. Pas de récapitulatifs inutiles.
 
 ```
 pivot-collaboratif-ui/
-├── src/
+├── src/                          # Harnais de développement local/E2E — jamais servi en prod
 │   ├── app/
-│   │   ├── core/i18n/         # TranslocoHttpLoader (seule brique core existante)
-│   │   ├── app.ts              # Composant racine — placeholder, aucune feature
+│   │   ├── core/i18n/           # TranslocoHttpLoader
+│   │   ├── core/whiteboard/     # whiteboardModuleGuard (stub, en attendant @pivot-platform/ui-core)
+│   │   ├── app.ts                # Composant racine du harnais
 │   │   ├── app.config.ts
-│   │   └── app.routes.ts       # routes: [] — vide tant qu'aucune US n'est implémentée
+│   │   └── app.routes.ts         # Route `whiteboard` → importe la lib collaboratif-ui
 │   ├── environments/
-│   └── styles/                 # Reset minimal auto-contenu
-├── public/assets/i18n/          # fr.json / en.json
-├── e2e/                         # Playwright — un seul smoke test ("app loads")
+│   └── styles/                   # Reset minimal auto-contenu
+├── projects/collaboratif-ui/     # Package publié @pivot-platform/collaboratif-ui
+│   └── src/lib/
+│       ├── core/                 # 6 services : board, template, whiteboard-sync (WS STOMP),
+│       │                         # undo-redo, board-access.guard, toast
+│       └── whiteboard/           # 7 composants : board-list, board (canvas host), canvas,
+│                                 # presence, share-panel, join-board, template-gallery
+├── public/assets/i18n/           # fr.json / en.json
+├── e2e/                          # Playwright — smoke ("app loads") + specs whiteboard-canvas
 ├── .github/
 │   └── workflows/
 ├── .plumber.yaml
-├── TODO-SETUP.md                # Setup manuel restant (SonarCloud, secrets, ruleset stricte)
-└── Dockerfile                   # nginx production
+├── TODO-SETUP.md                 # Setup manuel restant (SonarCloud, secrets, ruleset stricte)
+└── Dockerfile                    # nginx production
 ```
 
-**Features métier (whiteboard, quiz, session live, formulaire) → à construire ici au fil des
-US**, jamais dans `pivot-ui` (shell). WebSocket STOMP (`@stomp/rx-stomp`) → dans ce repo (module
-qui en a besoin), pas dans `pivot-ui`.
+**Features métier (whiteboard implémenté ; quiz, session live, formulaire à venir) → construites
+dans `projects/collaboratif-ui/src/lib/`**, jamais dans `pivot-ui` (shell). WebSocket STOMP
+(`@stomp/rx-stomp`) → dans ce repo (module qui en a besoin), pas dans `pivot-ui`.
 
 Backend API → **pivot-collaboratif-core** (repo séparé, port 8083). Design system →
 **pivot-design-system** (`@pivot/design-system`, repo pas encore créé).

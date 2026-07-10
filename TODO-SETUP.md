@@ -1,77 +1,24 @@
 # TODO — Setup manuel restant (pivot-collaboratif-ui)
 
-## ⚠️ BLOQUANT #1 — Branch protection / rulesets PAS appliqués (à faire en premier)
+## ✅ BLOQUANT #1 — Branch protection / ruleset de base — résolu
 
-Le code, la CI/CD, la sécurité et la documentation sont bootstrappés et pushés sur `main`. **Mais
-ni la branch protection classique, ni AUCUN ruleset n'ont pu être créés depuis cette session** —
-l'API GitHub a refusé toute tentative de création (PUT `branches/main/protection` **et** POST
-`/rulesets`) avec :
+Anciennement bloquant : la création de la branch protection classique et du ruleset `protect-main`
+avait été refusée par l'API GitHub (403 "Upgrade to GitHub Pro or make this repository public to
+enable this feature") lors du bootstrap initial. **Ce n'est plus le cas** — vérifié en direct :
 
 ```
-403 — "Upgrade to GitHub Pro or make this repository public to enable this feature."
+$ gh api repos/PIVOT-PLATFORM/pivot-collaboratif-ui/branches/main/protection
 ```
+confirme la branch protection active sur `main` : 1 review requise
+(`required_pull_request_reviews.required_approving_review_count = 1`) et 3 checks requis
+(`required_status_checks.contexts` : `Code Quality - Angular`, `Tests (Vitest)`,
+`Build Angular (production)`).
 
-Même blocage exact rencontré sur `pivot-collaboratif-core` (voir son `TODO-SETUP.md`) — la
-lecture des rulesets existants de `pivot-ui`/`pivot-core` fonctionne, mais toute écriture sur ces
-deux nouveaux repos échoue avec le message de restriction de plan/billing (pas le message
-générique de manque de scope observé ailleurs dans cette session). `PATCH default_branch` et
-suppression de refs ont fonctionné avec le même token, ce qui exclut un problème de token trop
-restrictif pour l'administration générale du repo.
+Le ruleset `protect-main` (id `18556613`) existe également sur le repo (deletion / non-fast-forward
+/ historique linéaire).
 
-**Action requise du mainteneur** : vérifier le plan GitHub de l'organisation PIVOT-PLATFORM
-(Settings → Billing), puis exécuter les commandes ci-dessous une fois débloqué.
-
-### Commandes prêtes à l'emploi une fois débloqué
-
-**1. Branch protection classique** (1 review, 3 checks self-contained) :
-```bash
-cat > /tmp/protection-collaboratif-ui.json << 'EOF'
-{
-  "required_status_checks": {
-    "strict": false,
-    "contexts": [
-      "Code Quality - Angular",
-      "Tests (Vitest)",
-      "Build Angular (production)"
-    ]
-  },
-  "enforce_admins": false,
-  "required_pull_request_reviews": {
-    "dismiss_stale_reviews": false,
-    "require_code_owner_reviews": false,
-    "required_approving_review_count": 1,
-    "require_last_push_approval": false
-  },
-  "restrictions": null,
-  "required_linear_history": false,
-  "allow_force_pushes": false,
-  "allow_deletions": false,
-  "block_creations": false,
-  "required_conversation_resolution": false,
-  "lock_branch": false,
-  "allow_fork_syncing": false
-}
-EOF
-gh api repos/PIVOT-PLATFORM/pivot-collaboratif-ui/branches/main/protection -X PUT --input /tmp/protection-collaboratif-ui.json
-```
-
-**2. Ruleset `protect-main`** (deletion / non-fast-forward / historique linéaire) :
-```bash
-cat > /tmp/ruleset-protect-main-collaboratif-ui.json << 'EOF'
-{
-  "name": "protect-main",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["refs/heads/main"], "exclude": [] } },
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    { "type": "required_linear_history" }
-  ]
-}
-EOF
-gh api repos/PIVOT-PLATFORM/pivot-collaboratif-ui/rulesets -X POST --input /tmp/ruleset-protect-main-collaboratif-ui.json
-```
+Reste ouvert : le ruleset **comprehensive** (tous les 13 checks, calqué sur `pivot-ui`) n'est
+toujours pas appliqué — voir la section dédiée plus bas ("Une fois tout ce qui précède est vert").
 
 ---
 
@@ -88,27 +35,46 @@ gh api repos/PIVOT-PLATFORM/pivot-collaboratif-ui/rulesets -X POST --input /tmp/
       bootstrap : `pivot-ui` lui-même a **0 secret au niveau repo** — donc ces secrets sont
       forcément organisation, jamais configurés par repo. Vérifier manuellement : Organization
       Settings → Secrets and variables → Actions → périmètre de chaque secret.
-- [x] **Publier une première image GHCR** de `pivot-collaboratif-core` (première release du
-      backend sibling) — fait : release `v1.0.0` (2026-07-06) a publié
-      `ghcr.io/pivot-platform/pivot-collaboratif-core/pivot-collaboratif-core:latest`,
-      consommée par `e2e.yml` (`dast-full.yml` la référence aussi mais reste `workflow_dispatch`
-      uniquement, non fonctionnel — voir plus bas). Le `docker pull` 404 ("manifest unknown")
-      qui faisait échouer `E2E - Playwright` sur les runs antérieurs à cette release (ex. run
-      `28828164301`, 2026-07-06T22:40) ne se reproduit plus — voir le nouveau blocant ci-dessous
-      qui a pris sa place. `lighthouse.yml` ne démarre aucun backend — n'a jamais dépendu de
-      cette image (correction de l'affirmation précédente de ce fichier).
-- [x] **BLOQUANT #2 — package GHCR `pivot-collaboratif-core` privé, pas d'accès cross-repo
-      pour les Actions de `pivot-collaboratif-ui`.** Résolu 2026-07-09 : mainteneur a accordé
-      l'accès via Package settings → "Manage Actions access" → Add repository →
+- [x] **Publier une vraie release GHCR** de `pivot-collaboratif-core` — résolu. La release
+      `v1.0.0` (2026-07-06) avait bien été rétrogradée vers `0.0.0` (commit réel `84d272f1f`,
+      "chore(release): revert premature v1.0.0 — reset to 0.0.0 pre-Socle (#17)", 2026-07-07 —
+      **pas** `68dff93` comme une version précédente de cette note le citait par erreur : ce SHA
+      n'existe pas dans l'historique de `pivot-collaboratif-core`). **Depuis résolu** :
+      `pivot-collaboratif-core` a publié trois releases réelles le 2026-07-09 (`v0.1.0`, `v0.1.1`,
+      `v0.1.2` — confirmé via `gh api repos/PIVOT-PLATFORM/pivot-collaboratif-core/releases`, qui
+      les liste toutes), republiant `ghcr.io/pivot-platform/pivot-collaboratif-core:latest`.
+- [x] **BLOQUANT #2 (partie accès) — package GHCR `pivot-collaboratif-core` privé, pas d'accès
+      cross-repo pour les Actions de `pivot-collaboratif-ui`.** Résolu 2026-07-09 : mainteneur a
+      accordé l'accès via Package settings → "Manage Actions access" → Add repository →
       `pivot-collaboratif-ui` → Role: Read (Option A — package reste privé). Confirmé : aucune
       API REST/GraphQL n'existe pour cette action (feature UI uniquement, cf. discussions
       GitHub community #188574/#61495) — ni lecture ni écriture possible via `gh api`, contexte
       pour toute tentative future sur un autre repo.
-      Un second blocant est apparu une fois l'image réellement pull-able : `V1__schema_init.sql`
-      de `pivot-collaboratif-core` (EN08.3, migration UUID→BIGINT) ajoute des FK vers
-      `public.tenants(id)`/`public.users(id)` — absentes de ce stack E2E (Postgres nu, aucun
-      pivot-core en cours d'exécution ici). Fix : étape `psql` créant ces deux tables minimales
-      avant de démarrer `pivot-collaboratif-core` (voir `e2e.yml`, "Seed minimal public schema").
+      Un second blocant lié au schéma est apparu une fois l'image (celle de l'époque `v1.0.0`)
+      réellement pull-able : `V1__schema_init.sql` de `pivot-collaboratif-core` (EN08.3,
+      migration UUID→BIGINT) ajoute des FK vers `public.tenants(id)`/`public.users(id)` —
+      absentes de ce stack E2E (Postgres nu, aucun pivot-core en cours d'exécution ici). Fix :
+      étape `psql` créant ces deux tables minimales avant de démarrer
+      `pivot-collaboratif-core` (voir `e2e.yml`, "Seed minimal public schema") — ce fix reste
+      valide et en place, il se redéclenchera dès qu'une image réelle sera de nouveau pull-able.
+- [x] **BLOQUANT #2 (partie image) — résolu, l'image se pull de nouveau.**
+      Root cause historique : `docker: Error response from daemon: denied` (après login GHCR
+      réussi, problème d'autorisation, voir case précédente) avait été remplacé début 2026-07-09
+      par `docker: Error response from daemon: manifest unknown` — classe d'erreur différente,
+      l'image/tag n'existait simplement plus (404 registre) le temps que
+      `pivot-collaboratif-core` reste sur `0.0.0` après le revert de `v1.0.0`.
+      **Vérifié en direct** (run `29058336956`, 2026-07-09T23:48, log via `gh run view 29058336956
+      --repo PIVOT-PLATFORM/pivot-collaboratif-ui --log`) : `docker pull
+      ghcr.io/pivot-platform/pivot-collaboratif-core:latest` télécharge toutes les couches et
+      complète normalement (`Digest: sha256:…`), la suite Playwright s'exécute réellement et
+      passe (`4 passed`). Depuis la publication de `v0.1.0`/`v0.1.1`/`v0.1.2` le 2026-07-09 (voir
+      case ci-dessus), `E2E - Playwright` donne de nouveau un signal réel sur ce repo — plus de
+      `manifest unknown`.
+      **Reste vrai** : `E2E - Playwright` **n'est pas un check requis actuellement** (les 3 checks
+      requis sont `Code Quality - Angular`, `Tests (Vitest)`, `Build Angular (production)` — voir
+      "Checks déjà requis" plus bas) — mais ce n'est plus faute de signal disponible, seulement
+      une question de scope du ruleset de base (le ruleset comprehensive à venir, voir plus bas,
+      inclut déjà `E2E - Playwright`).
 - [ ] **Question architecture à trancher avec le mainteneur** : `dast-baseline.yml` scanne
       `secrets.PIVOT_PROD_URL` — mais ce module est lazy-loadé DANS le shell `pivot-ui` (pas de
       domaine/URL public autonome en prod). Décider si ce scan doit être retiré, pointé sur la
