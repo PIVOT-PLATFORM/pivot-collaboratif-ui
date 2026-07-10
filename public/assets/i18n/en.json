@@ -75,6 +75,7 @@
         "memberUserId": "ID",
         "memberRole": "Role",
         "memberJoined": "Added on",
+        "memberActionsColumn": "Actions",
         "changeRole": "Change role",
         "removeMember": "Remove",
         "removeError": "Unable to remove member",

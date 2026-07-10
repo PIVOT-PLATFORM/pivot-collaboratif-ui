@@ -37,8 +37,8 @@
         (change)="setSelectedRole($event)"
         [disabled]="tokenStatus() === 'generating'"
       >
-        <option value="EDITOR">EDITOR</option>
-        <option value="VIEWER">VIEWER</option>
+        <option value="EDITOR">{{ 'whiteboard.presence.role.editor' | transloco }}</option>
+        <option value="VIEWER">{{ 'whiteboard.presence.role.viewer' | transloco }}</option>
       </select>
     </div>
 
@@ -119,7 +119,9 @@
             <th scope="col" class="share-panel__th">{{ 'whiteboard.share.panel.memberUserId' | transloco }}</th>
             <th scope="col" class="share-panel__th">{{ 'whiteboard.share.panel.memberRole' | transloco }}</th>
             <th scope="col" class="share-panel__th">{{ 'whiteboard.share.panel.memberJoined' | transloco }}</th>
-            <th scope="col" class="share-panel__th"><span class="sr-only">Actions</span></th>
+            <th scope="col" class="share-panel__th">
+              <span class="sr-only">{{ 'whiteboard.share.panel.memberActionsColumn' | transloco }}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -131,7 +133,7 @@
               <td class="share-panel__td">
                 @if (member.role === 'OWNER') {
                   <span class="share-panel__role-badge share-panel__role-badge--owner">
-                    OWNER
+                    {{ 'whiteboard.presence.role.owner' | transloco }}
                   </span>
                 } @else {
                   <label class="sr-only" [for]="'role-' + member.userId">
@@ -144,8 +146,8 @@
                     [disabled]="updatingRoleForUserId() === member.userId"
                     (change)="onRoleChange(member, $event)"
                   >
-                    <option value="EDITOR">EDITOR</option>
-                    <option value="VIEWER">VIEWER</option>
+                    <option value="EDITOR">{{ 'whiteboard.presence.role.editor' | transloco }}</option>
+                    <option value="VIEWER">{{ 'whiteboard.presence.role.viewer' | transloco }}</option>
                   </select>
                   @if (updatingRoleForUserId() === member.userId) {
                     <span class="share-panel__spinner share-panel__spinner--sm" aria-hidden="true"></span>

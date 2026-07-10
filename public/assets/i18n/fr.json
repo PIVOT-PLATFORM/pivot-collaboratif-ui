@@ -75,6 +75,7 @@
         "memberUserId": "Identifiant",
         "memberRole": "Rôle",
         "memberJoined": "Ajouté le",
+        "memberActionsColumn": "Actions",
         "changeRole": "Changer le rôle",
         "removeMember": "Retirer",
         "removeError": "Impossible de retirer le membre",
