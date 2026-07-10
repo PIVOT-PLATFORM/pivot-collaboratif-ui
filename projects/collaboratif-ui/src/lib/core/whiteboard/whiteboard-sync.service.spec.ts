@@ -319,6 +319,35 @@ describe('WhiteboardSyncService', () => {
     expect(received).toHaveLength(0);
   });
 
+  it('ignores a DRAW message with valid type/boardId but a non-string or missing userId (isBroadcastMessage runtime gap, #43)', () => {
+    service.connect(BOARD_ID);
+    const received: unknown[] = [];
+    service.remoteActions$.subscribe(a => received.push(a));
+
+    // Prior to the fix, isBroadcastMessage never checked userId at runtime despite asserting
+    // `userId: string` — and onIncoming's DRAW branch never re-validates userId itself (unlike
+    // CURSOR_MOVE, which revalidates independently via handleCursorMove) — so both frames below
+    // would have been wrongly accepted and forwarded as valid DRAW actions.
+    fake.emit(
+      TOPIC,
+      JSON.stringify({ type: 'DRAW', boardId: BOARD_ID, userId: 42, data: { type: 'shape', payload: {} } }),
+    );
+    fake.emit(TOPIC, JSON.stringify({ type: 'DRAW', boardId: BOARD_ID, data: { type: 'shape', payload: {} } }));
+
+    expect(received).toHaveLength(0);
+  });
+
+  it('ignores a message with valid type/boardId/userId but a non-object, non-null data (isBroadcastMessage runtime gap, #43)', () => {
+    service.connect(BOARD_ID);
+    const received: unknown[] = [];
+    service.remoteActions$.subscribe(a => received.push(a));
+
+    fake.emit(TOPIC, JSON.stringify({ type: 'DRAW', boardId: BOARD_ID, userId: 'user-2', data: ['shape'] }));
+    fake.emit(TOPIC, JSON.stringify({ type: 'DRAW', boardId: BOARD_ID, userId: 'user-2', data: 'shape' }));
+
+    expect(received).toHaveLength(0);
+  });
+
   it('ignores a message with an unknown top-level type', () => {
     service.connect(BOARD_ID);
     const received: unknown[] = [];
