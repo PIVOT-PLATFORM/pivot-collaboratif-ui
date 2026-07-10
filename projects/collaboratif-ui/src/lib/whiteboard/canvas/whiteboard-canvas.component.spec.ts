@@ -652,6 +652,15 @@ describe('WhiteboardCanvasComponent', () => {
     expect(canvas).not.toBeNull();
   });
 
+  it('canvas aria-label includes the real board title when boardTitle is bound (#41 a11y fix — ' +
+    'end-to-end proof the template concatenation actually renders the title, not just that the ' +
+    'input signal exists)', () => {
+    fixture.componentRef.setInput('boardTitle', 'Mon tableau de brainstorming');
+    fixture.detectChanges();
+    const canvas = fixture.nativeElement.querySelector('canvas[role="application"]');
+    expect(canvas.getAttribute('aria-label')).toContain('Mon tableau de brainstorming');
+  });
+
   it('canvas has tabindex=0 for keyboard focus', () => {
     const canvas = fixture.nativeElement.querySelector('canvas');
     expect(canvas.getAttribute('tabindex')).toBe('0');
@@ -832,10 +841,68 @@ describe('WhiteboardCanvasComponent', () => {
     const textObj = {
       id: 'remote-text', kind: 'text' as const, x: 10, y: 20,
       content: 'hello', fontSize: 16,
-      strokeColor: '#000', fillColor: 'transparent', lineWidth: 1,
+      strokeColor: '#000000', fillColor: 'transparent', lineWidth: 1,
     };
     component.applyRemoteAction({ type: 'DRAW', subType: 'text', payload: textObj });
     expect(component['objects']().find(o => o.id === 'remote-text')).toBeDefined();
+  });
+
+  // ─── #50 data-integrity fix — remote DRAW payload validation ──────────────
+
+  it('applyRemoteAction rejects a shape with a non-hex strokeColor (data-integrity gap fix)', () => {
+    const malicious = { ...makeRect('remote-bad-color'), strokeColor: 'not-a-color' };
+    component.applyRemoteAction({ type: 'DRAW', subType: 'shape', payload: malicious });
+    expect(component['objects']().find(o => o.id === 'remote-bad-color')).toBeUndefined();
+  });
+
+  it('applyRemoteAction rejects a shape with a non-hex, non-transparent fillColor', () => {
+    const malicious = { ...makeRect('remote-bad-fill'), fillColor: 'javascript:alert(1)' };
+    component.applyRemoteAction({ type: 'DRAW', subType: 'shape', payload: malicious });
+    expect(component['objects']().find(o => o.id === 'remote-bad-fill')).toBeUndefined();
+  });
+
+  it('applyRemoteAction accepts a shape whose fillColor is a valid hex (not just "transparent")', () => {
+    const valid = { ...makeRect('remote-hex-fill'), fillColor: '#00FF00' };
+    component.applyRemoteAction({ type: 'DRAW', subType: 'shape', payload: valid });
+    expect(component['objects']().find(o => o.id === 'remote-hex-fill')).toBeDefined();
+  });
+
+  it('applyRemoteAction rejects a remote object with a missing id', () => {
+    const malicious = { ...makeRect(''), id: '' };
+    component.applyRemoteAction({ type: 'DRAW', subType: 'shape', payload: malicious });
+    expect(component['objects']()).toHaveLength(0);
+  });
+
+  it('applyRemoteAction clamps oversized remote text content to MAX_TEXT_LENGTH', () => {
+    const oversized = {
+      id: 'remote-long-text', kind: 'text' as const, x: 10, y: 20,
+      content: 'a'.repeat(600), fontSize: 16,
+      strokeColor: '#000000', fillColor: 'transparent', lineWidth: 1,
+    };
+    component.applyRemoteAction({ type: 'DRAW', subType: 'text', payload: oversized });
+    const applied = component['objects']().find(o => o.id === 'remote-long-text') as { content: string };
+    expect(applied?.content).toHaveLength(500);
+  });
+
+  it('applyRemoteAction rejects a remote text object whose content is not a string', () => {
+    const malformed = {
+      id: 'remote-malformed-text', kind: 'text' as const, x: 10, y: 20,
+      content: { evil: true } as unknown as string, fontSize: 16,
+      strokeColor: '#000000', fillColor: 'transparent', lineWidth: 1,
+    };
+    component.applyRemoteAction({ type: 'DRAW', subType: 'text', payload: malformed });
+    expect(component['objects']().find(o => o.id === 'remote-malformed-text')).toBeUndefined();
+  });
+
+  it('applyRemoteAction with move subType drops entries with invalid colours but keeps valid ones', () => {
+    component['objects'].set([makeRect('r1', 0, 0, 50, 50), makeRect('r2', 0, 0, 50, 50)]);
+    const movedValid = { ...makeRect('r1', 20, 20, 50, 50) };
+    const movedInvalid = { ...makeRect('r2', 30, 30, 50, 50), strokeColor: 'not-a-color' };
+    component.applyRemoteAction({ type: 'DRAW', subType: 'move', payload: [movedValid, movedInvalid] });
+    const objs = component['objects']();
+    expect((objs.find(o => o.id === 'r1') as ShapeObject).x).toBe(20);
+    // r2's malformed move payload is dropped — original position is preserved, not overwritten.
+    expect((objs.find(o => o.id === 'r2') as ShapeObject).x).toBe(0);
   });
 
   it('applyRemoteAction with move subType updates positions', () => {

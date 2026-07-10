@@ -1202,8 +1202,8 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
       case 'stroke':
       case 'shape':
       case 'text': {
-        const obj = action.payload as CanvasObject;
-        if (obj?.id) {
+        const obj = this.sanitizeRemoteObject(action.payload as CanvasObject);
+        if (obj) {
           this.objects.update(objs => [...objs.filter(o => o.id !== obj.id), obj]);
           this.markDirty();
         }
@@ -1218,13 +1218,52 @@ export class WhiteboardCanvasComponent implements AfterViewInit, OnDestroy {
       case 'move': {
         const moved = action.payload as CanvasObject[];
         if (Array.isArray(moved)) {
-          const map = new Map(moved.map(o => [o.id, o]));
+          const sanitized = moved
+            .map(o => this.sanitizeRemoteObject(o))
+            .filter((o): o is CanvasObject => o !== null);
+          const map = new Map(sanitized.map(o => [o.id, o]));
           this.objects.update(objs => objs.map(o => map.get(o.id) ?? o));
           this.markDirty();
         }
         break;
       }
     }
+  }
+
+  /**
+   * Validates/sanitizes a canvas object received from a remote peer before it is applied
+   * locally (#50 data-integrity fix). WebSocket messages bypass every local input guard —
+   * `setStrokeColor`/`setCustomColor`'s {@link HEX_REGEX} check and `commitTextEdit`'s
+   * {@link MAX_TEXT_LENGTH} clamp only run for locally-created objects — so a
+   * malicious/compromised peer could otherwise push malformed colours or oversized text
+   * that the local UI itself would never have allowed to be created. This is a
+   * data-integrity guard, not an XSS/injection concern: every sink these values reach is
+   * Canvas 2D (`ctx.strokeStyle`/`fillStyle`/`fillText`), which never interprets its string
+   * arguments as markup, CSS selectors, or executable code — invalid input here can at
+   * worst silently no-op or draw nothing, never execute.
+   *
+   * Mirrors the existing local behaviour rather than inventing a new policy:
+   * - `strokeColor` must match {@link HEX_REGEX} — same rule as `setStrokeColor`, and same
+   *   reject-on-invalid outcome (`setStrokeColor` simply returns without applying).
+   * - `fillColor` must be the literal `'transparent'` or match {@link HEX_REGEX} — the only
+   *   two shapes ever produced locally (initial `fillColor` signal value / palette clicks).
+   * - `content` (text objects only) is clamped to {@link MAX_TEXT_LENGTH} rather than
+   *   rejected, mirroring `commitTextEdit`'s `value.slice(0, MAX_TEXT_LENGTH)`.
+   *
+   * Returns a sanitized copy (only `content` may differ from the input), or `null` if the
+   * object must be rejected outright (missing id, invalid colour, or non-string content).
+   */
+  private sanitizeRemoteObject(obj: CanvasObject | null | undefined): CanvasObject | null {
+    if (!obj?.id) return null;
+    if (!HEX_REGEX.test(obj.strokeColor)) return null;
+    if (obj.fillColor !== 'transparent' && !HEX_REGEX.test(obj.fillColor)) return null;
+    if (obj.kind === 'text') {
+      if (typeof obj.content !== 'string') return null;
+      if (obj.content.length > MAX_TEXT_LENGTH) {
+        return { ...obj, content: obj.content.slice(0, MAX_TEXT_LENGTH) };
+      }
+    }
+    return obj;
   }
 }
 

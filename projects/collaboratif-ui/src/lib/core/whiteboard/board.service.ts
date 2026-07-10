@@ -24,6 +24,15 @@ export class BoardService {
   }
 
   /**
+   * Fetches a single board by id — used by `WhiteboardBoardComponent` to source the real
+   * board title for the canvas `aria-label` (#41 a11y fix; `boardAccessGuard` already calls
+   * the same endpoint but only checks the status code, it never exposes the response body).
+   */
+  getBoard(boardId: string): Observable<Board> {
+    return this.http.get<Board>(`${this.apiUrl}/whiteboard/boards/${boardId}`);
+  }
+
+  /**
    * Creates a new board and returns the created board.
    *
    * When `templateId` is provided (US08.4.1), the backend initializes the board's

@@ -5,10 +5,13 @@ import {
   OnDestroy,
   ViewChild,
   inject,
+  signal,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { Subscription } from 'rxjs';
+import { Board } from '../../core/whiteboard/board.model';
+import { BoardService } from '../../core/whiteboard/board.service';
 import { WhiteboardSyncService } from '../../core/whiteboard/whiteboard-sync.service';
 import { DrawAction, UndoEvent, WhiteboardCanvasComponent } from '../canvas/whiteboard-canvas.component';
 import { PresencePanelComponent } from '../presence/presence-panel.component';
@@ -49,6 +52,7 @@ import { WhiteboardPresenceComponent } from '../presence/whiteboard-presence.com
 export class WhiteboardBoardComponent implements AfterViewInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly sync = inject(WhiteboardSyncService);
+  private readonly boardService = inject(BoardService);
 
   // Queried by template reference (not by class token) so that tests can substitute a
   // stub for `WhiteboardCanvasComponent` via `overrideComponent` — a class-token query
@@ -64,6 +68,25 @@ export class WhiteboardBoardComponent implements AfterViewInit, OnDestroy {
   protected readonly readOnly = this.sync.readOnly;
   protected readonly browserOffline = this.sync.browserOffline;
   protected readonly showReconnectedToast = this.sync.showReconnectedToast;
+
+  /**
+   * The current board, fetched once from `BoardService` — its `title` feeds the canvas
+   * `aria-label` (#41 a11y fix: `WhiteboardCanvasComponent.boardTitle` was previously never
+   * bound here, so the aria-label degraded to a trailing space with no title). `null` until
+   * the request resolves; `boardAccessGuard` has already verified access before this
+   * component is activated, so an error here (e.g. a rare race) is treated as non-fatal —
+   * the aria-label simply falls back to the empty string until it (if ever) resolves.
+   */
+  protected readonly board = signal<Board | null>(null);
+
+  constructor() {
+    this.boardService.getBoard(this.boardId).subscribe({
+      next: board => this.board.set(board),
+      error: () => {
+        /* non-fatal — aria-label falls back to '', see `board` TSDoc above */
+      },
+    });
+  }
 
   ngAfterViewInit(): void {
     // Subscribed after the view is initialised so `canvasComponent` is guaranteed to be

@@ -36,6 +36,7 @@
   <app-whiteboard-canvas
     #canvas
     [readOnly]="readOnly()"
+    [boardTitle]="board()?.title ?? ''"
     (drawAction)="onDrawAction($event)"
     (undoAction)="onUndoAction($event)">
     <app-whiteboard-presence></app-whiteboard-presence>
