@@ -93,7 +93,7 @@ describe('SharePanelComponent', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(SharePanelComponent);
-    fixture.componentInstance.boardId = BOARD_ID;
+    fixture.componentRef.setInput('boardId', BOARD_ID);
     httpMock = TestBed.inject(HttpTestingController);
     toastService = TestBed.inject(ToastService);
   });

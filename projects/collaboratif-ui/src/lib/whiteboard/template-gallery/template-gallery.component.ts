@@ -2,10 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
-  EventEmitter,
   OnInit,
-  Output,
   inject,
+  output,
   signal,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -41,7 +40,7 @@ export class TemplateGalleryComponent implements OnInit {
   protected readonly skeletons = Array.from<null>({ length: 3 });
 
   /** Emits the selected template id, or `null` for a blank ("Vierge") creation. */
-  @Output() readonly selectionChange = new EventEmitter<string | null>();
+  readonly selectionChange = output<string | null>();
 
   private readonly templateService = inject(TemplateService);
   private readonly transloco = inject(TranslocoService);
