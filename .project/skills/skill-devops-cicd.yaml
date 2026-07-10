@@ -73,7 +73,7 @@ docker:
     - "Utilisateur non-root en runtime (USER 65534)"
     - "Pas de secrets dans Dockerfile ou build args"
     - "Images scannées par Trivy avant push (CRITICAL/HIGH bloquant)"
-    - "Images taguées : :latest + :{sha} + :{version-semver}"
+    - "Images taguées : :{sha} + :{version-semver} — jamais :latest (interdit par .plumber.yaml, containerImageMustNotUseForbiddenTags)"
 
 ---
 
