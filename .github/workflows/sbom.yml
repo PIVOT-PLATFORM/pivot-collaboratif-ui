@@ -156,7 +156,9 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           DISPATCH_VERSION: ${{ github.event.inputs.version }}
         run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/pivot-collaboratif-ui"
+          # ISO release.yml (job `release`, step "Build & load Docker image") : pas de suffixe
+          # "/pivot-collaboratif-ui" — GITHUB_REPOSITORY contient déjà le nom du repo.
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           if [ -n "${DISPATCH_VERSION:-}" ]; then
             VERSION="${DISPATCH_VERSION#v}"
           else

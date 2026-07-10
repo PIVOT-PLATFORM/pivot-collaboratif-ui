@@ -25,29 +25,25 @@ name: Deploy
 # PAS partie du docker-compose.prod.yml partagé (convention "module-core", backend uniquement) :
 # un seul conteneur, son propre docker-compose.standalone.yml dédié.
 #
-# --- BLOCAGES RÉELS CONSTATÉS EN ÉCRIVANT CE WORKFLOW (à lire avant le premier run) ---
+# --- BLOCAGES CONSTATÉS EN ÉCRIVANT CE WORKFLOW — TOUS RÉSOLUS AU MOMENT DU MERGE ---
 #
-# 1. Pas de tag semver publié aujourd'hui. release.yml (au moment de l'écriture de ce fichier)
-#    ne pousse que `${GITHUB_SHA}` et `latest` (voir son job `release`, step "Build & load Docker
-#    image") — AUCUN tag `${VERSION}` (semver) n'existe. Ce workflow est écrit pour consommer un
-#    tag semver (même raisonnement que pivot-core/pivot-ui : le tag Git observé par
-#    `release: published` pointe sur le commit de bump semantic-release, pas sur le commit
-#    buildé — `${GITHUB_SHA}` résolu ici ne correspondrait pas à l'image buildée pour CETTE
-#    release) — mais tant que release.yml n'ajoute pas ce tag, le step "Deploy" ci-dessous
-#    échouera (`docker compose pull` 404, tag introuvable). Fix nécessaire côté release.yml,
-#    volontairement PAS fait dans cette PR (voir sa description : pas de tag deviné).
-# 2. Chemin d'image GHCR dupliqué. release.yml construit l'image à
-#    `ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui` (segment de repo répété
-#    — même bug déjà corrigé sur pivot-core, pivot-ui et pivot-collaboratif-core, voir le
-#    commentaire de tête de e2e.yml de CE repo, et PR #52 qui n'a corrigé QUE la référence dans
-#    e2e.yml, pas la source dans release.yml). Ce workflow utilise donc ce chemin dupliqué —
-#    c'est le chemin RÉELLEMENT publié aujourd'hui, pas une supposition — jusqu'à ce que
-#    release.yml soit corrigé. Toute correction future de release.yml doit s'accompagner d'une
-#    mise à jour en lockstep de `IMAGE` ci-dessous et de docker-compose.standalone.yml.
-# 3. `latest` encore poussé par release.yml aujourd'hui — interdit par `.plumber.yaml`
-#    (`containerImageMustNotUseForbiddenTags`). PR #62 ("fix(ci): remove forbidden 'latest'
-#    Docker tag from release push") est ouverte pour ce sujet, pas encore mergée — hors périmètre
-#    de cette PR, mentionné ici pour traçabilité.
+# Historique (gardé pour traçabilité, plus des blocages actifs) :
+#
+# 1. Pas de tag semver publié — RÉSOLU par PR #62 (mergée avant celle-ci), qui a ajouté le push
+#    `${IMAGE}:${VERSION}` dans release.yml (job `release`, step "Build & load Docker image") en
+#    plus de `${GITHUB_SHA}`. Ce workflow consomme bien ce tag semver ci-dessous (résolution
+#    `RELEASE_TAG#v` / `DISPATCH_VERSION#v`, même pattern que sbom.yml `sbom-container` et
+#    pivot-core/pivot-ui deploy.yml).
+# 2. Chemin d'image GHCR dupliqué — RÉSOLU À LA RACINE dans release.yml (et sbom.yml en lockstep,
+#    job `sbom-container`) : `IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"` sans suffixe
+#    `/pivot-collaboratif-ui` (GITHUB_REPOSITORY contient déjà le nom du repo — ISO pivot-core/
+#    pivot-ui). Corrigé en même temps que ce workflow plutôt que de perpétuer le contournement :
+#    aucune image n'avait encore été publiée sous l'ancien chemin dupliqué (aucune release/tag
+#    n'existait avant cette PR — `gh release list` vide), donc aucune migration nécessaire.
+#    `IMAGE` ci-dessous et `docker-compose.standalone.yml` pointent désormais sur le chemin
+#    corrigé, non dupliqué.
+# 3. `latest` encore poussé par release.yml — RÉSOLU par PR #62 (tag `latest` retiré,
+#    `containerImageMustNotUseForbiddenTags` de `.plumber.yaml` respecté).
 #
 # Secrets requis :
 #   - PROD_SSH_HOST, PROD_SSH_USER, PROD_SSH_KEY   : accès SSH au serveur de production —
@@ -127,8 +123,9 @@ jobs:
       packages: read # nécessaire à `gh attestation verify` / `docker login` sur un package privé
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      # Chemin dupliqué — voir bloc de commentaires "BLOCAGES RÉELS" en tête de fichier (point 2).
-      IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui
+      # Chemin non dupliqué — ISO release.yml/sbom.yml (`ghcr.io/${GITHUB_REPOSITORY,,}`). Voir
+      # bloc de commentaires "BLOCAGES CONSTATÉS" en tête de fichier (point 2, résolu à la racine).
+      IMAGE: ghcr.io/pivot-platform/pivot-collaboratif-ui
 
     steps:
       - name: Resolve target version

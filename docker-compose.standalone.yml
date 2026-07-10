@@ -21,13 +21,10 @@
 # au chemin ci-dessus — le pull de code sur le serveur reste hors périmètre de ce workflow.
 services:
   collaboratif-ui-standalone:
-    # Chemin d'image ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui — segment
-    # de repo dupliqué, PAS une faute de frappe de ce fichier : c'est le chemin réellement publié
-    # par release.yml aujourd'hui (bug connu déjà corrigé côté pivot-core/pivot-ui/
-    # pivot-collaboratif-core, PAS encore corrigé dans le release.yml de CE repo — voir
-    # deploy.yml et la description de la PR). À mettre à jour en lockstep si/quand ce bug est
-    # corrigé ici.
-    image: ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui:${COLLABORATIF_UI_STANDALONE_VERSION:?COLLABORATIF_UI_STANDALONE_VERSION not set}
+    # Chemin d'image ghcr.io/pivot-platform/pivot-collaboratif-ui — pas de suffixe dupliqué
+    # (bug déjà corrigé côté pivot-core/pivot-ui/pivot-collaboratif-core, et désormais aussi à la
+    # racine dans le release.yml de CE repo — voir deploy.yml, bloc "BLOCAGES CONSTATÉS" point 2).
+    image: ghcr.io/pivot-platform/pivot-collaboratif-ui:${COLLABORATIF_UI_STANDALONE_VERSION:?COLLABORATIF_UI_STANDALONE_VERSION not set}
     container_name: pivot-collaboratif-ui-standalone
     restart: unless-stopped
     ports:
