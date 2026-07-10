@@ -134,7 +134,11 @@ jobs:
       - name: Build & load Docker image (amd64)
         id: build-docker
         run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/pivot-collaboratif-ui"
+          # GITHUB_REPOSITORY vaut déjà "pivot-platform/pivot-collaboratif-ui" — ne PAS
+          # ré-ajouter "/pivot-collaboratif-ui" en suffixe (bug corrigé ici, EN07.5 : ce repo
+          # publiait jusque-là à ghcr.io/pivot-platform/pivot-collaboratif-ui/pivot-collaboratif-ui,
+          # segment de repo dupliqué). ISO pivot-core/pivot-ui (`IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"`).
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           echo "IMAGE_REF=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
           # tag semver stable, en plus de GITHUB_SHA : le tag Git / la GitHub Release que
           # deploy.yml observe (déclenché par `release: published`) pointe sur le commit de

@@ -34,6 +34,9 @@ github:
         - docker/setup-buildx-action
         - docker/login-action
         - slsa-framework/slsa-github-generator
+        # EN07.5 — deploy.yml (déploiement QA/preview SSH + notification)
+        - appleboy/ssh-action
+        - slackapi/slack-github-action
 
     # --- Images : pas de tags mutables ---
     containerImageMustNotUseForbiddenTags:
