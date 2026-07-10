@@ -652,6 +652,15 @@ describe('WhiteboardCanvasComponent', () => {
     expect(canvas).not.toBeNull();
   });
 
+  it('canvas aria-label includes the real board title when boardTitle is bound (#41 a11y fix — ' +
+    'end-to-end proof the template concatenation actually renders the title, not just that the ' +
+    'input signal exists)', () => {
+    fixture.componentRef.setInput('boardTitle', 'Mon tableau de brainstorming');
+    fixture.detectChanges();
+    const canvas = fixture.nativeElement.querySelector('canvas[role="application"]');
+    expect(canvas.getAttribute('aria-label')).toContain('Mon tableau de brainstorming');
+  });
+
   it('canvas has tabindex=0 for keyboard focus', () => {
     const canvas = fixture.nativeElement.querySelector('canvas');
     expect(canvas.getAttribute('tabindex')).toBe('0');
