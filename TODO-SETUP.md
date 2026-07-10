@@ -35,13 +35,14 @@ toujours pas appliqué — voir la section dédiée plus bas ("Une fois tout ce 
       bootstrap : `pivot-ui` lui-même a **0 secret au niveau repo** — donc ces secrets sont
       forcément organisation, jamais configurés par repo. Vérifier manuellement : Organization
       Settings → Secrets and variables → Actions → périmètre de chaque secret.
-- [ ] **Publier une vraie release GHCR** de `pivot-collaboratif-core` — **régression** : une
-      release `v1.0.0` (2026-07-06) avait brièvement publié
-      `ghcr.io/pivot-platform/pivot-collaboratif-core/pivot-collaboratif-core:latest`, mais
-      `pivot-collaboratif-core` a depuis **rétrogradé cette release prématurée** (commit
-      `68dff93`, retour à `0.0.0`) — `gh api repos/PIVOT-PLATFORM/pivot-collaboratif-core/releases`
-      retourne `[]`, seul le tag `v0.0.0` existe. L'image n'a jamais été republiée depuis. Ne pas
-      recocher cette case tant qu'une vraie release n'a pas republié l'image.
+- [x] **Publier une vraie release GHCR** de `pivot-collaboratif-core` — résolu. La release
+      `v1.0.0` (2026-07-06) avait bien été rétrogradée vers `0.0.0` (commit réel `84d272f1f`,
+      "chore(release): revert premature v1.0.0 — reset to 0.0.0 pre-Socle (#17)", 2026-07-07 —
+      **pas** `68dff93` comme une version précédente de cette note le citait par erreur : ce SHA
+      n'existe pas dans l'historique de `pivot-collaboratif-core`). **Depuis résolu** :
+      `pivot-collaboratif-core` a publié trois releases réelles le 2026-07-09 (`v0.1.0`, `v0.1.1`,
+      `v0.1.2` — confirmé via `gh api repos/PIVOT-PLATFORM/pivot-collaboratif-core/releases`, qui
+      les liste toutes), republiant `ghcr.io/pivot-platform/pivot-collaboratif-core:latest`.
 - [x] **BLOQUANT #2 (partie accès) — package GHCR `pivot-collaboratif-core` privé, pas d'accès
       cross-repo pour les Actions de `pivot-collaboratif-ui`.** Résolu 2026-07-09 : mainteneur a
       accordé l'accès via Package settings → "Manage Actions access" → Add repository →
@@ -56,21 +57,24 @@ toujours pas appliqué — voir la section dédiée plus bas ("Une fois tout ce 
       étape `psql` créant ces deux tables minimales avant de démarrer
       `pivot-collaboratif-core` (voir `e2e.yml`, "Seed minimal public schema") — ce fix reste
       valide et en place, il se redéclenchera dès qu'une image réelle sera de nouveau pull-able.
-- [ ] **BLOQUANT #2 (partie image) — erreur CI actuelle : `manifest unknown`, pas `denied`.**
-      Une version précédente de cette note décrivait l'échec `E2E - Playwright` comme
-      `docker: Error response from daemon: denied` après un login GHCR réussi (problème
-      d'autorisation). **Ce n'est plus l'erreur observée.** Logs CI en direct (2026-07-09,
-      plusieurs runs récents) : `Login Succeeded!` suivi de
-      `docker: Error response from daemon: manifest unknown` — classe d'erreur différente :
-      l'image/tag n'existe simplement pas (404 registre), pas un refus d'accès. Root cause :
-      voir la case ci-dessus — `pivot-collaboratif-core` a rétrogradé sa release `v1.0.0`
-      prématurée vers `0.0.0`, donc l'image `:latest` que ce fichier supposait publiée par
-      "v1.0.0" n'a jamais été republiée après cette rétrogradation.
-      **Impact** : `E2E - Playwright` **n'est pas un check requis actuellement** (les 3 checks
+- [x] **BLOQUANT #2 (partie image) — résolu, l'image se pull de nouveau.**
+      Root cause historique : `docker: Error response from daemon: denied` (après login GHCR
+      réussi, problème d'autorisation, voir case précédente) avait été remplacé début 2026-07-09
+      par `docker: Error response from daemon: manifest unknown` — classe d'erreur différente,
+      l'image/tag n'existait simplement plus (404 registre) le temps que
+      `pivot-collaboratif-core` reste sur `0.0.0` après le revert de `v1.0.0`.
+      **Vérifié en direct** (run `29058336956`, 2026-07-09T23:48, log via `gh run view 29058336956
+      --repo PIVOT-PLATFORM/pivot-collaboratif-ui --log`) : `docker pull
+      ghcr.io/pivot-platform/pivot-collaboratif-core:latest` télécharge toutes les couches et
+      complète normalement (`Digest: sha256:…`), la suite Playwright s'exécute réellement et
+      passe (`4 passed`). Depuis la publication de `v0.1.0`/`v0.1.1`/`v0.1.2` le 2026-07-09 (voir
+      case ci-dessus), `E2E - Playwright` donne de nouveau un signal réel sur ce repo — plus de
+      `manifest unknown`.
+      **Reste vrai** : `E2E - Playwright` **n'est pas un check requis actuellement** (les 3 checks
       requis sont `Code Quality - Angular`, `Tests (Vitest)`, `Build Angular (production)` — voir
-      "Checks déjà requis" plus bas), donc ceci **ne bloque aucun merge** — mais tant que
-      `pivot-collaboratif-core` n'a pas publié une vraie release, ce job ne donne aucun signal
-      E2E réel sur ce repo.
+      "Checks déjà requis" plus bas) — mais ce n'est plus faute de signal disponible, seulement
+      une question de scope du ruleset de base (le ruleset comprehensive à venir, voir plus bas,
+      inclut déjà `E2E - Playwright`).
 - [ ] **Question architecture à trancher avec le mainteneur** : `dast-baseline.yml` scanne
       `secrets.PIVOT_PROD_URL` — mais ce module est lazy-loadé DANS le shell `pivot-ui` (pas de
       domaine/URL public autonome en prod). Décider si ce scan doit être retiré, pointé sur la
