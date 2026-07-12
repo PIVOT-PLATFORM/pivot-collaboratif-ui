@@ -8,7 +8,7 @@ import type { Mock } from 'vitest';
 import { ToastService } from '../toast/toast.service';
 import { UndoRedoService } from './undo-redo.service';
 import { WhiteboardSyncService } from './whiteboard-sync.service';
-import { COLLABORATIF_API_URL } from './config/tokens';
+import { COLLABORATIF_API_URL, COLLABORATIF_BEARER_TOKEN } from './config/tokens';
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 
 // `RxStompState` is a plain 4-value enum (CONNECTING/OPEN/CLOSING/CLOSED) — reconstructed
@@ -75,8 +75,12 @@ describe('WhiteboardSyncService', () => {
   let toastService: ToastService;
   let router: Router;
   let undoRedo: UndoRedoService;
+  // Controls what the injected bearer-token accessor returns for the current test (reset to
+  // null before each). The provider closure reads it lazily at connect() time.
+  let bearerTokenValue: string | null;
 
   beforeEach(() => {
+    bearerTokenValue = null;
     fake = new FakeRxStomp();
     // A regular function (not an arrow function) is required here: `new RxStomp()` in the
     // service invokes this mock implementation via construction, and arrow functions
@@ -90,6 +94,7 @@ describe('WhiteboardSyncService', () => {
         provideRouter([]),
         { provide: TranslocoService, useValue: { translate: (key: string) => key } },
         { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        { provide: COLLABORATIF_BEARER_TOKEN, useValue: (): string | null => bearerTokenValue },
       ],
     });
 
@@ -115,6 +120,49 @@ describe('WhiteboardSyncService', () => {
     expect(cfg.reconnectDelay).toBe(1000);
     expect(cfg.maxReconnectDelay).toBe(30000);
     expect(fake.activateCalls).toBe(1);
+  });
+
+  // The CONNECT auth header is applied via rx-stomp's `beforeConnect` (fresh per (re)connect),
+  // which re-invokes `client.configure({ connectHeaders })`. Drive that the way rx-stomp would.
+  function connectHeaders(): Record<string, string> {
+    service.connect(BOARD_ID);
+    const initial = fake.configureCalls[0] as { beforeConnect: (c: FakeRxStomp) => void };
+    initial.beforeConnect(fake);
+    return (fake.configureCalls[fake.configureCalls.length - 1] as {
+      connectHeaders: Record<string, string>;
+    }).connectHeaders;
+  }
+
+  it('sends no Authorization header when the token accessor returns null', () => {
+    bearerTokenValue = null;
+    expect(connectHeaders()).toEqual({});
+  });
+
+  it('carries the bearer token from the provider in the STOMP CONNECT headers', () => {
+    bearerTokenValue = 'tok-abc123';
+    expect(connectHeaders()).toEqual({ Authorization: 'Bearer tok-abc123' });
+  });
+
+  it('re-reads the token before every (re)connect — no stale replay after rotation', () => {
+    bearerTokenValue = 'tok-old';
+    service.connect(BOARD_ID);
+    const initial = fake.configureCalls[0] as { beforeConnect: (c: FakeRxStomp) => void };
+    bearerTokenValue = 'tok-new'; // token rotated mid-session; a reconnect must pick it up
+    initial.beforeConnect(fake);
+    expect((fake.configureCalls[fake.configureCalls.length - 1] as {
+      connectHeaders: Record<string, string>;
+    }).connectHeaders).toEqual({ Authorization: 'Bearer tok-new' });
+  });
+
+  it('falls back to the E2E bearer-token hook when no provider token is set', () => {
+    bearerTokenValue = null;
+    const w = window as unknown as { __PIVOT_E2E_BEARER_TOKEN__?: string };
+    w.__PIVOT_E2E_BEARER_TOKEN__ = 'e2e-tok';
+    try {
+      expect(connectHeaders()).toEqual({ Authorization: 'Bearer e2e-tok' });
+    } finally {
+      delete w.__PIVOT_E2E_BEARER_TOKEN__;
+    }
   });
 
   it('starts in the "connecting" status with readOnly true', () => {
