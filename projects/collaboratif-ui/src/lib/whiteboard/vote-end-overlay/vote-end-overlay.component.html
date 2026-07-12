@@ -1,0 +1,53 @@
+<div
+  class="wb-vote-end"
+  role="alertdialog"
+  tabindex="-1"
+  [attr.aria-label]="'whiteboard.vote.dialogLabel' | transloco"
+  (click)="reveal()"
+  (keydown.escape)="reveal()"
+>
+  <div class="wb-vote-end__card-stack">
+    <div class="wb-vote-end__card" aria-hidden="true">
+      <svg
+        class="wb-vote-end__icon"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.8"
+          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+        />
+      </svg>
+      <span class="wb-vote-end__card-label">
+        {{ 'whiteboard.vote.badge' | transloco }}
+      </span>
+    </div>
+
+    <div class="wb-vote-end__text">
+      <h2 class="wb-vote-end__title">
+        {{ 'whiteboard.vote.ended' | transloco }}
+      </h2>
+      <p class="wb-vote-end__subtitle">
+        {{ 'whiteboard.vote.resultsReady' | transloco }}
+      </p>
+    </div>
+
+    <button
+      class="wb-vote-end__action"
+      type="button"
+      [attr.aria-label]="'whiteboard.vote.showResults' | transloco"
+      (click)="$event.stopPropagation(); reveal()"
+      autofocus
+    >
+      <span class="wb-vote-end__action-label">
+        {{ 'whiteboard.vote.displayIn' | transloco }}
+      </span>
+      <span class="wb-vote-end__action-value">
+        {{ 'whiteboard.vote.countdown' | transloco: { count: countdown() } }}
+      </span>
+    </button>
+  </div>
+</div>

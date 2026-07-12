@@ -1,0 +1,47 @@
+:host {
+  // The host is the <g wbConnectionLine> group projected into the parent SVG layer.
+  display: inline;
+}
+
+.wb-connection__halo {
+  stroke: #6366f1;
+  stroke-opacity: 0.25;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.wb-connection__hit {
+  cursor: pointer;
+  // Only the transparent stroke captures interaction, not the (empty) fill.
+  pointer-events: stroke;
+
+  &:focus-visible {
+    outline: none;
+    stroke: #6366f1;
+    stroke-opacity: 0.35;
+  }
+}
+
+.wb-connection__line {
+  pointer-events: none;
+}
+
+.wb-connection__arrow {
+  pointer-events: none;
+}
+
+.wb-connection__label {
+  cursor: pointer;
+}
+
+.wb-connection__label-box {
+  fill: #ffffff;
+}
+
+.wb-connection__label-text {
+  font-size: 12px;
+  font-family: sans-serif;
+  fill: #374151;
+  user-select: none;
+  pointer-events: none;
+}

@@ -1,0 +1,55 @@
+@if (selected()) {
+  <svg:path
+    class="wb-connection__halo"
+    [attr.d]="pathD()"
+    fill="none"
+    [attr.stroke-width]="haloWidth()" />
+}
+
+<svg:path
+  class="wb-connection__hit"
+  [attr.d]="pathD()"
+  fill="none"
+  stroke="transparent"
+  [attr.stroke-width]="hitWidth()"
+  role="button"
+  tabindex="0"
+  [attr.aria-label]="'whiteboard.connection.ariaLabel' | transloco"
+  (click)="onSelect($event)"
+  (keydown.enter)="onSelect($event)"
+  (keydown.space)="onSelect($event)" />
+
+<svg:path
+  class="wb-connection__line"
+  [attr.d]="pathD()"
+  fill="none"
+  [attr.stroke]="strokeColor()"
+  [attr.stroke-width]="strokeWidth()"
+  [attr.stroke-linecap]="lineCap()"
+  stroke-linejoin="round"
+  [attr.stroke-dasharray]="dashArray()" />
+
+@if (endArrow(); as points) {
+  <svg:polygon class="wb-connection__arrow" [attr.points]="points" [attr.fill]="strokeColor()" />
+}
+@if (startArrow(); as points) {
+  <svg:polygon class="wb-connection__arrow" [attr.points]="points" [attr.fill]="strokeColor()" />
+}
+
+@if (label(); as text) {
+  <svg:g class="wb-connection__label" (click)="onSelect($event)">
+    <svg:rect
+      class="wb-connection__label-box"
+      [attr.x]="labelBox().x"
+      [attr.y]="labelBox().y"
+      [attr.width]="labelBox().width"
+      [attr.height]="labelBox().height"
+      rx="6"
+      [attr.stroke]="selected() ? '#6366f1' : '#e5e7eb'" />
+    <svg:text
+      class="wb-connection__label-text"
+      [attr.x]="labelTextPos().x"
+      [attr.y]="labelTextPos().y"
+      text-anchor="middle">{{ text }}</svg:text>
+  </svg:g>
+}
