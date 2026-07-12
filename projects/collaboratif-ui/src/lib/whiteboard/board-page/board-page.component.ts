@@ -18,6 +18,7 @@ import { GroupsPanelComponent } from '../groups-panel/groups-panel.component';
 import { VoteResultsPanelComponent } from '../vote-results-panel/vote-results-panel.component';
 import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component';
 import { SharePanelComponent } from '../share-panel/share-panel.component';
+import { ActivitiesPanelComponent } from '../activities-panel/activities-panel.component';
 import type { ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
 
@@ -46,6 +47,7 @@ import { DEFAULT_SHAPE_COLOR } from '../model/colors';
     VoteResultsPanelComponent,
     TimerOverlayComponent,
     SharePanelComponent,
+    ActivitiesPanelComponent,
   ],
   providers: [BoardStore, { provide: BoardTransport, useClass: StompBoardTransport }],
   templateUrl: './board-page.component.html',
@@ -60,6 +62,7 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly tool = signal<ToolMode>('select');
   protected readonly color = signal<string>(DEFAULT_SHAPE_COLOR);
   protected readonly showGroups = signal(false);
+  protected readonly showActivities = signal(false);
   protected readonly showShare = signal(false);
   protected readonly showVoteResults = signal(false);
   protected readonly highlightedGroup = signal<string | null>(null);
@@ -87,6 +90,15 @@ export class BoardPageComponent implements OnInit, OnDestroy {
 
   protected onToolConsumed(): void {
     this.tool.set('select');
+  }
+
+  /**
+   * Placeholder handler for the activities picker: launching a facilitation activity on the board
+   * depends on `pivot-collaboratif-core` support not yet implemented (same WIP posture as
+   * timer/vote start). For now, selecting an activity simply closes the panel.
+   */
+  protected onLaunchActivity(_activityId: string): void {
+    this.showActivities.set(false);
   }
 
   protected dismissTimer(): void {

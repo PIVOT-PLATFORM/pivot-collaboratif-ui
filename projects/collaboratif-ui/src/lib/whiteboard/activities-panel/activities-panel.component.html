@@ -1,0 +1,33 @@
+<div class="wb-act">
+  <div class="wb-act__head">
+    <span class="wb-act__title">Activités</span>
+    <button type="button" class="wb-act__close" (click)="close.emit()" aria-label="Fermer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M18 6L6 18"></path>
+        <path d="M6 6l12 12"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="wb-act__section">Récemment utilisées</div>
+  <div class="wb-act__recent">
+    @for (a of recent; track a.id) {
+      <button type="button" class="wb-act__recent-card" (click)="launch.emit(a.id)">
+        <span class="wb-act__glyph" [class]="'wb-act__glyph--' + a.kind">{{ a.glyph }}</span>
+        <span class="wb-act__recent-name">{{ a.name }}</span>
+      </button>
+    }
+  </div>
+
+  <div class="wb-act__list">
+    @for (a of activities; track a.id) {
+      <button type="button" class="wb-act__item" (click)="launch.emit(a.id)">
+        <span class="wb-act__glyph wb-act__glyph--lg" [class]="'wb-act__glyph--' + a.kind">{{ a.glyph }}</span>
+        <span class="wb-act__item-body">
+          <span class="wb-act__item-name">{{ a.name }}</span>
+          <span class="wb-act__item-desc">{{ a.desc }}</span>
+        </span>
+      </button>
+    }
+  </div>
+</div>

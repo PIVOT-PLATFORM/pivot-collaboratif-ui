@@ -101,6 +101,18 @@
     top: auto;
     bottom: 16px;
   }
+
+  // Activities picker — full-height right drawer (Whiteboard design), not a boxed card.
+  &--activities {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 320px;
+    max-height: none;
+    overflow: hidden;
+    border-left: 1px solid var(--color-gray-200);
+    box-shadow: var(--shadow-xl);
+  }
 }
 
 .wb-page__modal {
