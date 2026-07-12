@@ -6,8 +6,18 @@ export interface CollaboratifUiConfig {
   /**
    * Optional accessor for the current bearer (opaque access) token, used to authenticate the
    * whiteboard real-time STOMP `CONNECT` frame. Return `null` when unauthenticated. When omitted,
-   * real-time sync cannot authenticate and stays read-only (server rejects the CONNECT) — the
-   * shell should bridge its own auth here, e.g. `bearerToken: () => inject(AuthService).accessToken()`.
+   * real-time sync cannot authenticate and stays read-only (server rejects the CONNECT).
+   *
+   * The accessor is stored as a value and invoked lazily at connect time — i.e. **outside** an
+   * Angular injection context — so it must NOT call `inject()` itself (that throws NG0203).
+   * Capture the dependency up front instead. When the token comes from a service, prefer providing
+   * {@link COLLABORATIF_BEARER_TOKEN} with a factory rather than this field:
+   *
+   * ```ts
+   * { provide: COLLABORATIF_BEARER_TOKEN,
+   *   useFactory: (auth: AuthService) => (): string | null => auth.accessToken(),
+   *   deps: [AuthService] }
+   * ```
    */
   bearerToken?: () => string | null;
 }

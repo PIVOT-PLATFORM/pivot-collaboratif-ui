@@ -207,7 +207,10 @@ export class WhiteboardSyncService {
       reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
       heartbeatIncoming: HEARTBEAT_INCOMING_MS,
       heartbeatOutgoing: HEARTBEAT_OUTGOING_MS,
-      connectHeaders: this.buildConnectHeaders(),
+      // Refresh the CONNECT auth header before EVERY (re)connect — the canonical rx-stomp
+      // token-refresh hook — so a token that rotates during a long session is never replayed
+      // stale on an automatic reconnect (which would be rejected as revoked).
+      beforeConnect: (client: RxStomp) => client.configure({ connectHeaders: this.buildConnectHeaders() }),
     });
     this.rxStomp = rxStomp;
 
