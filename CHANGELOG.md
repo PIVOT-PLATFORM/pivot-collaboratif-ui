@@ -1,3 +1,10 @@
+## [0.1.1](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.1.0...v0.1.1) (2026-07-12)
+
+
+### Bug Fixes
+
+* **release:** stop @semantic-release/github failing on unresolvable issue refs ([#74](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/74)) ([4f0df24](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/4f0df24b8b89d00e692e3ac431e8be67ebf5048f)), closes [#116](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/116)
+
 # [0.1.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.0.0...v0.1.0) (2026-07-12)
 
 
