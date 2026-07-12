@@ -1,3 +1,15 @@
+# [0.2.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.1.1...v0.2.0) (2026-07-12)
+
+
+### Bug Fixes
+
+* **ci:** publish npm collaboratif-ui inline in release.yml, not on dead tag trigger ([#77](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/77)) ([5a53d10](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/5a53d10ca50d47c0c8afbc7c97879d6902134e5f)), closes [#76](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/76)
+
+
+### Features
+
+* **whiteboard:** port du front PouetPouet → whiteboard structuré (WIP) ([#75](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/75)) ([c51157d](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/c51157d341503fbd45a58d441a392c1c2274f743))
+
 ## [0.1.1](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.1.0...v0.1.1) (2026-07-12)
 
 
