@@ -4,7 +4,7 @@ import { TranslocoService } from '@jsverse/transloco';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { ReconnectionTimeMode } from '@stomp/stompjs';
 import { Subject, Subscription } from 'rxjs';
-import { COLLABORATIF_API_URL } from './config/tokens';
+import { COLLABORATIF_API_URL, COLLABORATIF_BEARER_TOKEN } from './config/tokens';
 import { ToastService } from '../toast/toast.service';
 import { UndoRedoService } from './undo-redo.service';
 
@@ -146,6 +146,7 @@ export class WhiteboardSyncService {
   private readonly transloco = inject(TranslocoService);
   private readonly undoRedo = inject(UndoRedoService);
   private readonly apiUrl = inject(COLLABORATIF_API_URL);
+  private readonly bearerToken = inject(COLLABORATIF_BEARER_TOKEN);
 
   /** Current WS connection status — drives the connecting/lost/failed banners. */
   readonly status = signal<WhiteboardConnectionStatus>('connecting');
@@ -532,21 +533,22 @@ export class WhiteboardSyncService {
   }
 
   /**
-   * Builds the STOMP `CONNECT` frame headers — {} in real usage today.
+   * Builds the STOMP `CONNECT` frame headers, carrying the bearer token that
+   * `pivot-collaboratif-core` requires on `CONNECT` since EN08.3 (a custom header cannot be set
+   * on the WS handshake itself, so REST's `Authorization` header convention doesn't apply — the
+   * token travels as a native STOMP frame header instead).
    *
-   * <p>This repo has no Angular-side auth mechanism yet (no `AuthService`/`AuthInterceptor` —
-   * deferred to `@pivot-platform/ui-core`, not yet published; see this repo's own `CLAUDE.md`,
-   * "Auth (différée)"). `pivot-collaboratif-core`'s STOMP endpoint requires a bearer token on
-   * `CONNECT` since EN08.3 (a custom header cannot be set on the WS handshake itself, so REST's
-   * `Authorization` header convention doesn't apply here — the token travels as a native STOMP
-   * frame header instead). Until real auth ships, the only source for a token is this narrow,
-   * explicitly-named test hook — `window.__PIVOT_E2E_BEARER_TOKEN__`, set only by the E2E harness
-   * (`playwright.config.ts` `page.addInitScript`) — never read from any real storage. Remove this
-   * method (and call it directly with real headers) once `@pivot-platform/ui-core` ships.
+   * <p>Token source, in order: the accessor supplied by the consuming app via
+   * `provideCollaboratifUi({ bearerToken })` (bridged from the shell's `AuthService`), then the
+   * E2E test hook `window.__PIVOT_E2E_BEARER_TOKEN__` (set only by the Playwright harness). When
+   * neither yields a token the CONNECT is sent unauthenticated and the server rejects it —
+   * real-time sync then degrades to read-only.
    */
   private buildConnectHeaders(): Record<string, string> {
-    const token = (window as unknown as { __PIVOT_E2E_BEARER_TOKEN__?: string })
-      .__PIVOT_E2E_BEARER_TOKEN__;
+    const token =
+      this.bearerToken() ??
+      (window as unknown as { __PIVOT_E2E_BEARER_TOKEN__?: string }).__PIVOT_E2E_BEARER_TOKEN__ ??
+      null;
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 }

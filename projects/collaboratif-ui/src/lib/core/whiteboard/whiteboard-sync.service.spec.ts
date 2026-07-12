@@ -8,7 +8,7 @@ import type { Mock } from 'vitest';
 import { ToastService } from '../toast/toast.service';
 import { UndoRedoService } from './undo-redo.service';
 import { WhiteboardSyncService } from './whiteboard-sync.service';
-import { COLLABORATIF_API_URL } from './config/tokens';
+import { COLLABORATIF_API_URL, COLLABORATIF_BEARER_TOKEN } from './config/tokens';
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 
 // `RxStompState` is a plain 4-value enum (CONNECTING/OPEN/CLOSING/CLOSED) — reconstructed
@@ -75,8 +75,12 @@ describe('WhiteboardSyncService', () => {
   let toastService: ToastService;
   let router: Router;
   let undoRedo: UndoRedoService;
+  // Controls what the injected bearer-token accessor returns for the current test (reset to
+  // null before each). The provider closure reads it lazily at connect() time.
+  let bearerTokenValue: string | null;
 
   beforeEach(() => {
+    bearerTokenValue = null;
     fake = new FakeRxStomp();
     // A regular function (not an arrow function) is required here: `new RxStomp()` in the
     // service invokes this mock implementation via construction, and arrow functions
@@ -90,6 +94,7 @@ describe('WhiteboardSyncService', () => {
         provideRouter([]),
         { provide: TranslocoService, useValue: { translate: (key: string) => key } },
         { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        { provide: COLLABORATIF_BEARER_TOKEN, useValue: (): string | null => bearerTokenValue },
       ],
     });
 
@@ -115,6 +120,20 @@ describe('WhiteboardSyncService', () => {
     expect(cfg.reconnectDelay).toBe(1000);
     expect(cfg.maxReconnectDelay).toBe(30000);
     expect(fake.activateCalls).toBe(1);
+  });
+
+  it('sends no Authorization header when the token accessor returns null', () => {
+    bearerTokenValue = null;
+    service.connect(BOARD_ID);
+    const cfg = fake.configureCalls[0] as { connectHeaders: Record<string, string> };
+    expect(cfg.connectHeaders).toEqual({});
+  });
+
+  it('carries the bearer token from the provider in the STOMP CONNECT headers', () => {
+    bearerTokenValue = 'tok-abc123';
+    service.connect(BOARD_ID);
+    const cfg = fake.configureCalls[0] as { connectHeaders: Record<string, string> };
+    expect(cfg.connectHeaders).toEqual({ Authorization: 'Bearer tok-abc123' });
   });
 
   it('starts in the "connecting" status with readOnly true', () => {
