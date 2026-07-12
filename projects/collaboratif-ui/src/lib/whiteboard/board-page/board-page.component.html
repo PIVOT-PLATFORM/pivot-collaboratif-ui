@@ -22,7 +22,7 @@
 
       <button type="button" class="wb-page__btn" [class.wb-page__btn--on]="showActivities()"
         (click)="showActivities.set(!showActivities())" [attr.aria-pressed]="showActivities()"
-        aria-label="Activités">Activités</button>
+        [attr.aria-label]="'whiteboard.activities.open' | transloco">{{ 'whiteboard.activities.open' | transloco }}</button>
 
       <button type="button" class="wb-page__btn" (click)="showShare.set(true)"
         [attr.aria-label]="'whiteboard.share.panel.title' | transloco">{{ 'whiteboard.share.panel.title' | transloco }}</button>
@@ -61,7 +61,7 @@
     }
 
     @if (showActivities()) {
-      <aside class="wb-page__panel wb-page__panel--activities" aria-label="Activités">
+      <aside class="wb-page__panel wb-page__panel--activities" [attr.aria-label]="'whiteboard.activities.title' | transloco">
         <wb-activities-panel
           (launch)="onLaunchActivity($event)"
           (close)="showActivities.set(false)"
