@@ -1,0 +1,119 @@
+.wb-timer-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(248, 248, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: wb-timer-overlay-fade-in 0.4s ease forwards;
+  outline: none;
+
+  &__card-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    text-align: center;
+    animation: wb-timer-overlay-card-in 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 9rem;
+    height: 12rem;
+    border-radius: 1rem;
+    background: linear-gradient(to bottom right, #6366f1, #7c3aed);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  &__icon {
+    width: 3rem;
+    height: 3rem;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  &__card-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: #1f2937;
+  }
+
+  &__subtitle {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #9ca3af;
+  }
+
+  &__action {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 1rem;
+    background: #dcfce7;
+    cursor: pointer;
+    text-align: center;
+    animation: wb-timer-overlay-badge-in 0.4s ease 0.5s both;
+
+    &:focus-visible {
+      outline: 2px solid #16a34a;
+      outline-offset: 2px;
+    }
+  }
+
+  &__action-label {
+    display: block;
+    margin-bottom: 0.125rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #22c55e;
+  }
+
+  &__action-value {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #15803d;
+  }
+}
+
+@keyframes wb-timer-overlay-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes wb-timer-overlay-card-in {
+  0%   { transform: translateY(32px) scale(0.92); opacity: 0; }
+  65%  { transform: translateY(-6px) scale(1.02); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes wb-timer-overlay-badge-in {
+  0%   { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}

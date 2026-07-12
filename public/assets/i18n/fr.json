@@ -54,7 +54,9 @@
           "confirm": "Supprimer définitivement",
           "cancel": "Annuler"
         }
-      }
+      },
+      "untitled": "Tableau sans titre",
+      "reset": "Réinitialiser le tableau"
     },
     "share": {
       "panel": {
@@ -213,6 +215,86 @@
         "editor": "Éditeur",
         "viewer": "Lecteur"
       }
+    },
+    "toolbar": {
+      "label": "Barre d'outils",
+      "select": "Sélection",
+      "pan": "Déplacer la vue",
+      "sticky": "Post-it",
+      "text": "Texte",
+      "rect": "Rectangle",
+      "circle": "Cercle",
+      "diamond": "Losange",
+      "triangle": "Triangle",
+      "line": "Ligne",
+      "star": "Étoile",
+      "draw": "Dessin libre",
+      "table": "Tableau",
+      "link": "Relier des cartes",
+      "colorGroup": "Couleurs",
+      "pickColor": "Couleur {{color}}"
+    },
+    "card": {
+      "editText": "Modifier le texte",
+      "editLabel": "Modifier l'étiquette",
+      "imageAlt": "Image de la carte",
+      "locked": "Carte verrouillée",
+      "editing": "{{name}} modifie…",
+      "connect": "Relier depuis cette carte"
+    },
+    "frame": {
+      "titleLabel": "Titre du cadre",
+      "untitled": "Cadre sans titre",
+      "carryCards": "Emporter les cartes du cadre"
+    },
+    "connection": {
+      "ariaLabel": "Connexion"
+    },
+    "timer": {
+      "dialogLabel": "Le minuteur est écoulé",
+      "badge": "Terminé",
+      "timeUp": "Temps écoulé !",
+      "waiting": "En attente de la suite…",
+      "actionLabel": "Action",
+      "clickToClose": "Cliquez pour fermer",
+      "dismiss": "Fermer le minuteur"
+    },
+    "vote": {
+      "dialogLabel": "Le vote est terminé",
+      "badge": "Résultats",
+      "ended": "Vote terminé !",
+      "resultsReady": "Les résultats sont prêts",
+      "displayIn": "Affichage dans",
+      "countdown": "{{count}}s · Cliquez pour voir",
+      "showResults": "Afficher les résultats"
+    },
+    "groups": {
+      "title": "Groupes",
+      "empty": "Aucun groupe sur ce tableau.",
+      "groupLabel": "Groupe {{index}}",
+      "memberCount": "{{count}} carte(s)",
+      "highlight": "Mettre le groupe {{index}} en surbrillance",
+      "recolor": "Couleur du groupe {{index}}",
+      "recolorTo": "Recolorer en {{color}}",
+      "dissolve": "Dissoudre le groupe {{index}}"
+    },
+    "voteResults": {
+      "title": "Résultats du vote",
+      "summary": "{{votes}} votes · {{voters}} participants",
+      "closeAria": "Fermer les résultats du vote",
+      "close": "Fermer",
+      "stopVote": "Terminer le vote",
+      "stat": {
+        "votesPerPerson": "Votes par personne",
+        "votedCards": "Post-its votés",
+        "maxVotes": "Votes max"
+      },
+      "resultsLabel": "Classement des votes",
+      "barAria": "Rang {{rank}} : {{text}}, {{count}} votes",
+      "winner": "Gagnant",
+      "emptyCard": "Post-it vide",
+      "voteCount": "{{count}} votes",
+      "empty": "Aucun vote enregistré"
     }
   }
 }

@@ -1,0 +1,32 @@
+<div class="wb-toolbar" role="toolbar" [attr.aria-label]="'whiteboard.toolbar.label' | transloco">
+  <div class="wb-toolbar__group">
+    @for (t of tools; track t.mode) {
+      <button
+        type="button"
+        class="wb-toolbar__btn"
+        [class.wb-toolbar__btn--active]="tool() === t.mode"
+        [disabled]="disabled()"
+        [attr.aria-pressed]="tool() === t.mode"
+        [attr.aria-label]="t.labelKey | transloco"
+        [title]="t.labelKey | transloco"
+        (click)="pick(t.mode)"
+      >
+        <span aria-hidden="true">{{ t.icon }}</span>
+      </button>
+    }
+  </div>
+
+  <div class="wb-toolbar__group wb-toolbar__group--colors" role="group" [attr.aria-label]="'whiteboard.toolbar.colorGroup' | transloco">
+    @for (c of palette; track c) {
+      <button
+        type="button"
+        class="wb-toolbar__swatch"
+        [class.wb-toolbar__swatch--active]="color().toLowerCase() === c.toLowerCase()"
+        [style.background]="c"
+        [disabled]="disabled()"
+        [attr.aria-label]="'whiteboard.toolbar.pickColor' | transloco: { color: c }"
+        (click)="colorChange.emit(c)"
+      ></button>
+    }
+  </div>
+</div>

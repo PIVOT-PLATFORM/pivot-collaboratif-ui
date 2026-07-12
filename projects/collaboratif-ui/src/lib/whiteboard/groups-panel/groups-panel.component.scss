@@ -1,0 +1,125 @@
+.wb-groups {
+  display: flex;
+  flex-direction: column;
+  width: 14rem;
+  background: #fff;
+  border: 1px solid #f1f5f9;
+  border-radius: 1rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+
+  &__title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  &__empty {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    text-align: center;
+    margin: 0;
+    padding: 1.5rem 1rem;
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 18rem;
+    overflow-y: auto;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem 0.375rem 0.75rem;
+    transition: background-color 0.15s ease;
+
+    &:hover { background: #f9fafb; }
+    &--active { background: #eef2ff; }
+  }
+
+  &__swatch {
+    flex-shrink: 0;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  &__label-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+
+    &:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 0.25rem; }
+  }
+
+  &__name {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__count {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+
+  &__palette {
+    display: flex;
+    gap: 0.1875rem;
+    flex-shrink: 0;
+  }
+
+  &__color {
+    width: 0.75rem;
+    height: 0.75rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+
+    &--current { box-shadow: 0 0 0 2px #6366f1; }
+    &:focus-visible { outline: 2px solid #6366f1; outline-offset: 1px; }
+  }
+
+  &__dissolve {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    line-height: 1;
+    border: none;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+
+    &:hover { color: #ef4444; background: #fef2f2; }
+    &:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; color: #ef4444; }
+  }
+}

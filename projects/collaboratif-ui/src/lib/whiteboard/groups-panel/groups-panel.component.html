@@ -1,0 +1,79 @@
+<section
+  class="wb-groups"
+  [attr.aria-label]="'whiteboard.groups.title' | transloco"
+>
+  <h2 class="wb-groups__title">{{ 'whiteboard.groups.title' | transloco }}</h2>
+
+  @if (groups().length === 0) {
+    <p class="wb-groups__empty">{{ 'whiteboard.groups.empty' | transloco }}</p>
+  } @else {
+    <ul class="wb-groups__list">
+      @for (group of groups(); track group.id) {
+        <li
+          class="wb-groups__row"
+          [class.wb-groups__row--active]="highlightedGroupId() === group.id"
+          (mouseenter)="onEnter(group.id)"
+          (mouseleave)="onLeave()"
+          (focusin)="onEnter(group.id)"
+          (focusout)="onLeave()"
+        >
+          <span
+            class="wb-groups__swatch"
+            aria-hidden="true"
+            [style.background-color]="group.color"
+          ></span>
+
+          <button
+            class="wb-groups__label-btn"
+            type="button"
+            [attr.aria-label]="
+              'whiteboard.groups.highlight' | transloco: { index: group.index }
+            "
+            [attr.aria-pressed]="highlightedGroupId() === group.id"
+            (click)="onEnter(group.id)"
+          >
+            <span class="wb-groups__name">
+              {{ 'whiteboard.groups.groupLabel' | transloco: { index: group.index } }}
+            </span>
+            <span class="wb-groups__count">
+              {{ 'whiteboard.groups.memberCount' | transloco: { count: group.memberCount } }}
+            </span>
+          </button>
+
+          <span
+            class="wb-groups__palette"
+            role="group"
+            [attr.aria-label]="
+              'whiteboard.groups.recolor' | transloco: { index: group.index }
+            "
+          >
+            @for (color of paletteColors; track color) {
+              <button
+                class="wb-groups__color"
+                type="button"
+                [class.wb-groups__color--current]="color === group.color"
+                [style.background-color]="color"
+                [attr.aria-label]="
+                  'whiteboard.groups.recolorTo' | transloco: { color: color }
+                "
+                [attr.aria-pressed]="color === group.color"
+                (click)="onRecolor(group.id, color)"
+              ></button>
+            }
+          </span>
+
+          <button
+            class="wb-groups__dissolve"
+            type="button"
+            [attr.aria-label]="
+              'whiteboard.groups.dissolve' | transloco: { index: group.index }
+            "
+            (click)="onDissolve(group.id)"
+          >
+            &times;
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</section>

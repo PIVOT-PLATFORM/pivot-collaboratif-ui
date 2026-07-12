@@ -1,0 +1,127 @@
+<div
+  class="wb-vote-results"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'whiteboard.voteResults.title' | transloco"
+  (keydown.escape)="onClose()"
+  tabindex="-1"
+>
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <header class="wb-vote-results__header">
+    <div class="wb-vote-results__heading-group">
+      <h2 class="wb-vote-results__heading" id="wb-vote-results-heading">
+        {{ 'whiteboard.voteResults.title' | transloco }}
+      </h2>
+      <p class="wb-vote-results__summary">
+        {{
+          'whiteboard.voteResults.summary'
+            | transloco: { votes: totalVotes(), voters: voterCount() }
+        }}
+      </p>
+    </div>
+    <button
+      class="wb-vote-results__close-btn"
+      type="button"
+      [attr.aria-label]="'whiteboard.voteResults.closeAria' | transloco"
+      (click)="onClose()"
+      autofocus
+    >
+      &times;
+    </button>
+  </header>
+
+  <!-- ── Stats row ──────────────────────────────────────────────────── -->
+  <dl class="wb-vote-results__stats">
+    <div class="wb-vote-results__stat">
+      <dt class="wb-vote-results__stat-label">
+        {{ 'whiteboard.voteResults.stat.votesPerPerson' | transloco }}
+      </dt>
+      <dd class="wb-vote-results__stat-value">{{ session().votesPerPerson }}</dd>
+    </div>
+    <div class="wb-vote-results__stat">
+      <dt class="wb-vote-results__stat-label">
+        {{ 'whiteboard.voteResults.stat.votedCards' | transloco }}
+      </dt>
+      <dd class="wb-vote-results__stat-value">{{ results().length }}</dd>
+    </div>
+    <div class="wb-vote-results__stat">
+      <dt class="wb-vote-results__stat-label">
+        {{ 'whiteboard.voteResults.stat.maxVotes' | transloco }}
+      </dt>
+      <dd class="wb-vote-results__stat-value">{{ maxVotes() }}</dd>
+    </div>
+  </dl>
+
+  <!-- ── Results list ───────────────────────────────────────────────── -->
+  @if (results().length === 0) {
+    <p class="wb-vote-results__empty" role="status">
+      {{ 'whiteboard.voteResults.empty' | transloco }}
+    </p>
+  } @else {
+    <ol
+      class="wb-vote-results__list"
+      [attr.aria-label]="'whiteboard.voteResults.resultsLabel' | transloco"
+    >
+      @for (result of results(); track result.card.id) {
+        <li
+          class="wb-vote-results__item"
+          [class.wb-vote-results__item--winner]="result.isWinner"
+        >
+          <div
+            class="wb-vote-results__bar"
+            role="img"
+            [style.width.%]="result.percent"
+            [attr.aria-label]="
+              'whiteboard.voteResults.barAria'
+                | transloco
+                  : {
+                      rank: result.rank,
+                      text: result.text || ('whiteboard.voteResults.emptyCard' | transloco),
+                      count: result.count
+                    }
+            "
+          ></div>
+          <span class="wb-vote-results__rank" aria-hidden="true">{{ result.rank }}</span>
+          <span
+            class="wb-vote-results__dot"
+            aria-hidden="true"
+            [style.background]="result.card.color"
+          ></span>
+          <span class="wb-vote-results__text" aria-hidden="true">
+            @if (result.text) {
+              {{ result.text }}
+            } @else {
+              <span class="wb-vote-results__text--empty">
+                {{ 'whiteboard.voteResults.emptyCard' | transloco }}
+              </span>
+            }
+          </span>
+          @if (result.isWinner) {
+            <span class="wb-vote-results__badge" aria-hidden="true">
+              {{ 'whiteboard.voteResults.winner' | transloco }}
+            </span>
+          }
+          <span class="wb-vote-results__count" aria-hidden="true">
+            {{ 'whiteboard.voteResults.voteCount' | transloco: { count: result.count } }}
+          </span>
+        </li>
+      }
+    </ol>
+  }
+
+  <!-- ── Footer ─────────────────────────────────────────────────────── -->
+  <footer class="wb-vote-results__footer">
+    @if (canStopVote()) {
+      <button
+        class="wb-vote-results__stop-btn"
+        type="button"
+        (click)="onStopVote()"
+      >
+        {{ 'whiteboard.voteResults.stopVote' | transloco }}
+      </button>
+    }
+    <button class="wb-vote-results__close-action" type="button" (click)="onClose()">
+      {{ 'whiteboard.voteResults.close' | transloco }}
+    </button>
+  </footer>
+</div>

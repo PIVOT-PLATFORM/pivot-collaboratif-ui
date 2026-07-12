@@ -1,0 +1,54 @@
+<div
+  class="wb-timer-overlay"
+  role="alertdialog"
+  tabindex="-1"
+  [attr.aria-label]="'whiteboard.timer.dialogLabel' | transloco"
+  (click)="onDismiss()"
+  (keydown.escape)="onDismiss()"
+>
+  <div class="wb-timer-overlay__card-stack">
+    <div class="wb-timer-overlay__card" aria-hidden="true">
+      <svg
+        class="wb-timer-overlay__icon"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <circle cx="12" cy="12" r="9" stroke-width="1.8" />
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.8"
+          d="M12 7v5l3.5 3.5"
+        />
+      </svg>
+      <span class="wb-timer-overlay__card-label">
+        {{ 'whiteboard.timer.badge' | transloco }}
+      </span>
+    </div>
+
+    <div class="wb-timer-overlay__text">
+      <h2 class="wb-timer-overlay__title">
+        {{ 'whiteboard.timer.timeUp' | transloco }}
+      </h2>
+      <p class="wb-timer-overlay__subtitle">
+        {{ 'whiteboard.timer.waiting' | transloco }}
+      </p>
+    </div>
+
+    <button
+      class="wb-timer-overlay__action"
+      type="button"
+      [attr.aria-label]="'whiteboard.timer.dismiss' | transloco"
+      (click)="$event.stopPropagation(); onDismiss()"
+      autofocus
+    >
+      <span class="wb-timer-overlay__action-label">
+        {{ 'whiteboard.timer.actionLabel' | transloco }}
+      </span>
+      <span class="wb-timer-overlay__action-value">
+        {{ 'whiteboard.timer.clickToClose' | transloco }}
+      </span>
+    </button>
+  </div>
+</div>

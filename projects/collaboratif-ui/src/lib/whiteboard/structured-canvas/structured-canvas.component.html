@@ -1,0 +1,76 @@
+<div
+  #surface
+  class="wb-surface"
+  tabindex="0"
+  role="application"
+  [attr.aria-label]="'whiteboard.canvas.ariaLabel' | transloco"
+  [class.wb-surface--pan]="tool() === 'pan'"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (wheel)="onWheel($event)"
+  (keydown)="onKeyDown($event)"
+  (keyup)="onKeyUp($event)"
+>
+  <div class="wb-layer" [style.transform]="layerTransform()">
+    <!-- Connections + live drag ghost -->
+    <svg class="wb-connections" xmlns="http://www.w3.org/2000/svg">
+      @for (rc of renderConnections(); track rc.conn.id) {
+        <svg:g
+          wbConnectionLine
+          [connection]="rc.conn"
+          [fromRect]="rc.fromRect"
+          [toRect]="rc.toRect"
+          [selected]="isSelected(rc.conn.id)"
+          (select)="onConnectionSelect($event)"
+        ></svg:g>
+      }
+      @if (connectGhost(); as g) {
+        <svg:line
+          class="wb-connect-ghost"
+          [attr.x1]="g.from.x"
+          [attr.y1]="g.from.y"
+          [attr.x2]="g.to.x"
+          [attr.y2]="g.to.y"
+        ></svg:line>
+      }
+    </svg>
+
+    <!-- Frames (below cards) -->
+    @for (frame of store.frames(); track frame.id) {
+      <wb-frame-item
+        [frame]="frame"
+        [selected]="isSelected(frame.id)"
+        [readOnly]="store.isReadonly()"
+        (titleCommit)="onFrameTitle(frame.id, $event)"
+        (toggleActive)="onFrameActive(frame.id, $event)"
+      ></wb-frame-item>
+    }
+
+    <!-- Cards -->
+    @for (card of store.cards(); track trackCard($index, card)) {
+      <wb-board-card
+        [card]="card"
+        [fields]="store.fields()"
+        [selected]="isSelected(card.id)"
+        [remoteEditorName]="remoteEditorFor(card.id)"
+        [readOnly]="store.isReadonly()"
+        [autoEdit]="store.autoEditCardId() === card.id"
+        (contentCommit)="onCardContent(card, $event)"
+        (editingChange)="onCardEditing(card, $event)"
+        (openDetail)="openDetail.emit($event)"
+      ></wb-board-card>
+    }
+
+    <!-- Marquee selection -->
+    @if (marquee(); as m) {
+      <div
+        class="wb-marquee"
+        [style.left.px]="m.x"
+        [style.top.px]="m.y"
+        [style.width.px]="m.width"
+        [style.height.px]="m.height"
+      ></div>
+    }
+  </div>
+</div>

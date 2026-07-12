@@ -1,0 +1,35 @@
+<div class="wb-frame__header" [style.background]="frame().color" data-frame-drag [attr.data-frame-id]="frame().id">
+  @if (editing()) {
+    <input
+      #titleInput
+      class="wb-frame__title-edit"
+      [value]="draft()"
+      (input)="draft.set($any($event.target).value)"
+      (blur)="commit()"
+      (keydown)="onKeydown($event)"
+      [attr.aria-label]="'whiteboard.frame.titleLabel' | transloco"
+    />
+  } @else {
+    <span class="wb-frame__title" (dblclick)="startEdit()">{{ frame().title || ('whiteboard.frame.untitled' | transloco) }}</span>
+  }
+
+  @if (!readOnly()) {
+    <button
+      type="button"
+      class="wb-frame__active-toggle"
+      [class.wb-frame__active-toggle--on]="frame().active"
+      [attr.aria-pressed]="frame().active"
+      [attr.aria-label]="'whiteboard.frame.carryCards' | transloco"
+      [title]="'whiteboard.frame.carryCards' | transloco"
+      (click)="toggleActive.emit(!frame().active)"
+    >
+      <span aria-hidden="true">🧲</span>
+    </button>
+  }
+</div>
+
+@if (selected() && !readOnly()) {
+  @for (dir of resizeDirs; track dir) {
+    <span class="wb-frame__resize wb-frame__resize--{{ dir }}" [attr.data-frame-resize-dir]="dir" [attr.data-frame-id]="frame().id"></span>
+  }
+}
