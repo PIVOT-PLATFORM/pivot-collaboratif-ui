@@ -6,8 +6,8 @@ export interface WbActivity {
   readonly name: string;
   readonly desc: string;
   readonly glyph: string;
-  /** Semantic colour family (maps to a token pair in the SCSS). */
-  readonly kind: 'brand' | 'info' | 'success' | 'warning' | 'error' | 'neutral';
+  /** Nom de TON du design system (`.pv-tone-*`). */
+  readonly kind: 'brand' | 'info' | 'success' | 'warning' | 'danger' | 'neutral';
 }
 
 const ACTIVITIES: readonly WbActivity[] = [
@@ -17,7 +17,7 @@ const ACTIVITIES: readonly WbActivity[] = [
   { id: 'icebreaker', name: 'Icebreaker', desc: 'Lancez la session avec une question légère', glyph: 'I', kind: 'warning' },
   { id: 'quiz', name: 'Quiz', desc: "Testez les connaissances de l'équipe", glyph: 'Q', kind: 'brand' },
   { id: 'timer', name: 'Minuteur', desc: 'Cadrez un atelier en temps limité', glyph: 'M', kind: 'neutral' },
-  { id: 'retro', name: 'Rétrospective', desc: "Modèle 3 colonnes prêt à l'emploi", glyph: 'R', kind: 'error' },
+  { id: 'retro', name: 'Rétrospective', desc: "Modèle 3 colonnes prêt à l'emploi", glyph: 'R', kind: 'danger' },
 ];
 
 /**

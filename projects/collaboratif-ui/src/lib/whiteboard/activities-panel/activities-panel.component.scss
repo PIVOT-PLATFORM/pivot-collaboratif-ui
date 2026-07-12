@@ -133,46 +133,5 @@
     color: var(--color-gray-500);
   }
 
-  // --- Glyph badge ---
-  &__glyph {
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 700;
-
-    &--lg {
-      width: 36px;
-      height: 36px;
-      font-size: 14px;
-    }
-    &--brand {
-      background: var(--color-brand-100);
-      color: var(--color-brand-700);
-    }
-    &--info {
-      background: var(--color-info-light);
-      color: var(--color-info-dark);
-    }
-    &--success {
-      background: var(--color-success-light);
-      color: var(--color-success-dark);
-    }
-    &--warning {
-      background: var(--color-warning-light);
-      color: var(--color-warning-dark);
-    }
-    &--error {
-      background: var(--color-error-light);
-      color: var(--color-error-dark);
-    }
-    &--neutral {
-      background: var(--color-gray-100);
-      color: var(--color-gray-600);
-    }
-  }
+  // Badge carré (glyphe) → DS `.pv-glyph` (+ `--lg`) + `.pv-tone-*`.
 }

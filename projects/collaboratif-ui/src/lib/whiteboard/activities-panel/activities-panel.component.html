@@ -13,7 +13,7 @@
   <div class="wb-act__recent">
     @for (a of recent; track a.id) {
       <button type="button" class="wb-act__recent-card" (click)="launch.emit(a.id)">
-        <span class="wb-act__glyph" [class]="'wb-act__glyph--' + a.kind">{{ a.glyph }}</span>
+        <span class="pv-glyph" [class]="'pv-tone-' + a.kind">{{ a.glyph }}</span>
         <span class="wb-act__recent-name">{{ a.name }}</span>
       </button>
     }
@@ -22,7 +22,7 @@
   <div class="wb-act__list">
     @for (a of activities; track a.id) {
       <button type="button" class="wb-act__item" (click)="launch.emit(a.id)">
-        <span class="wb-act__glyph wb-act__glyph--lg" [class]="'wb-act__glyph--' + a.kind">{{ a.glyph }}</span>
+        <span class="pv-glyph pv-glyph--lg" [class]="'pv-tone-' + a.kind">{{ a.glyph }}</span>
         <span class="wb-act__item-body">
           <span class="wb-act__item-name">{{ a.name }}</span>
           <span class="wb-act__item-desc">{{ a.desc }}</span>
