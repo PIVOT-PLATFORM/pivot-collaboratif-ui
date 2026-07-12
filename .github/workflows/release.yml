@@ -121,6 +121,9 @@ jobs:
       - name: Build Angular (production)
         run: npm run build -- --configuration production
 
+      - name: Build collaboratif-ui library
+        run: npm run build:collaboratif-ui
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
@@ -182,6 +185,28 @@ jobs:
             exit 1
           fi
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Set @pivot-platform/collaboratif-ui package version
+        run: npm --prefix dist/collaboratif-ui version "$VERSION" --no-git-tag-version
+
+      - name: Publish @pivot-platform/collaboratif-ui to GitHub Packages
+        # Same version as the Docker image tag above ($VERSION, from `prepare`'s semantic-release
+        # dry-run) — published BEFORE the tag/release is created below, mirroring pivot-core's
+        # release.yml (Maven `deploy_jar`). Fixes the library staying frozen at 0.1.0 forever:
+        # the previous separate publish-collaboratif-ui.yml relied on `on: push: tags: [...]`,
+        # which never fires — semantic-release creates tags/releases via the GitHub REST API,
+        # not `git push --tags`, so no `push` event on refs/tags/* is ever emitted (confirmed via
+        # GitHub Packages: 0.1.0 was the only version ever published despite tags up to v0.1.1;
+        # same dead trigger independently confirmed on pivot-ui/publish-ui-core.yml, frozen at
+        # 0.1.0 despite 28 tags). Idempotent (409/already-exists tolerated) for safe re-runs.
+        run: |
+          if npm view "@pivot-platform/collaboratif-ui@${VERSION}" version 2>/dev/null; then
+            echo "::notice::${VERSION} already published — skipping (idempotent re-run)."
+          else
+            npm publish ./dist/collaboratif-ui
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Semantic Release (create tag + release)
         env:
