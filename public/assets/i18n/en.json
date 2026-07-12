@@ -54,7 +54,9 @@
           "confirm": "Delete permanently",
           "cancel": "Cancel"
         }
-      }
+      },
+      "untitled": "Untitled board",
+      "reset": "Reset board"
     },
     "share": {
       "panel": {
@@ -213,6 +215,86 @@
         "editor": "Editor",
         "viewer": "Viewer"
       }
+    },
+    "toolbar": {
+      "label": "Toolbar",
+      "select": "Select",
+      "pan": "Pan",
+      "sticky": "Sticky note",
+      "text": "Text",
+      "rect": "Rectangle",
+      "circle": "Circle",
+      "diamond": "Diamond",
+      "triangle": "Triangle",
+      "line": "Line",
+      "star": "Star",
+      "draw": "Freehand",
+      "table": "Table",
+      "link": "Link cards",
+      "colorGroup": "Colours",
+      "pickColor": "Colour {{color}}"
+    },
+    "card": {
+      "editText": "Edit text",
+      "editLabel": "Edit label",
+      "imageAlt": "Card image",
+      "locked": "Locked card",
+      "editing": "{{name}} is editing…",
+      "connect": "Connect from this card"
+    },
+    "frame": {
+      "titleLabel": "Frame title",
+      "untitled": "Untitled frame",
+      "carryCards": "Carry the frame's cards"
+    },
+    "connection": {
+      "ariaLabel": "Connection"
+    },
+    "timer": {
+      "dialogLabel": "The timer has ended",
+      "badge": "Done",
+      "timeUp": "Time's up!",
+      "waiting": "Waiting for what's next…",
+      "actionLabel": "Action",
+      "clickToClose": "Click to close",
+      "dismiss": "Dismiss timer"
+    },
+    "vote": {
+      "dialogLabel": "The vote has ended",
+      "badge": "Results",
+      "ended": "Vote ended!",
+      "resultsReady": "The results are ready",
+      "displayIn": "Showing in",
+      "countdown": "{{count}}s · Click to view",
+      "showResults": "Show results"
+    },
+    "groups": {
+      "title": "Groups",
+      "empty": "No group on this board.",
+      "groupLabel": "Group {{index}}",
+      "memberCount": "{{count}} card(s)",
+      "highlight": "Highlight group {{index}}",
+      "recolor": "Group {{index}} colour",
+      "recolorTo": "Recolour to {{color}}",
+      "dissolve": "Dissolve group {{index}}"
+    },
+    "voteResults": {
+      "title": "Vote results",
+      "summary": "{{votes}} votes · {{voters}} participants",
+      "closeAria": "Close vote results",
+      "close": "Close",
+      "stopVote": "End vote",
+      "stat": {
+        "votesPerPerson": "Votes per person",
+        "votedCards": "Voted cards",
+        "maxVotes": "Max votes"
+      },
+      "resultsLabel": "Vote ranking",
+      "barAria": "Rank {{rank}}: {{text}}, {{count}} votes",
+      "winner": "Winner",
+      "emptyCard": "Empty card",
+      "voteCount": "{{count}} votes",
+      "empty": "No votes recorded"
     }
   }
 }
