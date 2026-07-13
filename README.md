@@ -61,6 +61,18 @@ Sur main / schedule :
 
 Détail des checks requis vs différés → [`TODO-SETUP.md`](TODO-SETUP.md).
 
+## i18n — scope embarqué
+
+La lib `@pivot-platform/collaboratif-ui` porte son propre scope Transloco `whiteboard` : les
+fichiers `projects/collaboratif-ui/src/lib/i18n/fr.json` et `en.json` sont embarqués dans le
+bundle publié et enregistrés via `provideCollaboratifUi()` (voir
+`projects/collaboratif-ui/src/lib/core/whiteboard/config/provide-collaboratif-ui.ts`), avec un
+loader inline (`import('../../../i18n/fr.json')` / `en.json`) — pas de requête HTTP vers
+`/assets/i18n/`. Les hosts consommant la lib (`pivot-ui`) n'ont **rien** à recopier : ne pas
+dupliquer les clés `whiteboard.*` dans leur catalogue global `fr.json`/`en.json`. Ce squelette
+(`src/app/`, harnais de dev local/E2E) suit la même règle — il ne porte que les clés du shell
+(`app.title`, `app.devHarnessNotice`), jamais celles du module.
+
 ## Documentation
 
 | Sujet | Emplacement |

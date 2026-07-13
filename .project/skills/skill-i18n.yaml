@@ -141,6 +141,17 @@ missing_key_policy:
 
 ---
 
+module_scope_ownership:
+
+  rule: >
+    Les libs de module (ex. `@pivot-platform/collaboratif-ui`) ownent leur scope Transloco
+    (ex. `whiteboard`) — fichiers de traduction embarqués dans le bundle publié, enregistrés via
+    `provideCollaboratifUi()` avec un loader inline. Les hosts ne recopient jamais les
+    traductions de module dans leur catalogue global : pas de duplication des clés
+    `whiteboard.*` dans `fr.json`/`en.json` du shell.
+
+---
+
 gate_checklist:
   gate_2:
     - "Zéro texte hardcodé dans les templates HTML — tout via pipe transloco ou service"
