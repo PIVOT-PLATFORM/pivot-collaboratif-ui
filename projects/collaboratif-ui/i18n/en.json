@@ -39,7 +39,8 @@
           "openBoard": "{{title}} — modified on {{date}} — {{role}}",
           "boardMenu": "Options for {{title}}",
           "activeParticipants": "{{count}} collaborator(s) currently online"
-        }
+        },
+        "tabActive": "My boards"
       },
       "rename": {
         "error": "Unable to rename the board",
@@ -56,7 +57,64 @@
         }
       },
       "untitled": "Untitled board",
-      "reset": "Reset board"
+      "reset": "Reset board",
+      "favorite": {
+        "add": "Add {{title}} to favorites",
+        "remove": "Remove {{title}} from favorites",
+        "error": "Unable to update favorites"
+      },
+      "trash": {
+        "tab": "Trash",
+        "empty": "Trash is empty",
+        "deletedOn": "Deleted on {{date}}",
+        "restore": "Restore",
+        "restoreAria": "Restore {{title}}",
+        "restoreSuccess": "Board restored",
+        "restoreError": "Unable to restore the board",
+        "purge": "Delete permanently",
+        "purgeAria": "Permanently delete {{title}}",
+        "purgeSuccess": "Board permanently deleted",
+        "purgeError": "Unable to permanently delete the board",
+        "purgeConfirm": {
+          "title": "Permanently delete «{{title}}»?",
+          "message": "This action is irreversible and deletes all board data, including its history. The board cannot be restored afterwards.",
+          "confirm": "Delete permanently",
+          "cancel": "Cancel"
+        }
+      },
+      "settings": {
+        "open": "Board settings",
+        "title": "Settings for «{{title}}»",
+        "close": "Close settings",
+        "nameLabel": "Board name",
+        "descriptionLabel": "Description",
+        "descriptionHint": "500 characters maximum",
+        "activitiesLabel": "Available activities",
+        "activitySoon": "Coming soon",
+        "save": "Save",
+        "saveSuccess": "Settings saved",
+        "saveError": "Unable to save settings",
+        "saveAsTemplate": "Save as template",
+        "saveAsTemplateNamePrompt": "Template name",
+        "saveAsTemplateSuccess": "Template saved",
+        "saveAsTemplateError": "Unable to save the template",
+        "resetConfirm": {
+          "title": "Reset «{{title}}»?",
+          "message": "All canvas content will be deleted. The board's title, members and favorites are kept. This action is irreversible.",
+          "confirm": "Reset",
+          "cancel": "Cancel"
+        },
+        "resetSuccess": "Board reset",
+        "resetError": "Unable to reset the board"
+      },
+      "resetAria": "Reset board {{title}} — deletes all canvas content",
+      "search": {
+        "label": "Search a board",
+        "placeholder": "Search by name or description…",
+        "clear": "Clear search",
+        "noResults": "No results for «{{term}}»",
+        "resultsCount": "{{count}} result(s)"
+      }
     },
     "share": {
       "panel": {
