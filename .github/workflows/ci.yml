@@ -139,7 +139,7 @@ jobs:
       # which is what ubuntu-latest's default `java` on PATH resolves to. Pinned to the same
       # actions/setup-java SHA already used by pivot-core/pivot-collaboratif-core.
       - name: Setup Java (sonar-scanner runtime only)
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
         with:
           java-version: '21'
           distribution: 'temurin'
