@@ -1,3 +1,11 @@
+# [0.3.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.2.0...v0.3.0) (2026-07-13)
+
+
+### Features
+
+* **i18n:** ship module translations in the published package ([#90](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/90)) ([aa4918d](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/aa4918d86d05a277264412c91c55d0d5cfaa4198))
+* **whiteboard:** panneau « Activités » (sélecteur d'ateliers) ([#80](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/80)) ([e1ea705](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/e1ea7056f79532cf60ce01d74494e766ecf5337d))
+
 # [0.2.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.1.1...v0.2.0) (2026-07-12)
 
 
