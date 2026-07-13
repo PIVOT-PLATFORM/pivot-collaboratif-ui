@@ -20,6 +20,10 @@
           [attr.aria-label]="'whiteboard.voteResults.title' | transloco">{{ 'whiteboard.voteResults.title' | transloco }}</button>
       }
 
+      <button type="button" class="wb-page__btn" [class.wb-page__btn--on]="showActivities()"
+        (click)="showActivities.set(!showActivities())" [attr.aria-pressed]="showActivities()"
+        [attr.aria-label]="'whiteboard.activities.open' | transloco">{{ 'whiteboard.activities.open' | transloco }}</button>
+
       <button type="button" class="wb-page__btn" (click)="showShare.set(true)"
         [attr.aria-label]="'whiteboard.share.panel.title' | transloco">{{ 'whiteboard.share.panel.title' | transloco }}</button>
     </div>
@@ -53,6 +57,15 @@
           (recolor)="onRecolorGroup($event)"
           (dissolve)="onDissolveGroup($event)"
         ></wb-groups-panel>
+      </aside>
+    }
+
+    @if (showActivities()) {
+      <aside class="wb-page__panel wb-page__panel--activities" [attr.aria-label]="'whiteboard.activities.title' | transloco">
+        <wb-activities-panel
+          (launch)="onLaunchActivity($event)"
+          (close)="showActivities.set(false)"
+        ></wb-activities-panel>
       </aside>
     }
 

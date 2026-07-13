@@ -1,0 +1,33 @@
+<div class="wb-act">
+  <div class="wb-act__head">
+    <span class="wb-act__title">{{ 'whiteboard.activities.title' | transloco }}</span>
+    <button type="button" class="wb-act__close" (click)="close.emit()" [attr.aria-label]="'whiteboard.activities.close' | transloco">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M18 6L6 18"></path>
+        <path d="M6 6l12 12"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="wb-act__section">{{ 'whiteboard.activities.recentSection' | transloco }}</div>
+  <div class="wb-act__recent">
+    @for (a of recent; track a.id) {
+      <button type="button" class="wb-act__recent-card" (click)="launch.emit(a.id)">
+        <span class="pv-glyph" [class]="'pv-tone-' + a.kind">{{ a.glyph }}</span>
+        <span class="wb-act__recent-name">{{ 'whiteboard.activities.items.' + a.id + '.name' | transloco }}</span>
+      </button>
+    }
+  </div>
+
+  <div class="wb-act__list">
+    @for (a of activities; track a.id) {
+      <button type="button" class="wb-act__item" (click)="launch.emit(a.id)">
+        <span class="pv-glyph pv-glyph--lg" [class]="'pv-tone-' + a.kind">{{ a.glyph }}</span>
+        <span class="wb-act__item-body">
+          <span class="wb-act__item-name">{{ 'whiteboard.activities.items.' + a.id + '.name' | transloco }}</span>
+          <span class="wb-act__item-desc">{{ 'whiteboard.activities.items.' + a.id + '.desc' | transloco }}</span>
+        </span>
+      </button>
+    }
+  </div>
+</div>

@@ -1,0 +1,137 @@
+// Activities picker (Whiteboard "Activités" panel). PIVOT tokens (provided by the shell at
+// runtime); no hardcoded colours. Slide-in panel content — the host aside owns the positioning.
+
+:host {
+  display: block;
+  height: 100%;
+}
+
+.wb-act {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface-card);
+  font-family: var(--font-sans);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--color-gray-200);
+  }
+  &__title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--color-gray-900);
+  }
+  &__close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-md);
+    color: var(--color-gray-600);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-brand-50);
+      color: var(--color-brand-700);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--color-brand-500);
+      outline-offset: 1px;
+    }
+  }
+
+  &__section {
+    padding: 14px 16px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--color-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  &__recent {
+    display: flex;
+    gap: 10px;
+    padding: 0 16px 16px;
+  }
+  &__recent-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 8px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    background: var(--surface-card);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+
+    &:hover {
+      border-color: var(--color-brand-300);
+      background: var(--color-brand-50);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--color-brand-500);
+      outline-offset: 1px;
+    }
+  }
+  &__recent-name {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--color-gray-700);
+  }
+
+  &__list {
+    flex: 1;
+    overflow: auto;
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    background: var(--surface-card);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+
+    &:hover {
+      border-color: var(--color-brand-300);
+      background: var(--color-brand-50);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--color-brand-500);
+      outline-offset: 1px;
+    }
+  }
+  &__item-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  &__item-name {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-gray-900);
+  }
+  &__item-desc {
+    font-size: var(--text-xs);
+    color: var(--color-gray-500);
+  }
+
+  // Badge carré (glyphe) → DS `.pv-glyph` (+ `--lg`) + `.pv-tone-*`.
+}

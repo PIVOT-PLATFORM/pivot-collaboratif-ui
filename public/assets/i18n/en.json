@@ -295,6 +295,42 @@
       "emptyCard": "Empty card",
       "voteCount": "{{count}} votes",
       "empty": "No votes recorded"
+    },
+    "activities": {
+      "title": "Activities",
+      "open": "Activities",
+      "close": "Close",
+      "recentSection": "Recently used",
+      "items": {
+        "brainstorming": {
+          "name": "Brainstorming",
+          "desc": "Generate ideas as a team with stickies"
+        },
+        "poll": {
+          "name": "Poll",
+          "desc": "Ask a question, vote live"
+        },
+        "dotvote": {
+          "name": "Dot vote",
+          "desc": "Prioritise ideas with weighted voting"
+        },
+        "icebreaker": {
+          "name": "Icebreaker",
+          "desc": "Kick off the session with a light question"
+        },
+        "quiz": {
+          "name": "Quiz",
+          "desc": "Test the team’s knowledge"
+        },
+        "timer": {
+          "name": "Timer",
+          "desc": "Time-box a workshop"
+        },
+        "retro": {
+          "name": "Retrospective",
+          "desc": "Ready-made 3-column template"
+        }
+      }
     }
   }
 }

@@ -295,6 +295,42 @@
       "emptyCard": "Post-it vide",
       "voteCount": "{{count}} votes",
       "empty": "Aucun vote enregistré"
+    },
+    "activities": {
+      "title": "Activités",
+      "open": "Activités",
+      "close": "Fermer",
+      "recentSection": "Récemment utilisées",
+      "items": {
+        "brainstorming": {
+          "name": "Brainstorming",
+          "desc": "Générez des idées en équipe avec des stickies"
+        },
+        "poll": {
+          "name": "Sondage",
+          "desc": "Posez une question, votez en direct"
+        },
+        "dotvote": {
+          "name": "Vote à points",
+          "desc": "Priorisez des idées par vote pondéré"
+        },
+        "icebreaker": {
+          "name": "Icebreaker",
+          "desc": "Lancez la session avec une question légère"
+        },
+        "quiz": {
+          "name": "Quiz",
+          "desc": "Testez les connaissances de l’équipe"
+        },
+        "timer": {
+          "name": "Minuteur",
+          "desc": "Cadrez un atelier en temps limité"
+        },
+        "retro": {
+          "name": "Rétrospective",
+          "desc": "Modèle 3 colonnes prêt à l’emploi"
+        }
+      }
     }
   }
 }
