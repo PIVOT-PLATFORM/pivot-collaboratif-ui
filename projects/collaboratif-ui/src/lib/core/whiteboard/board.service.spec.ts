@@ -11,6 +11,25 @@ import { COLLABORATIF_API_URL } from './config/tokens';
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 const BASE = `${TEST_API_URL}/whiteboard/boards`;
 
+function makeFullBoard(overrides: Partial<import('./board.model').Board> = {}): import('./board.model').Board {
+  return {
+    id: 'abc',
+    title: 'Board',
+    role: 'owner',
+    createdAt: '',
+    updatedAt: '',
+    thumbnailUrl: null,
+    activeParticipantCount: 0,
+    favorite: false,
+    description: null,
+    coverImage: null,
+    maxParticipants: null,
+    enabledActivities: [],
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
 describe('BoardService', () => {
   let service: BoardService;
   let httpMock: HttpTestingController;
@@ -45,6 +64,48 @@ describe('BoardService', () => {
     );
     expect(req.request.method).toBe('GET');
     req.flush({ boards: [], totalElements: 0, totalPages: 0, currentPage: 2, hasNext: false });
+  });
+
+  // ── AC08.1.8: search — GET /boards?q= ──
+  it('ac08_1_8_01_getBoards sends q param when search query is provided', () => {
+    service.getBoards(0, { q: 'roadmap' }).subscribe();
+    const req = httpMock.expectOne(
+      r => r.url === BASE && r.params.get('q') === 'roadmap',
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({ boards: [], totalElements: 0, totalPages: 0, currentPage: 0, hasNext: false });
+  });
+
+  it('ac08_1_8_02_getBoards omits q param when search query is empty', () => {
+    service.getBoards(0, { q: '' }).subscribe();
+    const req = httpMock.expectOne(r => r.url === BASE);
+    expect(req.request.params.has('q')).toBe(false);
+    req.flush({ boards: [], totalElements: 0, totalPages: 0, currentPage: 0, hasNext: false });
+  });
+
+  // ── AC08.1.7: trash — GET /boards?trashed=true ──
+  it('ac08_1_7_01_getBoards sends trashed=true when requesting the trash listing', () => {
+    service.getBoards(0, { trashed: true }).subscribe();
+    const req = httpMock.expectOne(
+      r => r.url === BASE && r.params.get('trashed') === 'true',
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({ boards: [], totalElements: 0, totalPages: 0, currentPage: 0, hasNext: false });
+  });
+
+  it('ac08_1_7_02_getBoards omits trashed param for the normal listing', () => {
+    service.getBoards(0).subscribe();
+    const req = httpMock.expectOne(r => r.url === BASE);
+    expect(req.request.params.has('trashed')).toBe(false);
+    req.flush({ boards: [], totalElements: 0, totalPages: 0, currentPage: 0, hasNext: false });
+  });
+
+  it('ac08_1_7_03_getBoards combines q and trashed params', () => {
+    service.getBoards(0, { q: 'x', trashed: true }).subscribe();
+    const req = httpMock.expectOne(
+      r => r.url === BASE && r.params.get('q') === 'x' && r.params.get('trashed') === 'true',
+    );
+    req.flush({ boards: [], totalElements: 0, totalPages: 0, currentPage: 0, hasNext: false });
   });
 
   // ── getBoard ──
@@ -283,5 +344,184 @@ describe('BoardService', () => {
     service.removeMember('bid', 'uid').subscribe({ error: () => { caught = true; } });
     httpMock.expectOne(`${BASE}/bid/members/uid`).flush('', { status: 403, statusText: 'Forbidden' });
     expect(caught).toBe(true);
+  });
+
+  // ── AC08.1.6: favorites — PUT/DELETE /boards/{id}/favorite ──
+  it('ac08_1_6_01_addFavorite sends PUT to /boards/{boardId}/favorite', () => {
+    const boardId = 'board-fav-1';
+    let completed = false;
+    service.addFavorite(boardId).subscribe({ complete: () => { completed = true; } });
+    const req = httpMock.expectOne(`${BASE}/${boardId}/favorite`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toBeNull();
+    req.flush(null);
+    expect(completed).toBe(true);
+  });
+
+  it('ac08_1_6_02_addFavorite propagates 404 when board is inaccessible', () => {
+    let caught: number | undefined;
+    service.addFavorite('unknown').subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(`${BASE}/unknown/favorite`).flush('', { status: 404, statusText: 'Not Found' });
+    expect(caught).toBe(404);
+  });
+
+  it('ac08_1_6_03_removeFavorite sends DELETE to /boards/{boardId}/favorite', () => {
+    const boardId = 'board-fav-2';
+    let completed = false;
+    service.removeFavorite(boardId).subscribe({ complete: () => { completed = true; } });
+    const req = httpMock.expectOne(`${BASE}/${boardId}/favorite`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+    expect(completed).toBe(true);
+  });
+
+  it('ac08_1_6_04_removeFavorite propagates HTTP errors', () => {
+    let caught = false;
+    service.removeFavorite('bid').subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(`${BASE}/bid/favorite`).flush('', { status: 500, statusText: 'Error' });
+    expect(caught).toBe(true);
+  });
+
+  it('ac08_1_6_05_getBoards response carries the favorite flag per board', () => {
+    let result: import('./board.model').BoardPage | undefined;
+    service.getBoards().subscribe(r => { result = r; });
+    const board = makeFullBoard({ id: 'fav-board', favorite: true });
+    httpMock.expectOne(r => r.url === BASE)
+      .flush({ boards: [board], totalElements: 1, totalPages: 1, currentPage: 0, hasNext: false });
+    expect(result?.boards[0].favorite).toBe(true);
+  });
+
+  // ── AC08.1.7: soft-delete / restore / permanent delete ──
+  it('ac08_1_7_04_restoreBoard sends POST to /boards/{boardId}/restore', () => {
+    const boardId = 'board-trash-1';
+    let completed = false;
+    service.restoreBoard(boardId).subscribe({ complete: () => { completed = true; } });
+    const req = httpMock.expectOne(`${BASE}/${boardId}/restore`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeNull();
+    req.flush(null);
+    expect(completed).toBe(true);
+  });
+
+  it('ac08_1_7_05_restoreBoard propagates 409 when board is not trashed', () => {
+    let caught: number | undefined;
+    service.restoreBoard('bid').subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(`${BASE}/bid/restore`).flush('', { status: 409, statusText: 'Conflict' });
+    expect(caught).toBe(409);
+  });
+
+  it('ac08_1_7_06_restoreBoard propagates 403 for a non-owner', () => {
+    let caught: number | undefined;
+    service.restoreBoard('bid').subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(`${BASE}/bid/restore`).flush('', { status: 403, statusText: 'Forbidden' });
+    expect(caught).toBe(403);
+  });
+
+  it('ac08_1_7_07_deletePermanent sends DELETE to /boards/{boardId}/permanent', () => {
+    const boardId = 'board-trash-2';
+    let completed = false;
+    service.deletePermanent(boardId).subscribe({ complete: () => { completed = true; } });
+    const req = httpMock.expectOne(`${BASE}/${boardId}/permanent`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+    expect(completed).toBe(true);
+  });
+
+  it('ac08_1_7_08_deletePermanent propagates 409 when board is not trashed', () => {
+    let caught: number | undefined;
+    service.deletePermanent('bid').subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(`${BASE}/bid/permanent`).flush('', { status: 409, statusText: 'Conflict' });
+    expect(caught).toBe(409);
+  });
+
+  it('ac08_1_7_09_deleteBoard remains a soft-delete call (DELETE /boards/{boardId})', () => {
+    const boardId = 'board-soft-1';
+    service.deleteBoard(boardId).subscribe();
+    const req = httpMock.expectOne(`${BASE}/${boardId}`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  // ── AC08.2.4: settings PATCH, save-as-template, reset ──
+  it('ac08_2_4_01_updateBoardSettings sends PATCH with only provided fields', () => {
+    const boardId = 'board-settings-1';
+    service.updateBoardSettings(boardId, { description: 'New description' }).subscribe();
+    const req = httpMock.expectOne(r => r.url === `${BASE}/${boardId}` && r.method === 'PATCH');
+    expect(req.request.body).toEqual({ description: 'New description' });
+    req.flush(makeFullBoard({ id: boardId, description: 'New description' }));
+  });
+
+  it('ac08_2_4_02_updateBoardSettings sends multiple fields together', () => {
+    const boardId = 'board-settings-2';
+    const patch = {
+      title: 'Nouveau nom',
+      description: 'Desc',
+      maxParticipants: 10,
+      enabledActivities: ['brainstorming'],
+    };
+    service.updateBoardSettings(boardId, patch).subscribe();
+    const req = httpMock.expectOne(r => r.url === `${BASE}/${boardId}` && r.method === 'PATCH');
+    expect(req.request.body).toEqual(patch);
+    req.flush(makeFullBoard({ id: boardId, ...patch }));
+  });
+
+  it('ac08_2_4_03_updateBoardSettings propagates 403 for a non-owner', () => {
+    let caught: number | undefined;
+    service.updateBoardSettings('bid', { description: 'x' }).subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(r => r.url === `${BASE}/bid` && r.method === 'PATCH')
+      .flush('', { status: 403, statusText: 'Forbidden' });
+    expect(caught).toBe(403);
+  });
+
+  it('ac08_2_4_04_updateBoardSettings propagates 404 for a cross-tenant board', () => {
+    let caught: number | undefined;
+    service.updateBoardSettings('bid', { description: 'x' }).subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(r => r.url === `${BASE}/bid` && r.method === 'PATCH')
+      .flush('', { status: 404, statusText: 'Not Found' });
+    expect(caught).toBe(404);
+  });
+
+  it('ac08_2_4_05_saveAsTemplate sends POST with name and optional description', () => {
+    const boardId = 'board-tpl-1';
+    const response = { id: 'tpl-1', name: 'Mon modèle', description: 'Desc' };
+    let result: unknown;
+    service.saveAsTemplate(boardId, { name: 'Mon modèle', description: 'Desc' }).subscribe(r => { result = r; });
+    const req = httpMock.expectOne(`${BASE}/${boardId}/save-as-template`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ name: 'Mon modèle', description: 'Desc' });
+    req.flush(response);
+    expect(result).toEqual(response);
+  });
+
+  it('ac08_2_4_06_saveAsTemplate propagates 403 for a non-owner', () => {
+    let caught: number | undefined;
+    service.saveAsTemplate('bid', { name: 'x' }).subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(`${BASE}/bid/save-as-template`).flush('', { status: 403, statusText: 'Forbidden' });
+    expect(caught).toBe(403);
+  });
+
+  it('ac08_2_4_07_resetBoard sends POST to /boards/{boardId}/reset', () => {
+    const boardId = 'board-reset-1';
+    let completed = false;
+    service.resetBoard(boardId).subscribe({ complete: () => { completed = true; } });
+    const req = httpMock.expectOne(`${BASE}/${boardId}/reset`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeNull();
+    req.flush(null);
+    expect(completed).toBe(true);
+  });
+
+  it('ac08_2_4_08_resetBoard propagates 403 for a non-owner/non-editor', () => {
+    let caught: number | undefined;
+    service.resetBoard('bid').subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(`${BASE}/bid/reset`).flush('', { status: 403, statusText: 'Forbidden' });
+    expect(caught).toBe(403);
+  });
+
+  it('ac08_2_4_09_resetBoard propagates 404 for a cross-tenant/unknown board', () => {
+    let caught: number | undefined;
+    service.resetBoard('bid').subscribe({ error: (err) => { caught = err.status; } });
+    httpMock.expectOne(`${BASE}/bid/reset`).flush('', { status: 404, statusText: 'Not Found' });
+    expect(caught).toBe(404);
   });
 });
