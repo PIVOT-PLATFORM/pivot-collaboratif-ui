@@ -187,7 +187,7 @@ describe('SharePanelComponent', () => {
       .flush('', { status: 500, statusText: 'Error' });
     fixture.detectChanges();
 
-    expect(toastSpy).toHaveBeenCalledWith('Erreur génération');
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.share.panel.generateError', 'error');
   });
 
   // ── Copy link — clipboard available ──
@@ -272,7 +272,7 @@ describe('SharePanelComponent', () => {
     ).flush('', { status: 403, statusText: 'Forbidden' });
     fixture.detectChanges();
 
-    expect(toastSpy).toHaveBeenCalledWith('Erreur rôle');
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.share.panel.roleUpdateError', 'error');
   });
 
   // ── Remove member — confirm dialog opens ──
@@ -344,7 +344,7 @@ describe('SharePanelComponent', () => {
     ).flush('', { status: 500, statusText: 'Error' });
     fixture.detectChanges();
 
-    expect(toastSpy).toHaveBeenCalledWith('Erreur suppression');
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.share.panel.removeError', 'error');
   });
 
   // ── Close button ──

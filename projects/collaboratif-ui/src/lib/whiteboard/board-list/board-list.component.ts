@@ -114,10 +114,7 @@ export class BoardListComponent {
       error: () => {
         this.isCreating.set(false);
         this.createError.set(true);
-        this.toast.show(
-          this.transloco.translate('whiteboard.board.list.createError'),
-          'error',
-        );
+        this.toast.show('whiteboard.board.list.createError', 'error');
       },
     });
   }
@@ -156,10 +153,7 @@ export class BoardListComponent {
       error: () => {
         this.isRenaming.set(false);
         this.renamingBoardId.set(null);
-        this.toast.show(
-          this.transloco.translate('whiteboard.board.rename.error'),
-          'error',
-        );
+        this.toast.show('whiteboard.board.rename.error', 'error');
       },
     });
   }
@@ -188,18 +182,12 @@ export class BoardListComponent {
         this.boards.set(this.boards().filter(b => b.id !== board.id));
         this.deletingBoard.set(null);
         this.isDeleting.set(false);
-        this.toast.show(
-          this.transloco.translate('whiteboard.board.delete.success'),
-          'success',
-        );
+        this.toast.show('whiteboard.board.delete.success', 'success');
       },
       error: () => {
         this.isDeleting.set(false);
         this.deletingBoard.set(null);
-        this.toast.show(
-          this.transloco.translate('whiteboard.board.delete.error'),
-          'error',
-        );
+        this.toast.show('whiteboard.board.delete.error', 'error');
       },
     });
   }

@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe, SlicePipe } from '@angular/common';
-import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { BoardService } from '../../core/whiteboard/board.service';
 import { ToastService } from '../../core/toast/toast.service';
 import { BoardMember, ShareToken } from '../../core/whiteboard/board.model';
@@ -41,7 +41,6 @@ export class SharePanelComponent implements OnInit {
 
   private readonly boardService = inject(BoardService);
   private readonly toast = inject(ToastService);
-  private readonly transloco = inject(TranslocoService);
 
   protected readonly members = signal<BoardMember[]>([]);
   protected readonly membersStatus = signal<'loading' | 'loaded' | 'error'>('loading');
@@ -81,7 +80,7 @@ export class SharePanelComponent implements OnInit {
       },
       error: () => {
         this.tokenStatus.set('error');
-        this.toast.show(this.transloco.translate('whiteboard.share.panel.generateError'));
+        this.toast.show('whiteboard.share.panel.generateError', 'error');
       },
     });
   }
@@ -115,7 +114,7 @@ export class SharePanelComponent implements OnInit {
       },
       error: () => {
         this.updatingRoleForUserId.set(null);
-        this.toast.show(this.transloco.translate('whiteboard.share.panel.roleUpdateError'));
+        this.toast.show('whiteboard.share.panel.roleUpdateError', 'error');
         /* Force signal re-read so the select resets to the server value */
         this.members.update(list => [...list]);
       },
@@ -140,7 +139,7 @@ export class SharePanelComponent implements OnInit {
       },
       error: () => {
         this.removingMemberId.set(null);
-        this.toast.show(this.transloco.translate('whiteboard.share.panel.removeError'));
+        this.toast.show('whiteboard.share.panel.removeError', 'error');
       },
     });
   }

@@ -1,6 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { TranslocoService } from '@jsverse/transloco';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { ReconnectionTimeMode } from '@stomp/stompjs';
 import { Subject, Subscription } from 'rxjs';
@@ -143,7 +142,6 @@ const HEARTBEAT_OUTGOING_MS = 10000;
 export class WhiteboardSyncService {
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
-  private readonly transloco = inject(TranslocoService);
   private readonly undoRedo = inject(UndoRedoService);
   private readonly apiUrl = inject(COLLABORATIF_API_URL);
   private readonly bearerToken = inject(COLLABORATIF_BEARER_TOKEN);
@@ -383,7 +381,7 @@ export class WhiteboardSyncService {
    * a softer "keep the viewer on the board" UX is desired — out of scope here.
    */
   private onRevoked(): void {
-    this.toast.show(this.transloco.translate('whiteboard.ws.revoked'), 'error');
+    this.toast.show('whiteboard.ws.revoked', 'error');
     this.disconnect();
     void this.router.navigateByUrl('/whiteboard');
   }
