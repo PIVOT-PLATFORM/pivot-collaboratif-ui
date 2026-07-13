@@ -28,6 +28,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*.json",
+                "input": "projects/collaboratif-ui/i18n",
+                "output": "/assets/i18n"
               }
             ],
             "styles": [

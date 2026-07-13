@@ -4,5 +4,6 @@
   "lib": {
     "entryFile": "src/public-api.ts"
   },
+  "assets": ["./i18n"],
   "allowedNonPeerDependencies": ["@stomp/rx-stomp"]
 }
