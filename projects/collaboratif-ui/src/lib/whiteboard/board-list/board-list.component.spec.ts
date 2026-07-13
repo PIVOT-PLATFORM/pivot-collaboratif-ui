@@ -290,7 +290,7 @@ describe('BoardListComponent', () => {
       .flush('', { status: 500, statusText: 'Error' });
     fixture.detectChanges();
 
-    expect(toastSpy).toHaveBeenCalledWith('Impossible de créer le tableau', 'error');
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.board.list.createError', 'error');
   });
 
   it('shows inline error message and retry button on create failure, without closing the modal', () => {
@@ -563,7 +563,7 @@ describe('BoardListComponent', () => {
       .flush('', { status: 403, statusText: 'Forbidden' });
     fixture.detectChanges();
 
-    expect(toastSpy).toHaveBeenCalledWith('Impossible de renommer le tableau', 'error');
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.board.rename.error', 'error');
     expect(fixture.nativeElement.querySelector('.board-list__card-rename-input')).toBeNull();
   });
 
@@ -622,7 +622,7 @@ describe('BoardListComponent', () => {
 
     expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Board D3');
-    expect(toastSpy).toHaveBeenCalledWith('Tableau supprimé', 'success');
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.board.delete.success', 'success');
   });
 
   it('confirm delete shows error toast and keeps card on failure', () => {
@@ -644,7 +644,7 @@ describe('BoardListComponent', () => {
 
     expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Board D4');
-    expect(toastSpy).toHaveBeenCalledWith('Impossible de supprimer le tableau', 'error');
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.board.delete.error', 'error');
   });
 
   // ── Empty state CTA ──

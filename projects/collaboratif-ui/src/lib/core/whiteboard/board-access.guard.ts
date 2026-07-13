@@ -3,7 +3,6 @@ import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { TranslocoService } from '@jsverse/transloco';
 import { ToastService } from '../toast/toast.service';
 import { COLLABORATIF_API_URL } from './config/tokens';
 
@@ -24,12 +23,11 @@ export const boardAccessGuard: CanActivateFn = (route): Observable<boolean | Url
   const http = inject(HttpClient);
   const router = inject(Router);
   const toast = inject(ToastService);
-  const transloco = inject(TranslocoService);
   const apiUrl = inject(COLLABORATIF_API_URL);
   const boardId = route.paramMap.get('boardId');
 
   const denyAccess = (): Observable<UrlTree> => {
-    toast.show(transloco.translate('whiteboard.guard.accessDenied'), 'error');
+    toast.show('whiteboard.guard.accessDenied', 'error');
     return of(router.createUrlTree(['/whiteboard']));
   };
 
