@@ -1,4 +1,5 @@
 import { EnvironmentProviders, makeEnvironmentProviders } from '@angular/core';
+import { provideTranslocoScope } from '@jsverse/transloco';
 import { COLLABORATIF_API_URL, COLLABORATIF_BEARER_TOKEN } from './tokens';
 
 export interface CollaboratifUiConfig {
@@ -29,5 +30,13 @@ export function provideCollaboratifUi(config: CollaboratifUiConfig): Environment
     ...(config.bearerToken
       ? [{ provide: COLLABORATIF_BEARER_TOKEN, useValue: config.bearerToken }]
       : []),
+    provideTranslocoScope({
+      scope: 'whiteboard',
+      loader: {
+        // provide-collaboratif-ui.ts est sous src/lib/core/whiteboard/config/ → 3 niveaux jusqu'à src/lib/
+        en: () => import('../../../i18n/en.json'),
+        fr: () => import('../../../i18n/fr.json'),
+      },
+    }),
   ]);
 }
