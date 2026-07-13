@@ -73,8 +73,12 @@ jobs:
         run: npx semantic-release --dry-run
 
   # -----------------------------------------
-  # 2. RELEASE — build à la version finale, scan AVANT push, publie l'image,
-  #    PUIS crée la release/tag. Ne tourne que si `prepare` a déterminé une version.
+  # 2. RELEASE — build à la version finale, scan AVANT push, publie l'image (Docker + npm).
+  #    Ne tourne que si `prepare` a déterminé une version.
+  #
+  #    NE crée PLUS le tag/la GitHub Release (déplacé vers le job `create-release`, en fin de
+  #    workflow, APRÈS `provenance-container`) — voir le commentaire du job `create-release`
+  #    ci-dessous pour le pourquoi (race condition SLSA corrigée ici).
   #
   #    SLSA L3 : id-token et attestations sont ABSENTS de ce job (le build ne peut
   #    pas forger sa propre provenance). Ils sont accordés uniquement au job
@@ -208,11 +212,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Semantic Release (create tag + release)
-        env:
-          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
-        run: npx semantic-release
-
   # -----------------------------------------
   # 3. PROVENANCE CONTAINER — génère et signe la provenance SLSA L3 pour l'image Docker.
   #    id-token: write est ici, pas dans `release` → le build ne peut pas forger sa
@@ -241,5 +240,73 @@ jobs:
       registry-username: ${{ github.actor }}
       registry-password: ${{ secrets.GITHUB_TOKEN }}
 
+  # -----------------------------------------
+  # 4. CREATE RELEASE — crée le tag Git + la GitHub Release (`npx semantic-release`, non
+  #    dry-run), UNIQUEMENT une fois `provenance-container` terminé (attestation SLSA
+  #    réellement publiée sur GHCR).
+  #
+  #    Pourquoi ce découpage (bug réel, confirmé run 29247202054) : ce step vivait auparavant en
+  #    dernière étape du job `release`. `release: published` (déclencheur event-based de
+  #    deploy.yml ET sbom.yml) part IMMÉDIATEMENT quand semantic-release crée la Release via
+  #    l'API REST — soit ~30s AVANT que `provenance-container` (needs: [release], démarre en
+  #    parallèle de la fin de `release`) ait fini de signer/publier l'attestation OCI sur GHCR.
+  #    deploy.yml échouait alors systématiquement en HTTP 404 sur son step "Verify build
+  #    provenance (SLSA L3 attestation)" (`gh attestation verify`) : les 4 releases de ce repo
+  #    (v0.1.0 → v0.3.0) ont TOUTES échoué ainsi. En ne créant le tag/la Release qu'après
+  #    `needs: [release, provenance-container]`, `release: published` ne part plus qu'une fois
+  #    l'attestation effectivement disponible.
+  #
+  #    Environnement : reproduit celui du job `prepare` (checkout fetch-depth 0 + Node 24 +
+  #    devDependencies semantic-release), PAS celui de `release` — semantic-release ne consomme
+  #    aucun artefact buildé ici (dist/, image Docker), seulement l'historique Git complet et son
+  #    propre outillage. Version recalculée de façon déterministe à partir des mêmes commits que
+  #    le dry-run de `prepare` (aucun nouveau commit poussé sur `main` entre-temps par ce
+  #    workflow) — comportement déjà supposé par la conception précédente (le job `release`
+  #    taguait déjà l'image Docker avec la version du dry-run AVANT que le vrai `npx
+  #    semantic-release` ne tourne).
+  #
+  #    Permissions minimales, distinctes de celles de `release` : contents: write (tag + Release
+  #    + commit `chore(release): ... [skip ci]` via @semantic-release/git), issues/pull-requests:
+  #    write (@semantic-release/github — successComment: false dans .releaserc.json désactive
+  #    seulement le commentaire de succès, pas les autres opérations du plugin qui touchent
+  #    issues/PR référencées). PAS packages: write (npm publish + docker push restent dans
+  #    `release`, déjà faits à ce stade) ni id-token/attestations (réservés à
+  #    provenance-container).
+  # -----------------------------------------
+  create-release:
+    name: Create GitHub Release (post-provenance)
+    runs-on: ubuntu-latest
+    needs: [release, provenance-container]
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install Semantic Release
+        run: npm install --save-dev semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/exec
+
+      - name: Semantic Release (create tag + release)
+        env:
+          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
+        run: npx semantic-release
+
   # Le déploiement prod vit dans deploy.yml, déclenché `on: release: published` (event-based)
-  # → jamais "skipped", et conserve `environment: production`.
+  # → jamais "skipped", et conserve `environment: production`. sbom.yml se déclenche aussi sur
+  # `release: published` (job `sbom`, `gh release upload`) — non affecté négativement par ce
+  # découpage : il ne dépend d'aucun artefact de `create-release` autre que la Release elle-même
+  # (qui existe déjà quand l'event part), et tourne même EN MEILLEURE POSITION qu'avant, puisque
+  # l'attestation SLSA est désormais garantie publiée au moment où l'event part.
