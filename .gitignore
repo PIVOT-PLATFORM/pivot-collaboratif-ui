@@ -17,6 +17,9 @@ yarn-error.log*
 *.key
 
 # ===== Tests / Coverage =====
+# État de session Playwright du projet recette (recette.setup.ts y écrit le cookie
+# httpOnly du compte de test) — ne jamais committer une session authentifiée.
+e2e-recette/.auth/
 playwright-report/
 test-results/
 coverage/

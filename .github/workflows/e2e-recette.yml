@@ -1,0 +1,90 @@
+name: E2E Recette
+
+# Validation des critères d'acceptation (AC) contre l'infra recette RÉELLE
+# (https://recette.pivot-platform.fr) — pas une stack éphémère du runner.
+#
+# Différence avec e2e.yml :
+#   - e2e.yml        → monte une stack jetable (postgres+redis+pivot-core) dans le runner,
+#                       specs MOCKÉES (page.route). Bloquant sur chaque PR/push.
+#   - e2e-recette.yml → joue les specs RÉELLES (vrai backend, vrai login, vraies données)
+#                       contre le site déployé, APRÈS déploiement recette. Détecte ce que
+#                       le mock ne peut pas voir : contrat backend réel, config d'env,
+#                       intégration inter-modules, données seedées.
+#
+# Déclenchement :
+#   - workflow_run "Deploy" concluant "success" → la recette vient d'être déployée ET a passé
+#     le smoke test /health de deploy.yml : on valide immédiatement ce qui vient d'être livré.
+#   - workflow_dispatch → rejouer à la demande (débogage, revalidation).
+#
+# Jamais sur PR : recette est un environnement PARTAGÉ ; jouer des AC qui écrivent à chaque PR
+# créerait des courses de données. La validation éphémère par PR reste e2e.yml.
+#
+# Secrets/vars requis (à poser sur le repo ou l'org) :
+#   - vars.RECETTE_BASE_URL       : optionnel, défaut https://recette.pivot-platform.fr
+#   - secrets.RECETTE_E2E_EMAIL   : compte de recette dédié (auth locale) — JAMAIS un compte réel
+#   - secrets.RECETTE_E2E_PASSWORD
+#   - secrets.RECETTE_E2E_TENANT  : slug du tenant de test dédié (isole les données créées)
+
+on:
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions: read-all
+
+# Un seul run de validation recette à la fois — recette est partagée, on sérialise pour éviter
+# que deux jeux de specs écrivent en même temps sur le même tenant de test.
+concurrency:
+  group: e2e-recette
+  cancel-in-progress: false
+
+jobs:
+  e2e-recette:
+    name: E2E Recette - Playwright (infra réelle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Ne s'exécute que si le déploiement a réussi (smoke test /health vert dans deploy.yml).
+    # Un déploiement échoué/rollbacké ne déclenche pas la validation AC (rien de neuf à valider).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    environment: recette
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright — projet recette
+        env:
+          RECETTE_BASE_URL: ${{ vars.RECETTE_BASE_URL || 'https://recette.pivot-platform.fr' }}
+          RECETTE_E2E_EMAIL: ${{ secrets.RECETTE_E2E_EMAIL }}
+          RECETTE_E2E_PASSWORD: ${{ secrets.RECETTE_E2E_PASSWORD }}
+          RECETTE_E2E_TENANT: ${{ secrets.RECETTE_E2E_TENANT }}
+        run: npx playwright test --project=recette
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-recette-report
+          path: playwright-report/
+          retention-days: 14
