@@ -1,3 +1,32 @@
+%bl-btn-primary {
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #fff;
+  background: #3b82f6;
+  cursor: pointer;
+
+  &:hover { background: #2563eb; }
+  &:focus-visible { @extend %bl-focus-ring; }
+}
+
+%bl-btn-outline {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: #fff;
+  cursor: pointer;
+
+  &:hover { background: #f8fafc; }
+  &:focus-visible { @extend %bl-focus-ring; }
+}
+
+%bl-focus-ring {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 .board-list {
   max-width: 1200px;
   margin: 0 auto;
@@ -18,17 +47,129 @@
   }
 
   &__create-btn {
+    @extend %bl-btn-primary;
     padding: 0.5rem 1rem;
-    background: #3b82f6;
-    color: #fff;
-    border: none;
+  }
+
+  // ── Toolbar (search + tabs) ──
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  &__search {
+    position: relative;
+    flex: 1 1 260px;
+    max-width: 360px;
+  }
+
+  &__search-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+  }
+
+  &__search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    border: 1px solid #e2e8f0;
     border-radius: 0.375rem;
     font-size: 0.875rem;
+
+    &:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+  }
+
+  &__search-clear {
+    position: absolute;
+    right: 0.5rem;
+    top: 1.9rem;
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+    padding: 0.125rem 0.25rem;
+
+    &:hover { color: #1e293b; }
+    &:focus-visible { @extend %bl-focus-ring; }
+  }
+
+  &__search-status {
+    margin: 0.25rem 0 0;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  &__tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  &__tab {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 0.875rem;
     font-weight: 500;
+    color: #64748b;
     cursor: pointer;
 
-    &:hover { background: #2563eb; }
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    &:hover { color: #1e293b; }
+    &:focus-visible { @extend %bl-focus-ring; }
+
+    &--active {
+      color: #1e40af;
+      border-bottom-color: #3b82f6;
+    }
+  }
+
+  // ── Favorite star ──
+  &__favorite-btn {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.85);
+    border: none;
+    border-radius: 50%;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.125rem;
+    line-height: 1;
+    color: #cbd5e1;
+    cursor: pointer;
+
+    &:hover { color: #f59e0b; }
+    &:focus-visible { @extend %bl-focus-ring; }
+    &:disabled { opacity: 0.6; cursor: wait; }
+
+    &--active {
+      color: #f59e0b;
+    }
+  }
+
+  // ── Trash actions ──
+  &__trash-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  &__card--trash {
+    .board-list__card-body { padding-top: 1rem; }
   }
 
   // ── Grid ──
@@ -118,7 +259,7 @@
     z-index: 1;
 
     &:hover { background: #f1f5f9; color: #1e293b; }
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    &:focus-visible { @extend %bl-focus-ring; }
   }
 
   &__card-menu {
@@ -163,9 +304,10 @@
     white-space: nowrap;
 
     &--owner  { background: #dbeafe; color: #1e40af; }
-    &--editor { background: #dcfce7; color: #166534; }
+    &--editor, &--online { background: #dcfce7; }
+    &--editor { color: #166534; }
     &--viewer { background: #f1f5f9; color: #475569; }
-    &--online { background: #dcfce7; color: #15803d; }
+    &--online { color: #15803d; }
   }
 
   &__online-dot {
@@ -229,17 +371,8 @@
   }
 
   &__empty-cta {
+    @extend %bl-btn-primary;
     padding: 0.625rem 1.25rem;
-    background: #3b82f6;
-    color: #fff;
-    border: none;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-
-    &:hover { background: #2563eb; }
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
   }
 
   // ── Error state ──
@@ -255,16 +388,9 @@
   }
 
   &__retry-btn {
+    @extend %bl-btn-outline;
     padding: 0.5rem 1rem;
-    background: #fff;
     color: #1e293b;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    cursor: pointer;
-
-    &:hover { background: #f8fafc; }
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
   }
 
   // ── Pagination ──
@@ -283,9 +409,8 @@
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
-
     &:hover { background: #eff6ff; }
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    &:focus-visible { @extend %bl-focus-ring; }
   }
 
   // ── Inline rename ──
@@ -374,11 +499,7 @@
     box-sizing: border-box;
     margin-bottom: 1rem;
 
-    &:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-    }
+    &:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
   }
 
   &__modal-error {
@@ -408,18 +529,13 @@
     font-weight: 500;
     cursor: pointer;
 
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    &:focus-visible { @extend %bl-focus-ring; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
 
     &--cancel {
       background: #fff;
       color: #64748b;
       border: 1px solid #e2e8f0;
-
       &:hover:not(:disabled) { background: #f8fafc; }
     }
 
@@ -427,7 +543,6 @@
       background: #3b82f6;
       color: #fff;
       border: none;
-
       &:hover:not(:disabled) { background: #2563eb; }
     }
 
@@ -438,7 +553,6 @@
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
-
       &:hover:not(:disabled) { background: #dc2626; }
     }
   }

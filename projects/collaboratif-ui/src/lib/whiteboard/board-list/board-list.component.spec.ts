@@ -58,6 +58,37 @@ const FR_TRANSLATIONS = {
           cancel: 'Annuler',
         },
       },
+      favorite: {
+        add: 'Ajouter {{title}} aux favoris',
+        remove: 'Retirer {{title}} des favoris',
+        error: 'Impossible de mettre à jour les favoris',
+      },
+      trash: {
+        tab: 'Corbeille',
+        empty: 'Corbeille vide',
+        deletedOn: 'Supprimé le {{date}}',
+        restore: 'Restaurer',
+        restoreAria: 'Restaurer {{title}}',
+        restoreSuccess: 'Tableau restauré',
+        restoreError: 'Impossible de restaurer le tableau',
+        purge: 'Supprimer définitivement',
+        purgeAria: 'Supprimer définitivement {{title}}',
+        purgeSuccess: 'Tableau supprimé définitivement',
+        purgeError: 'Impossible de supprimer définitivement le tableau',
+        purgeConfirm: {
+          title: 'Supprimer définitivement « {{title}} » ?',
+          message: 'Action irréversible.',
+          confirm: 'Supprimer définitivement',
+          cancel: 'Annuler',
+        },
+      },
+      search: {
+        label: 'Rechercher un tableau',
+        placeholder: 'Rechercher par nom ou description…',
+        clear: 'Effacer la recherche',
+        noResults: 'Aucun résultat pour « {{term}} »',
+        resultsCount: '{{count}} résultat(s)',
+      },
     },
     template: {
       gallery: {
@@ -83,6 +114,12 @@ function makeBoard(overrides: Partial<Board> = {}): Board {
     updatedAt: '2026-07-07T10:00:00Z',
     thumbnailUrl: null,
     activeParticipantCount: 0,
+    favorite: false,
+    description: null,
+    coverImage: null,
+    maxParticipants: null,
+    enabledActivities: [],
+    deletedAt: null,
     ...overrides,
   };
 }
@@ -656,5 +693,311 @@ describe('BoardListComponent', () => {
 
     expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
     httpMock.expectNone(r => r.url === BASE); // no additional HTTP call on modal open
+  });
+
+  // ── AC08.1.6: favorites ──
+  it('ac08_1_6_06_favorite star toggles aria-pressed and calls PUT on activation', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'f1', favorite: false })]));
+    fixture.detectChanges();
+
+    const star = fixture.nativeElement.querySelector('.board-list__favorite-btn') as HTMLButtonElement;
+    expect(star.getAttribute('aria-pressed')).toBe('false');
+
+    star.click();
+    fixture.detectChanges();
+    expect(star.getAttribute('aria-pressed')).toBe('true');
+
+    const req = httpMock.expectOne(r => r.url === `${BASE}/f1/favorite` && r.method === 'PUT');
+    req.flush(null);
+  });
+
+  it('ac08_1_6_07_favorite star toggles off and calls DELETE when already favorite', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'f2', favorite: true })]));
+    fixture.detectChanges();
+
+    const star = fixture.nativeElement.querySelector('.board-list__favorite-btn') as HTMLButtonElement;
+    star.click();
+    fixture.detectChanges();
+    expect(star.getAttribute('aria-pressed')).toBe('false');
+
+    const req = httpMock.expectOne(r => r.url === `${BASE}/f2/favorite` && r.method === 'DELETE');
+    req.flush(null);
+  });
+
+  it('ac08_1_6_08_favorites are sorted first, then by updatedAt DESC within each group', () => {
+    const boards = [
+      makeBoard({ id: 'a', title: 'A', favorite: false, updatedAt: '2026-07-10T00:00:00Z' }),
+      makeBoard({ id: 'b', title: 'B', favorite: true, updatedAt: '2026-07-01T00:00:00Z' }),
+      makeBoard({ id: 'c', title: 'C', favorite: true, updatedAt: '2026-07-05T00:00:00Z' }),
+    ];
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse(boards));
+    fixture.detectChanges();
+
+    const el1: HTMLElement = fixture.nativeElement;
+    const nodeList1: NodeListOf<HTMLElement> = el1.querySelectorAll('.board-list__card-title');
+    const titles = Array.from(nodeList1).map((node: HTMLElement) => node.textContent?.trim());
+    expect(titles).toEqual(['C', 'B', 'A']);
+  });
+
+  it('ac08_1_6_09_toggling a favorite re-sorts the list immediately without a server reload', () => {
+    const boards = [
+      makeBoard({ id: 'x', title: 'X', favorite: false, updatedAt: '2026-07-10T00:00:00Z' }),
+      makeBoard({ id: 'y', title: 'Y', favorite: false, updatedAt: '2026-07-05T00:00:00Z' }),
+    ];
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse(boards));
+    fixture.detectChanges();
+
+    const stars = fixture.nativeElement.querySelectorAll('.board-list__favorite-btn');
+    (stars[1] as HTMLButtonElement).click(); // favorite "Y" (currently second)
+    fixture.detectChanges();
+
+    const el2: HTMLElement = fixture.nativeElement;
+    const nodeList2: NodeListOf<HTMLElement> = el2.querySelectorAll('.board-list__card-title');
+    const titles = Array.from(nodeList2).map((node: HTMLElement) => node.textContent?.trim());
+    expect(titles).toEqual(['Y', 'X']);
+    httpMock.expectOne(r => r.url === `${BASE}/y/favorite` && r.method === 'PUT').flush(null);
+  });
+
+  it('ac08_1_6_10_favorite toggle rolls back on error and shows a toast (no unconfirmed optimistic state)', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'f3', favorite: false })]));
+    fixture.detectChanges();
+
+    const toastSpy = vi.spyOn(toastService, 'show');
+    const star = fixture.nativeElement.querySelector('.board-list__favorite-btn') as HTMLButtonElement;
+    star.click();
+    fixture.detectChanges();
+    expect(star.getAttribute('aria-pressed')).toBe('true');
+
+    httpMock.expectOne(r => r.url === `${BASE}/f3/favorite` && r.method === 'PUT')
+      .flush('', { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    expect(star.getAttribute('aria-pressed')).toBe('false');
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.board.favorite.error', 'error');
+  });
+
+  it('ac08_1_6_11_favorite star has an accessible aria-label reflecting current state', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'f4', title: 'Perso', favorite: false })]));
+    fixture.detectChanges();
+    const star = fixture.nativeElement.querySelector('.board-list__favorite-btn') as HTMLButtonElement;
+    expect(star.getAttribute('aria-label')).toContain('Perso');
+  });
+
+  // ── AC08.1.8: search ──
+  it('ac08_1_8_03_typing in the search field is debounced before requesting q', async () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 's1', title: 'Alpha' })]));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('#board-search-input') as HTMLInputElement;
+    input.value = 'al';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    httpMock.expectNone(r => r.params.has('q'));
+
+    await new Promise((r) => setTimeout(r, 350));
+    fixture.detectChanges();
+    const req = httpMock.expectOne(r => r.url === BASE && r.params.get('q') === 'al');
+    req.flush(makePageResponse([makeBoard({ id: 's1', title: 'Alpha' })]));
+  });
+
+  it('ac08_1_8_04_clearing the search reloads the unfiltered list', async () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 's2', title: 'Beta' })]));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('#board-search-input') as HTMLInputElement;
+    input.value = 'be';
+    input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 350));
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('q') === 'be').flush(makePageResponse([makeBoard({ id: 's2', title: 'Beta' })]));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.board-list__search-clear') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 350));
+    fixture.detectChanges();
+    const req = httpMock.expectOne(r => r.url === BASE);
+    expect(req.request.params.has('q')).toBe(false);
+    req.flush(makePageResponse([makeBoard({ id: 's2', title: 'Beta' })]));
+  });
+
+  it('ac08_1_8_05_shows "no results" state distinct from the empty state when search matches nothing', async () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.board-list__empty-cta')).toBeTruthy(); // plain empty state
+
+    const input = fixture.nativeElement.querySelector('#board-search-input') as HTMLInputElement;
+    input.value = 'zzz';
+    input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 350));
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('q') === 'zzz').flush(makePageResponse([]));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Aucun résultat pour « zzz »');
+    expect(fixture.nativeElement.querySelector('.board-list__empty-cta')).toBeNull();
+  });
+
+  // ── AC08.1.7: trash tab ──
+  it('ac08_1_7_10_switching to the Corbeille tab requests trashed=true', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+
+    const tabs = fixture.nativeElement.querySelectorAll('.board-list__tab');
+    (tabs[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne(r => r.url === BASE && r.params.get('trashed') === 'true');
+    req.flush(makePageResponse([makeBoard({ id: 't1', title: 'Corbeille board', deletedAt: '2026-07-10T00:00:00Z' })]));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Corbeille board');
+    expect(fixture.nativeElement.querySelector('.board-list__trash-actions')).toBeTruthy();
+  });
+
+  it('ac08_1_7_11_trash empty state shows "Corbeille vide"', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelectorAll('.board-list__tab')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('trashed') === 'true').flush(makePageResponse([]));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Corbeille vide');
+  });
+
+  it('ac08_1_7_12_restore button calls POST restore and removes the board from the trash view', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__tab')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('trashed') === 'true')
+      .flush(makePageResponse([makeBoard({ id: 't2', title: 'À restaurer' })]));
+    fixture.detectChanges();
+
+    const restoreBtn = Array.from(fixture.nativeElement.querySelectorAll('.board-list__trash-actions button'))[0] as HTMLButtonElement;
+    restoreBtn.click();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne(r => r.url === `${BASE}/t2/restore` && r.method === 'POST');
+    req.flush(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('À restaurer');
+  });
+
+  it('ac08_1_7_13_restore error shows a toast and keeps the board listed in the trash', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__tab')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('trashed') === 'true')
+      .flush(makePageResponse([makeBoard({ id: 't3', title: 'Reste en corbeille' })]));
+    fixture.detectChanges();
+
+    const toastSpy = vi.spyOn(toastService, 'show');
+    const restoreBtn = Array.from(fixture.nativeElement.querySelectorAll('.board-list__trash-actions button'))[0] as HTMLButtonElement;
+    restoreBtn.click();
+    httpMock.expectOne(r => r.url === `${BASE}/t3/restore`).flush('', { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.board.trash.restoreError', 'error');
+    expect(fixture.nativeElement.textContent).toContain('Reste en corbeille');
+  });
+
+  it('ac08_1_7_14_purge button opens a confirm dialog before calling DELETE permanent', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__tab')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('trashed') === 'true')
+      .flush(makePageResponse([makeBoard({ id: 't4', title: 'À purger' })]));
+    fixture.detectChanges();
+
+    const purgeBtn = fixture.nativeElement.querySelector('.board-list__trash-purge-trigger') as HTMLButtonElement;
+    purgeBtn.click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('[role="alertdialog"]') as HTMLElement;
+    expect(dialog).toBeTruthy();
+    expect(dialog.textContent).toContain('À purger');
+    httpMock.expectNone(r => r.url.includes('/permanent'));
+
+    (dialog.querySelector('.board-list__modal-btn--delete') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const req = httpMock.expectOne(r => r.url === `${BASE}/t4/permanent` && r.method === 'DELETE');
+    req.flush(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('À purger');
+  });
+
+  it('ac08_1_7_15_cancel on the purge dialog does not call the API', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__tab')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('trashed') === 'true')
+      .flush(makePageResponse([makeBoard({ id: 't5', title: 'Garder' })]));
+    fixture.detectChanges();
+
+    const purgeBtn = fixture.nativeElement.querySelector('.board-list__trash-purge-trigger') as HTMLButtonElement;
+    purgeBtn.click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[role="alertdialog"] .board-list__modal-btn--cancel') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Garder');
+  });
+
+  it('ac08_1_7_16_clicking the already-active tab is a no-op (no reload)', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'noop1' })]));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelectorAll('.board-list__tab')[0] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    httpMock.expectNone(() => true);
+  });
+
+  it('ac08_1_7_17_purge error shows a toast and keeps the board listed in the trash', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelectorAll('.board-list__tab')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('trashed') === 'true')
+      .flush(makePageResponse([makeBoard({ id: 't6', title: 'Purge échoue' })]));
+    fixture.detectChanges();
+
+    const toastSpy = vi.spyOn(toastService, 'show');
+    (fixture.nativeElement.querySelector('.board-list__trash-purge-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[role="alertdialog"] .board-list__modal-btn--delete') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    httpMock.expectOne(r => r.url === `${BASE}/t6/permanent`).flush('', { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.board.trash.purgeError', 'error');
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Purge échoue');
+  });
+
+  it('ac08_1_6_12_a second favorite click is ignored while a toggle is already in flight', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'f5', favorite: false })]));
+    fixture.detectChanges();
+
+    const star = fixture.nativeElement.querySelector('.board-list__favorite-btn') as HTMLButtonElement;
+    star.click();
+    fixture.detectChanges();
+    expect(star.disabled).toBe(true);
+
+    // Disabled buttons don't dispatch click in real browsers, but the handler itself must also
+    // guard re-entrancy defensively (e.g. programmatic dispatch, or a race with detectChanges).
+    star.disabled = false;
+    star.click();
+    fixture.detectChanges();
+
+    // Only one PUT request should ever have been made for this board.
+    const req = httpMock.expectOne(r => r.url === `${BASE}/f5/favorite`);
+    req.flush(null);
   });
 });
