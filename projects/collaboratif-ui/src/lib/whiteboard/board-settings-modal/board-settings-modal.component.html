@@ -1,0 +1,182 @@
+<div
+  class="wb-settings"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'whiteboard.board.settings.title' | transloco:{ title: board().title }"
+  tabindex="-1"
+>
+  <div class="wb-settings__header">
+    <h2 class="wb-settings__heading">
+      {{ 'whiteboard.board.settings.title' | transloco:{ title: board().title } }}
+    </h2>
+    <button
+      type="button"
+      class="wb-settings__close-btn"
+      [attr.aria-label]="'whiteboard.board.settings.close' | transloco"
+      (click)="close()"
+    >
+      &times;
+    </button>
+  </div>
+
+  <div class="wb-settings__body">
+    <label class="wb-settings__label" for="settings-name-input">
+      {{ 'whiteboard.board.settings.nameLabel' | transloco }}
+    </label>
+    <input
+      #firstField
+      id="settings-name-input"
+      class="wb-settings__input"
+      type="text"
+      [value]="name()"
+      (input)="onNameInput($event)"
+      maxlength="100"
+    />
+
+    <label class="wb-settings__label" for="settings-description-input">
+      {{ 'whiteboard.board.settings.descriptionLabel' | transloco }}
+    </label>
+    <textarea
+      id="settings-description-input"
+      class="wb-settings__textarea"
+      [value]="description()"
+      (input)="onDescriptionInput($event)"
+      [attr.maxlength]="descriptionMaxLength"
+      rows="3"
+    ></textarea>
+    <p class="wb-settings__hint">{{ 'whiteboard.board.settings.descriptionHint' | transloco }}</p>
+
+    <fieldset class="wb-settings__activities">
+      <legend class="wb-settings__label">{{ 'whiteboard.board.settings.activitiesLabel' | transloco }}</legend>
+      @for (code of activityCodes; track code) {
+        <div class="wb-settings__activity-row">
+          <label class="wb-settings__activity-label" [for]="'activity-' + code">
+            {{ 'whiteboard.activities.items.' + code + '.name' | transloco }}
+          </label>
+          <button
+            [id]="'activity-' + code"
+            type="button"
+            role="switch"
+            aria-checked="false"
+            class="wb-settings__toggle"
+            disabled
+            [title]="'whiteboard.board.settings.activitySoon' | transloco"
+            [attr.aria-label]="('whiteboard.activities.items.' + code + '.name' | transloco) + ' — ' + ('whiteboard.board.settings.activitySoon' | transloco)"
+          ></button>
+          <span class="wb-settings__activity-soon">{{ 'whiteboard.board.settings.activitySoon' | transloco }}</span>
+        </div>
+      }
+    </fieldset>
+
+    <div class="wb-settings__actions">
+      <button
+        type="button"
+        class="wb-settings__btn wb-settings__btn--secondary"
+        [disabled]="isSavingTemplate()"
+        (click)="openTemplatePrompt()"
+      >
+        {{ 'whiteboard.board.settings.saveAsTemplate' | transloco }}
+      </button>
+      <button
+        type="button"
+        class="wb-settings__btn wb-settings__btn--danger"
+        [attr.aria-label]="'whiteboard.board.resetAria' | transloco:{ title: board().title }"
+        (click)="openResetConfirm()"
+      >
+        {{ 'whiteboard.board.reset' | transloco }}
+      </button>
+    </div>
+  </div>
+
+  <div class="wb-settings__footer">
+    <button type="button" class="wb-settings__btn wb-settings__btn--secondary" (click)="close()">
+      {{ 'whiteboard.board.trash.purgeConfirm.cancel' | transloco }}
+    </button>
+    <button
+      type="button"
+      class="wb-settings__btn wb-settings__btn--primary"
+      [disabled]="!name().trim() || isSaving()"
+      (click)="save()"
+    >
+      @if (isSaving()) {
+        <span class="wb-settings__spinner" aria-hidden="true"></span>
+      }
+      {{ 'whiteboard.board.settings.save' | transloco }}
+    </button>
+  </div>
+</div>
+
+@if (showTemplatePrompt()) {
+  <div
+    class="wb-settings__overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="template-prompt-heading"
+    (keydown.escape)="cancelTemplatePrompt()"
+  >
+    <div class="wb-settings__prompt-dialog">
+      <h3 id="template-prompt-heading" class="wb-settings__heading">
+        {{ 'whiteboard.board.settings.saveAsTemplateNamePrompt' | transloco }}
+      </h3>
+      <input
+        class="wb-settings__input"
+        type="text"
+        [value]="templateName()"
+        (input)="onTemplateNameInput($event)"
+        maxlength="100"
+        autofocus
+      />
+      <div class="wb-settings__actions">
+        <button type="button" class="wb-settings__btn wb-settings__btn--secondary" (click)="cancelTemplatePrompt()">
+          {{ 'whiteboard.board.trash.purgeConfirm.cancel' | transloco }}
+        </button>
+        <button
+          type="button"
+          class="wb-settings__btn wb-settings__btn--primary"
+          [disabled]="!templateName().trim() || isSavingTemplate()"
+          (click)="confirmSaveAsTemplate()"
+        >
+          @if (isSavingTemplate()) {
+            <span class="wb-settings__spinner" aria-hidden="true"></span>
+          }
+          {{ 'whiteboard.board.settings.saveAsTemplate' | transloco }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showResetConfirm()) {
+  <div
+    class="wb-settings__overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="reset-confirm-heading"
+    (keydown.escape)="cancelReset()"
+  >
+    <div class="wb-settings__prompt-dialog">
+      <h3 id="reset-confirm-heading" class="wb-settings__heading">
+        {{ 'whiteboard.board.settings.resetConfirm.title' | transloco:{ title: board().title } }}
+      </h3>
+      <p class="wb-settings__hint">
+        {{ 'whiteboard.board.settings.resetConfirm.message' | transloco }}
+      </p>
+      <div class="wb-settings__actions">
+        <button type="button" class="wb-settings__btn wb-settings__btn--secondary" [disabled]="isResetting()" (click)="cancelReset()">
+          {{ 'whiteboard.board.settings.resetConfirm.cancel' | transloco }}
+        </button>
+        <button
+          type="button"
+          class="wb-settings__btn wb-settings__btn--danger"
+          [disabled]="isResetting()"
+          (click)="confirmReset()"
+        >
+          @if (isResetting()) {
+            <span class="wb-settings__spinner" aria-hidden="true"></span>
+          }
+          {{ 'whiteboard.board.settings.resetConfirm.confirm' | transloco }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

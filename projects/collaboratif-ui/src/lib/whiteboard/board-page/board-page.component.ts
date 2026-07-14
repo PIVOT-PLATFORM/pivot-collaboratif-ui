@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   HostListener,
   OnDestroy,
   OnInit,
@@ -11,6 +12,8 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { BoardStore } from '../../core/whiteboard/board.store';
+import { BoardService } from '../../core/whiteboard/board.service';
+import { ToastService } from '../../core/toast/toast.service';
 import { BoardTransport, StompBoardTransport } from '../../core/whiteboard/board-transport';
 import { FloatingToolbarComponent } from '../floating-toolbar/floating-toolbar.component';
 import { StructuredCanvasComponent } from '../structured-canvas/structured-canvas.component';
@@ -19,8 +22,13 @@ import { VoteResultsPanelComponent } from '../vote-results-panel/vote-results-pa
 import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component';
 import { SharePanelComponent } from '../share-panel/share-panel.component';
 import { ActivitiesPanelComponent } from '../activities-panel/activities-panel.component';
+import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
+import type { Board } from '../../core/whiteboard/board.model';
 import type { ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
+
+/** Delay (ms) within which a second click on the Reset button confirms the action (US08.2.4). */
+const RESET_CONFIRM_WINDOW_MS = 2000;
 
 /**
  * Route container for a single structured board (`/whiteboard/:boardId`). The Angular
@@ -48,6 +56,7 @@ import { DEFAULT_SHAPE_COLOR } from '../model/colors';
     TimerOverlayComponent,
     SharePanelComponent,
     ActivitiesPanelComponent,
+    BoardSettingsModalComponent,
   ],
   providers: [BoardStore, { provide: BoardTransport, useClass: StompBoardTransport }],
   templateUrl: './board-page.component.html',
@@ -65,9 +74,42 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly showActivities = signal(false);
   protected readonly showShare = signal(false);
   protected readonly showVoteResults = signal(false);
+  protected readonly showSettings = signal(false);
   protected readonly highlightedGroup = signal<string | null>(null);
 
   protected readonly isOwner = computed(() => this.store.userRole() === 'OWNER');
+
+  /** Board snapshot passed to the settings modal — kept in sync with the store's loaded board. */
+  protected readonly settingsBoard = computed<Board | null>(() => {
+    const detail = this.store.board();
+    if (!detail) {
+      return null;
+    }
+    return {
+      id: detail.id,
+      title: detail.name,
+      role: 'owner',
+      createdAt: '',
+      updatedAt: '',
+      thumbnailUrl: null,
+      activeParticipantCount: 0,
+      favorite: false,
+      description: detail.description,
+      coverImage: detail.coverImage,
+      maxParticipants: detail.maxParticipants,
+      enabledActivities: detail.enabledActivities ?? [],
+      deletedAt: null,
+    };
+  });
+
+  /** Pending confirmation state for the double-click Reset button (US08.2.4). */
+  private resetConfirmTimer: ReturnType<typeof setTimeout> | null = null;
+  protected readonly resetPendingConfirm = signal(false);
+
+  private readonly boardService = inject(BoardService);
+  private readonly toast = inject(ToastService);
+  private readonly hostRef = inject(ElementRef<HTMLElement>);
+  protected settingsTriggerEl: HTMLElement | null = null;
 
   /** Live "time's up" flag — true once the running timer's end time passes. */
   private readonly now = signal(Date.now());
@@ -85,7 +127,51 @@ export class BoardPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     clearInterval(this.tick);
+    if (this.resetConfirmTimer) {
+      clearTimeout(this.resetConfirmTimer);
+    }
     this.store.destroy();
+  }
+
+  /**
+   * Reset button click handler — requires two clicks within {@link RESET_CONFIRM_WINDOW_MS}
+   * (US08.2.4 AC: "une confirmation est demandée"). First click arms the confirmation (visual
+   * state + aria-live announcement); the confirming click calls the REST reset endpoint.
+   */
+  protected onResetClick(): void {
+    if (!this.resetPendingConfirm()) {
+      this.resetPendingConfirm.set(true);
+      this.resetConfirmTimer = setTimeout(() => this.resetPendingConfirm.set(false), RESET_CONFIRM_WINDOW_MS);
+      return;
+    }
+    if (this.resetConfirmTimer) {
+      clearTimeout(this.resetConfirmTimer);
+      this.resetConfirmTimer = null;
+    }
+    this.resetPendingConfirm.set(false);
+    this.boardService.resetBoard(this.boardId).subscribe({
+      next: () => {
+        this.store.cards.set([]);
+        this.store.connections.set([]);
+        this.store.frames.set([]);
+        this.store.selectCards(new Set());
+        this.toast.show('whiteboard.board.settings.resetSuccess', 'success');
+      },
+      error: () => this.toast.show('whiteboard.board.settings.resetError', 'error'),
+    });
+  }
+
+  protected openSettings(event: Event): void {
+    this.settingsTriggerEl = event.currentTarget as HTMLElement;
+    this.showSettings.set(true);
+  }
+
+  protected closeSettings(): void {
+    this.showSettings.set(false);
+  }
+
+  protected onSettingsSaved(): void {
+    this.showSettings.set(false);
   }
 
   protected onToolConsumed(): void {

@@ -39,7 +39,8 @@
           "openBoard": "{{title}} — modifié le {{date}} — {{role}}",
           "boardMenu": "Actions pour {{title}}",
           "activeParticipants": "{{count}} collaborateur(s) actuellement en ligne"
-        }
+        },
+        "tabActive": "Mes tableaux"
       },
       "rename": {
         "error": "Impossible de renommer le tableau",
@@ -56,7 +57,64 @@
         }
       },
       "untitled": "Tableau sans titre",
-      "reset": "Réinitialiser le tableau"
+      "reset": "Réinitialiser le tableau",
+      "favorite": {
+        "add": "Ajouter {{title}} aux favoris",
+        "remove": "Retirer {{title}} des favoris",
+        "error": "Impossible de mettre à jour les favoris"
+      },
+      "trash": {
+        "tab": "Corbeille",
+        "empty": "Corbeille vide",
+        "deletedOn": "Supprimé le {{date}}",
+        "restore": "Restaurer",
+        "restoreAria": "Restaurer {{title}}",
+        "restoreSuccess": "Tableau restauré",
+        "restoreError": "Impossible de restaurer le tableau",
+        "purge": "Supprimer définitivement",
+        "purgeAria": "Supprimer définitivement {{title}}",
+        "purgeSuccess": "Tableau supprimé définitivement",
+        "purgeError": "Impossible de supprimer définitivement le tableau",
+        "purgeConfirm": {
+          "title": "Supprimer définitivement « {{title}} » ?",
+          "message": "Cette action est irréversible et supprime toutes les données du tableau, y compris son historique. Le tableau ne pourra plus être restauré.",
+          "confirm": "Supprimer définitivement",
+          "cancel": "Annuler"
+        }
+      },
+      "settings": {
+        "open": "Paramètres du tableau",
+        "title": "Paramètres de « {{title}} »",
+        "close": "Fermer les paramètres",
+        "nameLabel": "Nom du tableau",
+        "descriptionLabel": "Description",
+        "descriptionHint": "500 caractères maximum",
+        "activitiesLabel": "Activités disponibles",
+        "activitySoon": "Bientôt disponible",
+        "save": "Enregistrer",
+        "saveSuccess": "Paramètres enregistrés",
+        "saveError": "Impossible d'enregistrer les paramètres",
+        "saveAsTemplate": "Enregistrer comme template",
+        "saveAsTemplateNamePrompt": "Nom du template",
+        "saveAsTemplateSuccess": "Template enregistré",
+        "saveAsTemplateError": "Impossible d'enregistrer le template",
+        "resetConfirm": {
+          "title": "Réinitialiser « {{title}} » ?",
+          "message": "Tous les éléments du canvas seront supprimés. Le titre, les membres et les favoris du tableau sont conservés. Cette action est irréversible.",
+          "confirm": "Réinitialiser",
+          "cancel": "Annuler"
+        },
+        "resetSuccess": "Tableau réinitialisé",
+        "resetError": "Impossible de réinitialiser le tableau"
+      },
+      "resetAria": "Réinitialiser le tableau {{title}} — supprime tout le contenu du canvas",
+      "search": {
+        "label": "Rechercher un tableau",
+        "placeholder": "Rechercher par nom ou description…",
+        "clear": "Effacer la recherche",
+        "noResults": "Aucun résultat pour « {{term}} »",
+        "resultsCount": "{{count}} résultat(s)"
+      }
     },
     "share": {
       "panel": {

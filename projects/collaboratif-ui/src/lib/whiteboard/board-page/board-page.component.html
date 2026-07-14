@@ -9,8 +9,14 @@
         [attr.aria-label]="'whiteboard.canvas.undo.label' | transloco" [title]="'whiteboard.canvas.undo.label' | transloco">↶</button>
       <button type="button" class="wb-page__btn" [disabled]="!store.canRedo()" (click)="store.redo()"
         [attr.aria-label]="'whiteboard.canvas.undo.redo' | transloco" [title]="'whiteboard.canvas.undo.redo' | transloco">↷</button>
-      <button type="button" class="wb-page__btn" (click)="store.resetBoard()"
-        [attr.aria-label]="'whiteboard.board.reset' | transloco" [title]="'whiteboard.board.reset' | transloco">⟲</button>
+      <button type="button" class="wb-page__btn" [class.wb-page__btn--on]="resetPendingConfirm()" (click)="onResetClick()"
+        [attr.aria-label]="resetPendingConfirm() ? ('whiteboard.board.resetAria' | transloco:{ title: store.board()?.name || '' }) : ('whiteboard.board.reset' | transloco)"
+        [title]="'whiteboard.board.reset' | transloco">⟲</button>
+      @if (resetPendingConfirm()) {
+        <span class="wb-page__reset-confirm" role="status" aria-live="polite">
+          {{ 'whiteboard.board.settings.resetConfirm.confirm' | transloco }}
+        </span>
+      }
 
       <button type="button" class="wb-page__btn" [class.wb-page__btn--on]="showGroups()" (click)="showGroups.set(!showGroups())"
         [attr.aria-pressed]="showGroups()" [attr.aria-label]="'whiteboard.groups.title' | transloco">{{ 'whiteboard.groups.title' | transloco }}</button>
@@ -26,6 +32,11 @@
 
       <button type="button" class="wb-page__btn" (click)="showShare.set(true)"
         [attr.aria-label]="'whiteboard.share.panel.title' | transloco">{{ 'whiteboard.share.panel.title' | transloco }}</button>
+
+      @if (isOwner() && store.board()) {
+        <button type="button" class="wb-page__btn" (click)="openSettings($event)"
+          [attr.aria-label]="'whiteboard.board.settings.open' | transloco">{{ 'whiteboard.board.settings.open' | transloco }}</button>
+      }
     </div>
   </header>
 
@@ -91,6 +102,18 @@
   @if (showShare()) {
     <dialog class="wb-page__modal" open [attr.aria-label]="'whiteboard.share.panel.title' | transloco">
       <app-share-panel [boardId]="boardId" (closed)="showShare.set(false)"></app-share-panel>
+    </dialog>
+  }
+
+  @if (showSettings() && settingsBoard(); as sBoard) {
+    <dialog class="wb-page__modal" open [attr.aria-label]="'whiteboard.board.settings.open' | transloco">
+      <wb-board-settings-modal
+        [board]="sBoard"
+        [triggerElement]="settingsTriggerEl"
+        (closed)="closeSettings()"
+        (saved)="onSettingsSaved()"
+        (resetDone)="closeSettings()"
+      ></wb-board-settings-modal>
     </dialog>
   }
 }

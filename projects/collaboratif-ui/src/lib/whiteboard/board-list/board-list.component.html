@@ -10,6 +10,62 @@
     </button>
   </div>
 
+  <div class="board-list__toolbar">
+    <div class="board-list__search">
+      <label class="board-list__search-label" for="board-search-input">
+        {{ 'whiteboard.board.search.label' | transloco }}
+      </label>
+      <input
+        id="board-search-input"
+        class="board-list__search-input"
+        type="search"
+        [attr.aria-label]="'whiteboard.board.search.label' | transloco"
+        [placeholder]="'whiteboard.board.search.placeholder' | transloco"
+        [value]="searchTerm()"
+        (input)="onSearchInput($event)"
+        autocomplete="off"
+      />
+      @if (searchTerm()) {
+        <button
+          class="board-list__search-clear"
+          type="button"
+          [attr.aria-label]="'whiteboard.board.search.clear' | transloco"
+          (click)="clearSearch()"
+        >
+          &times;
+        </button>
+      }
+      <p class="board-list__search-status" role="status" aria-live="polite">
+        @if (appliedSearchTerm() && status() === 'loaded') {
+          {{ 'whiteboard.board.search.resultsCount' | transloco:{ count: boards().length } }}
+        }
+      </p>
+    </div>
+
+    <div class="board-list__tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        class="board-list__tab"
+        [class.board-list__tab--active]="viewMode() === 'active'"
+        [attr.aria-selected]="viewMode() === 'active'"
+        (click)="switchView('active')"
+      >
+        {{ 'whiteboard.board.list.tabActive' | transloco }}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="board-list__tab"
+        [class.board-list__tab--active]="viewMode() === 'trash'"
+        [attr.aria-selected]="viewMode() === 'trash'"
+        (click)="switchView('trash')"
+      >
+        {{ 'whiteboard.board.trash.tab' | transloco }}
+      </button>
+    </div>
+  </div>
+
   @if (status() === 'loading') {
     <div class="board-list__grid" aria-busy="true" aria-live="polite">
       @for (_ of skeletons; track $index) {
@@ -31,6 +87,18 @@
         {{ 'whiteboard.board.list.retry' | transloco }}
       </button>
     </div>
+  } @else if (boards().length === 0 && appliedSearchTerm()) {
+    <div class="board-list__empty">
+      <p class="board-list__empty-title">
+        {{ 'whiteboard.board.search.noResults' | transloco:{ term: appliedSearchTerm() } }}
+      </p>
+    </div>
+  } @else if (boards().length === 0 && viewMode() === 'trash') {
+    <div class="board-list__empty">
+      <p class="board-list__empty-title">
+        {{ 'whiteboard.board.trash.empty' | transloco }}
+      </p>
+    </div>
   } @else if (boards().length === 0) {
     <div class="board-list__empty">
       <p class="board-list__empty-title">
@@ -43,10 +111,61 @@
         {{ 'whiteboard.board.list.emptyCta' | transloco }}
       </button>
     </div>
+  } @else if (viewMode() === 'trash') {
+    <div class="board-list__grid">
+      @for (board of sortedBoards(); track board.id) {
+        <article class="board-list__card board-list__card--trash">
+          <div class="board-list__card-body">
+            <h2 class="board-list__card-title">{{ board.title }}</h2>
+            <div class="board-list__card-meta">
+              @if (board.deletedAt) {
+                <span class="board-list__card-date">
+                  {{ 'whiteboard.board.trash.deletedOn' | transloco:{ date: (board.deletedAt | date:'shortDate') } }}
+                </span>
+              }
+            </div>
+            <div class="board-list__trash-actions">
+              <button
+                type="button"
+                class="board-list__modal-btn board-list__modal-btn--confirm"
+                [disabled]="restoringBoardId() === board.id"
+                [attr.aria-label]="restoreAriaLabel(board.title)"
+                (click)="startRestore(board)"
+              >
+                @if (restoringBoardId() === board.id) {
+                  <span class="board-list__card-rename-spinner" aria-hidden="true"></span>
+                }
+                {{ 'whiteboard.board.trash.restore' | transloco }}
+              </button>
+              <button
+                type="button"
+                class="board-list__modal-btn board-list__modal-btn--delete board-list__trash-purge-trigger"
+                [attr.aria-label]="purgeAriaLabel(board.title)"
+                (click)="startPurge(board)"
+              >
+                {{ 'whiteboard.board.trash.purge' | transloco }}
+              </button>
+            </div>
+          </div>
+        </article>
+      }
+    </div>
   } @else {
     <div class="board-list__grid">
-      @for (board of boards(); track board.id) {
+      @for (board of sortedBoards(); track board.id) {
         <article class="board-list__card">
+          <button
+            type="button"
+            class="board-list__favorite-btn"
+            [class.board-list__favorite-btn--active]="board.favorite"
+            [attr.aria-pressed]="board.favorite"
+            [attr.aria-label]="favoriteAriaLabel(board)"
+            [disabled]="pendingFavoriteIds().has(board.id)"
+            (click)="toggleFavorite(board, $event)"
+          >
+            <span aria-hidden="true">{{ board.favorite ? '★' : '☆' }}</span>
+          </button>
+
           @if (renamingBoardId() !== board.id) {
             <a
               class="board-list__card-link"
@@ -205,6 +324,47 @@
               <span class="board-list__card-rename-spinner" aria-hidden="true"></span>
             }
             {{ 'whiteboard.board.delete.confirm.confirm' | transloco }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (purgingBoard(); as board) {
+    <div
+      class="board-list__modal-overlay"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="purge-dialog-heading"
+      (keydown.escape)="cancelPurge()"
+    >
+      <div class="board-list__modal-dialog">
+        <h2 id="purge-dialog-heading" class="board-list__modal-heading">
+          {{ 'whiteboard.board.trash.purgeConfirm.title' | transloco:{ title: board.title } }}
+        </h2>
+        <p class="board-list__delete-message">
+          {{ 'whiteboard.board.trash.purgeConfirm.message' | transloco }}
+        </p>
+        <div class="board-list__modal-actions">
+          <button
+            class="board-list__modal-btn board-list__modal-btn--cancel"
+            type="button"
+            [disabled]="isPurging()"
+            (click)="cancelPurge()"
+            boardListAutofocus
+          >
+            {{ 'whiteboard.board.trash.purgeConfirm.cancel' | transloco }}
+          </button>
+          <button
+            class="board-list__modal-btn board-list__modal-btn--delete"
+            type="button"
+            [disabled]="isPurging()"
+            (click)="confirmPurge()"
+          >
+            @if (isPurging()) {
+              <span class="board-list__card-rename-spinner" aria-hidden="true"></span>
+            }
+            {{ 'whiteboard.board.trash.purgeConfirm.confirm' | transloco }}
           </button>
         </div>
       </div>

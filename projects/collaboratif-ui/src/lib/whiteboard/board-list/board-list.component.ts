@@ -3,17 +3,23 @@ import {
   Component,
   Directive,
   ElementRef,
+  computed,
   inject,
+  OnDestroy,
   OnInit,
   signal,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { BoardService } from '../../core/whiteboard/board.service';
 import { ToastService } from '../../core/toast/toast.service';
 import { Board } from '../../core/whiteboard/board.model';
 import { TemplateGalleryComponent } from '../template-gallery/template-gallery.component';
+
+/** Debounce delay (ms) applied to the search input before re-querying the backend (US08.1.8). */
+const SEARCH_DEBOUNCE_MS = 300;
 
 @Directive({ selector: '[boardListAutofocus]', standalone: true })
 class BoardListAutofocusDirective implements OnInit {
@@ -24,6 +30,9 @@ class BoardListAutofocusDirective implements OnInit {
   }
 }
 
+/** Which listing is currently displayed: the normal board list, or the trash (US08.1.7). */
+type ViewMode = 'active' | 'trash';
+
 @Component({
   selector: 'app-board-list',
   standalone: true,
@@ -32,7 +41,7 @@ class BoardListAutofocusDirective implements OnInit {
   templateUrl: './board-list.component.html',
   styleUrl: './board-list.component.scss',
 })
-export class BoardListComponent {
+export class BoardListComponent implements OnDestroy {
   protected readonly boards = signal<Board[]>([]);
   protected readonly status = signal<'loading' | 'loaded' | 'error'>('loading');
   protected readonly hasNext = signal(false);
@@ -51,20 +60,62 @@ export class BoardListComponent {
   protected readonly isDeleting = signal(false);
   protected readonly skeletons = Array.from<null>({ length: 8 });
 
+  /** US08.1.7 — current tab: normal listing or trash. */
+  protected readonly viewMode = signal<ViewMode>('active');
+  /** US08.1.8 — raw search input value (bound to the field). */
+  protected readonly searchTerm = signal('');
+  /** US08.1.8 — search term actually applied to the last/next request (post-debounce). */
+  protected readonly appliedSearchTerm = signal('');
+  /** US08.1.6 — board ids with an in-flight favorite toggle (disables the star to avoid races). */
+  protected readonly pendingFavoriteIds = signal<ReadonlySet<string>>(new Set());
+  /** US08.1.7 — board id with an in-flight restore request. */
+  protected readonly restoringBoardId = signal<string | null>(null);
+  /** US08.1.7 — board pending permanent-delete confirmation. */
+  protected readonly purgingBoard = signal<Board | null>(null);
+  protected readonly isPurging = signal(false);
+
   private readonly boardService = inject(BoardService);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
   private readonly transloco = inject(TranslocoService);
+  private readonly search$ = new Subject<string>();
+
+  /**
+   * Boards ready for display: favorites first (stable, `updatedAt` DESC within each group), then
+   * non-favorites (`updatedAt` DESC) — US08.1.6. Applied client-side, optimistically, on top of
+   * whatever page(s) are already loaded; re-derived automatically whenever `boards()` changes.
+   */
+  protected readonly sortedBoards = computed(() => {
+    const list = [...this.boards()];
+    return list.sort((a, b) => {
+      if (a.favorite !== b.favorite) {
+        return a.favorite ? -1 : 1;
+      }
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  });
 
   constructor() {
+    this.search$.pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged()).subscribe((term) => {
+      this.appliedSearchTerm.set(term);
+      this.loadBoards(0);
+    });
     this.loadBoards(0);
+  }
+
+  ngOnDestroy(): void {
+    this.search$.complete();
   }
 
   protected loadBoards(page: number): void {
     if (page === 0) {
       this.status.set('loading');
     }
-    this.boardService.getBoards(page).subscribe({
+    const query = {
+      q: this.appliedSearchTerm().trim() || undefined,
+      trashed: this.viewMode() === 'trash',
+    };
+    this.boardService.getBoards(page, query).subscribe({
       next: (response) => {
         const merged =
           page === 0 ? response.boards : [...this.boards(), ...response.boards];
@@ -79,6 +130,122 @@ export class BoardListComponent {
 
   protected loadMore(): void {
     this.loadBoards(this.currentPage() + 1);
+  }
+
+  // ── US08.1.8: search ──
+  protected onSearchInput(event: Event): void {
+    const term = (event.target as HTMLInputElement).value;
+    this.searchTerm.set(term);
+    this.search$.next(term);
+  }
+
+  protected clearSearch(): void {
+    this.searchTerm.set('');
+    this.search$.next('');
+  }
+
+  // ── US08.1.7: trash tab ──
+  protected switchView(mode: ViewMode): void {
+    if (this.viewMode() === mode) {
+      return;
+    }
+    this.viewMode.set(mode);
+    this.activeMenuBoardId.set(null);
+    this.loadBoards(0);
+  }
+
+  protected startRestore(board: Board): void {
+    this.restoringBoardId.set(board.id);
+    this.boardService.restoreBoard(board.id).subscribe({
+      next: () => {
+        this.boards.set(this.boards().filter((b) => b.id !== board.id));
+        this.restoringBoardId.set(null);
+        this.toast.show('whiteboard.board.trash.restoreSuccess', 'success');
+      },
+      error: () => {
+        this.restoringBoardId.set(null);
+        this.toast.show('whiteboard.board.trash.restoreError', 'error');
+      },
+    });
+  }
+
+  protected startPurge(board: Board): void {
+    this.activeMenuBoardId.set(null);
+    this.purgingBoard.set(board);
+  }
+
+  protected cancelPurge(): void {
+    this.purgingBoard.set(null);
+  }
+
+  protected confirmPurge(): void {
+    const board = this.purgingBoard();
+    if (!board || this.isPurging()) return;
+    this.isPurging.set(true);
+    this.boardService.deletePermanent(board.id).subscribe({
+      next: () => {
+        this.boards.set(this.boards().filter((b) => b.id !== board.id));
+        this.purgingBoard.set(null);
+        this.isPurging.set(false);
+        this.toast.show('whiteboard.board.trash.purgeSuccess', 'success');
+      },
+      error: () => {
+        this.isPurging.set(false);
+        this.purgingBoard.set(null);
+        this.toast.show('whiteboard.board.trash.purgeError', 'error');
+      },
+    });
+  }
+
+  protected restoreAriaLabel(title: string): string {
+    return this.transloco.translate('whiteboard.board.trash.restoreAria', { title });
+  }
+
+  protected purgeAriaLabel(title: string): string {
+    return this.transloco.translate('whiteboard.board.trash.purgeAria', { title });
+  }
+
+  // ── US08.1.6: favorites ──
+  protected toggleFavorite(board: Board, event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (this.pendingFavoriteIds().has(board.id)) {
+      return;
+    }
+    const nextFavorite = !board.favorite;
+    this.pendingFavoriteIds.update((prev) => new Set(prev).add(board.id));
+    this.boards.set(this.boards().map((b) => (b.id === board.id ? { ...b, favorite: nextFavorite } : b)));
+
+    const request = nextFavorite
+      ? this.boardService.addFavorite(board.id)
+      : this.boardService.removeFavorite(board.id);
+
+    request.subscribe({
+      next: () => {
+        this.pendingFavoriteIds.update((prev) => {
+          const next = new Set(prev);
+          next.delete(board.id);
+          return next;
+        });
+      },
+      error: () => {
+        // Roll back — no optimistic update is left unconfirmed on error (AC08.1.6 error case).
+        this.boards.set(this.boards().map((b) => (b.id === board.id ? { ...b, favorite: board.favorite } : b)));
+        this.pendingFavoriteIds.update((prev) => {
+          const next = new Set(prev);
+          next.delete(board.id);
+          return next;
+        });
+        this.toast.show('whiteboard.board.favorite.error', 'error');
+      },
+    });
+  }
+
+  protected favoriteAriaLabel(board: Board): string {
+    return this.transloco.translate(
+      board.favorite ? 'whiteboard.board.favorite.remove' : 'whiteboard.board.favorite.add',
+      { title: board.title },
+    );
   }
 
   protected openCreateModal(): void {

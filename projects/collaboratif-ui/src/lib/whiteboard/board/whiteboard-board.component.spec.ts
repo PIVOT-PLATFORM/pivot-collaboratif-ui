@@ -37,6 +37,12 @@ const TEST_BOARD: Board = {
   updatedAt: '',
   thumbnailUrl: null,
   activeParticipantCount: 0,
+  favorite: false,
+  description: null,
+  coverImage: null,
+  maxParticipants: null,
+  enabledActivities: [],
+  deletedAt: null,
 };
 
 /** Fake `BoardService` — this container test only needs `getBoard()` to resolve (#41). */

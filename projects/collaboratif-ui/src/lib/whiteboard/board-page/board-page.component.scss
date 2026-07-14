@@ -71,6 +71,14 @@
   }
 }
 
+.wb-page__reset-confirm {
+  align-self: center;
+  font-size: 0.75rem;
+  color: #b91c1c;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .wb-page__body {
   position: relative;
   flex: 1 1 auto;
