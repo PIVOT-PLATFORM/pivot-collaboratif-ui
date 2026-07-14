@@ -1,3 +1,16 @@
+# [0.5.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.4.0...v0.5.0) (2026-07-14)
+
+
+### Bug Fixes
+
+* **whiteboard:** board-page :host height:100% au lieu de 100vh ([#101](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/101)) ([d782a9e](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/d782a9e408bb341cacd6ce0aad540c66a8b00f18)), closes [#100](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/100)
+* **whiteboard:** canvas s'affiche avant validation backend + timeouts ([#103](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/103)) ([96ef72d](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/96ef72d1ca5e41144e22f241d3dc3a235ffe7ed9)), closes [#102](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/102)
+
+
+### Features
+
+* **ci:** notify-pivot-ui.yml — déclenche le rebuild pivot-ui à chaque release ([#99](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/99)) ([2e7e21b](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/2e7e21b3c07a1908db2571a6c711e59fb3f6f780)), closes [pivot-ui#196](https://github.com/pivot-ui/issues/196)
+
 # [0.4.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.3.0...v0.4.0) (2026-07-14)
 
 
