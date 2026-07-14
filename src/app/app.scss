@@ -1,0 +1,18 @@
+// Chaîne de hauteur du harnais de dev — miroir du pattern shell de pivot-ui (.shell /
+// .shell__content / .shell__page) pour que les composants routés utilisant height:100%
+// (ex. board-page du whiteboard) se comportent comme en production plutôt que de collapser à 0.
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-shell__header {
+  flex: 0 0 auto;
+  padding: 16px 24px;
+}
+
+.app-shell__body {
+  flex: 1 1 auto;
+  min-height: 0;
+}

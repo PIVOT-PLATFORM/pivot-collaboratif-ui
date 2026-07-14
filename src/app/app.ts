@@ -17,11 +17,16 @@ import { TranslocoPipe } from '@jsverse/transloco';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, TranslocoPipe],
   template: `
-    <main>
-      <h1>{{ 'app.title' | transloco }}</h1>
-      <p>{{ 'app.devHarnessNotice' | transloco }}</p>
-      <router-outlet />
+    <main class="app-shell">
+      <header class="app-shell__header">
+        <h1>{{ 'app.title' | transloco }}</h1>
+        <p>{{ 'app.devHarnessNotice' | transloco }}</p>
+      </header>
+      <div class="app-shell__body">
+        <router-outlet />
+      </div>
     </main>
   `,
+  styleUrl: './app.scss',
 })
 export class App {}
