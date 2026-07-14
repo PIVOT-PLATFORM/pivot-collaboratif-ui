@@ -114,6 +114,9 @@
         "clear": "Clear search",
         "noResults": "No results for «{{term}}»",
         "resultsCount": "{{count}} result(s)"
+      },
+      "presence": {
+        "aria": "{{count}} participant(s) connected"
       }
     },
     "share": {

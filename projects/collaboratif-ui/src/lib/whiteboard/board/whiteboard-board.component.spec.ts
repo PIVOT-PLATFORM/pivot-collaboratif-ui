@@ -278,6 +278,26 @@ describe('WhiteboardBoardComponent', () => {
     expect(stub.boardTitle()).toBe('Mon tableau');
   });
 
+  it('ac08_1_9_11_never applies the REST-fetched board.cards to the canvas — only WS remote actions populate it', () => {
+    // US08.1.9: GET /whiteboard/boards/{boardId} now returns `cards`, but the canvas must stay
+    // sourced exclusively from the WebSocket `board:state` reply on join — a one-shot REST
+    // snapshot must never pre-populate it.
+    boardService.getBoard.mockReturnValue(of({
+      ...TEST_BOARD,
+      cards: [{
+        id: 'card-1', type: 'TEXT', content: 'Hello', fieldValues: null,
+        posX: 0, posY: 0, width: 192, height: 128, color: '#FFEB3B',
+        groupId: null, groupColor: null, locked: false, layer: 1,
+      }],
+    }));
+    fixture.detectChanges();
+
+    const stub = fixture.debugElement.query(de => de.name === 'app-whiteboard-canvas')
+      ?.componentInstance as StubCanvasComponent;
+
+    expect(stub.applyRemoteAction).not.toHaveBeenCalled();
+  });
+
   it('falls back to an empty boardTitle when the board fetch fails (non-fatal)', () => {
     boardService.getBoard.mockReturnValue(throwError(() => new Error('network error')));
     const failingFixture = TestBed.createComponent(WhiteboardBoardComponent);

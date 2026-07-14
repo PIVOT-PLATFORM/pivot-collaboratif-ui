@@ -212,4 +212,17 @@ export class BoardService {
       `${this.apiUrl}/whiteboard/boards/${boardId}/members/${userId}`,
     );
   }
+
+  /**
+   * Fetches the number of participants currently connected to each of the caller's accessible
+   * boards, keyed by board id (US08.1.9). A board with zero connected participants is absent
+   * from the result -- callers default a missing board id to a count of zero.
+   *
+   * A one-shot, at-open read (polling/at-open, not a live WebSocket subscription) -- the backend
+   * itself documents this as intentional (parity spec §2.2): live push updates of this count in
+   * the list are out of scope for this endpoint.
+   */
+  getPresence(): Observable<Record<string, number>> {
+    return this.http.get<Record<string, number>>(`${this.apiUrl}/whiteboard/boards/presence`);
+  }
 }

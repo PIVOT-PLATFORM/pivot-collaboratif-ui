@@ -129,6 +129,34 @@ describe('BoardService', () => {
     expect(caught).toBe(true);
   });
 
+  // ── US08.1.9: getPresence — GET /boards/presence ──
+  it('ac08_1_9_01_getPresence sends GET to /boards/presence', () => {
+    let result: Record<string, number> | undefined;
+    service.getPresence().subscribe(r => { result = r; });
+
+    const req = httpMock.expectOne(`${BASE}/presence`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ 'board-1': 3 });
+
+    expect(result).toEqual({ 'board-1': 3 });
+  });
+
+  it('ac08_1_9_02_getPresence returns an empty object when no board has connected participants', () => {
+    let result: Record<string, number> | undefined;
+    service.getPresence().subscribe(r => { result = r; });
+
+    httpMock.expectOne(`${BASE}/presence`).flush({});
+
+    expect(result).toEqual({});
+  });
+
+  it('ac08_1_9_03_getPresence propagates HTTP errors', () => {
+    let caught = false;
+    service.getPresence().subscribe({ error: () => { caught = true; } });
+    httpMock.expectOne(`${BASE}/presence`).flush('', { status: 500, statusText: 'Server Error' });
+    expect(caught).toBe(true);
+  });
+
   it('getBoards() propagates HTTP errors', () => {
     let caught = false;
     service.getBoards().subscribe({ error: () => { caught = true; } });

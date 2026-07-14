@@ -114,6 +114,9 @@
         "clear": "Effacer la recherche",
         "noResults": "Aucun résultat pour « {{term}} »",
         "resultsCount": "{{count}} résultat(s)"
+      },
+      "presence": {
+        "aria": "{{count}} participant(s) connecté(s)"
       }
     },
     "share": {
