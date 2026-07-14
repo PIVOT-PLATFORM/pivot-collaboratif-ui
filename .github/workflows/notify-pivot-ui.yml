@@ -1,0 +1,35 @@
+name: Notify pivot-ui (lib released)
+
+# @pivot-platform/collaboratif-ui has no Cloud Run service of its own — it's an npm lib
+# bundled into pivot-ui's build (see pivot-ui/package.json). Publishing a new version here
+# never reaches recette by itself: nothing forces pivot-ui to reinstall/rebuild just because
+# a dependency it ranges on (^0.x.y) got a new release. This fires a repository_dispatch at
+# pivot-ui's bump-lib.yml, which pins the exact version, verifies the build, and pushes —
+# which re-triggers pivot-ui's own deploy-dev.yml and actually ships the change.
+
+on:
+  release:
+    types: [published]
+
+permissions: read-all
+
+jobs:
+  notify:
+    name: Dispatch to pivot-ui
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Strip leading v from tag (npm rejects "vX.Y.Z" as a version specifier)
+        id: version
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+
+      - name: Fire repository_dispatch
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4.0.1
+        with:
+          token: ${{ secrets.ORCHESTRATOR_DISPATCH_TOKEN }}
+          repository: PIVOT-PLATFORM/pivot-ui
+          event-type: lib-released
+          client-payload: |
+            {"package": "@pivot-platform/collaboratif-ui", "version": "${{ steps.version.outputs.value }}"}
