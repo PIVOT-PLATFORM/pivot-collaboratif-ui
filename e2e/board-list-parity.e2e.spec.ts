@@ -193,7 +193,7 @@ test.describe('US08.2.4 — Board settings modal (OWNER)', () => {
     // contract holds rather than trying to flip one.
     await expect(dialog.getByRole('switch').first()).toBeDisabled();
 
-    await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+    await dialog.getByRole('button', { name: 'Enregistrer', exact: true }).click();
 
     // Save closes the modal (component emits `saved` → board-page closes it) and the change
     // persisted server-side.
@@ -210,7 +210,9 @@ test.describe('US08.2.4 — Board settings modal (OWNER)', () => {
     const dialog = page.getByRole('dialog', { name: `Paramètres de « ${title} »` });
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole('button', { name: `Réinitialiser « ${title} »` }).click();
+    await dialog
+      .getByRole('button', { name: `Réinitialiser le tableau ${title} — supprime tout le contenu du canvas` })
+      .click();
 
     // Confirmation UI appears before any destructive call is made (AC: "une confirmation est
     // demandée") — canvas-clearing itself is covered by backend TI, not asserted here.
