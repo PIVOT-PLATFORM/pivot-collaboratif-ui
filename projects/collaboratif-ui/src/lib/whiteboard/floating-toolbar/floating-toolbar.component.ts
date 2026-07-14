@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
-import type { ToolMode } from '../model/tools';
+import { SHAPE_TOOLS, type ToolMode } from '../model/tools';
 import { BASE_COLORS } from '../model/colors';
 
 interface ToolButton {
@@ -42,8 +42,14 @@ const TOOLS: readonly ToolButton[] = [
 export class FloatingToolbarComponent {
   /** Currently active tool. */
   readonly tool = input<ToolMode>('select');
-  /** Currently selected drawing colour. */
+  /** Currently selected drawing colour (stroke colour for SHAPE tools). */
   readonly color = input<string>('#A5B4FC');
+  /**
+   * Currently selected fill colour for a SHAPE tool, or `null` for no fill (transparent) —
+   * US08.6.3, second colour picker distinct from the stroke {@link color}. Ignored for every
+   * non-SHAPE tool.
+   */
+  readonly fillColor = input<string | null>(null);
   /** Whether the palette is disabled (read-only board). */
   readonly disabled = input<boolean>(false);
 
@@ -51,9 +57,14 @@ export class FloatingToolbarComponent {
   readonly toolChange = output<ToolMode>();
   /** Emits when the user picks a colour. */
   readonly colorChange = output<string>();
+  /** Emits when the user picks a fill colour, or `null` for "no fill". */
+  readonly fillColorChange = output<string | null>();
 
   protected readonly tools = TOOLS;
   protected readonly palette = BASE_COLORS;
+
+  /** Whether the active tool places a SHAPE card — gates the fill colour picker's visibility. */
+  protected readonly isShapeTool = computed(() => !!SHAPE_TOOLS[this.tool()]);
 
   protected pick(mode: ToolMode): void {
     if (!this.disabled()) {
