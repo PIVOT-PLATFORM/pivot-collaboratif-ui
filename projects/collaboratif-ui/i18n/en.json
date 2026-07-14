@@ -326,6 +326,10 @@
       "image": {
         "insertButton": "Insert an image",
         "uploadInput": "Choose an image file"
+      },
+      "table": {
+        "aria": "Table",
+        "editCell": "Edit cell"
       }
     },
     "frame": {
