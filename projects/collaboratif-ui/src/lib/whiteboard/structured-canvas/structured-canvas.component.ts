@@ -28,6 +28,7 @@ import {
 } from '../model/image-card';
 import { serializeShape, type ShapeKind } from '../model/shape';
 import { serializeTable } from '../model/table';
+import { decideTablePaste } from '../model/table-clipboard';
 import type { ToolMode } from '../model/tools';
 import { SHAPE_TOOLS } from '../model/tools';
 import {
@@ -434,6 +435,94 @@ export class StructuredCanvasComponent {
     this.toolConsumed.emit();
   }
 
+  // ── Spreadsheet clipboard paste (US08.6.6, parity spec §4.8 ranks 1 & 4) ─────────────────
+  /**
+   * Resolves and applies a paste event against the TABLE priority order documented in
+   * `table-clipboard.ts`: fills a focused/selected TABLE card's grid, creates a new
+   * dimensioned TABLE card, falls back to a trimmed TEXT card for non-tabular plain text, or
+   * no-ops (letting the browser's native paste proceed) while any other editable field has
+   * focus.
+   */
+  @HostListener('document:paste', ['$event'])
+  protected onPaste(event: ClipboardEvent): void {
+    if (this.store.isReadonly()) {
+      return;
+    }
+    const clipboardData = event.clipboardData;
+    if (!clipboardData) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    const tableCellEl = target?.closest<HTMLElement>('[data-wb-table-cell]') ?? null;
+    const focusedTableCardId = tableCellEl?.closest<HTMLElement>('[data-card-id]')?.getAttribute('data-card-id') ?? null;
+
+    const action = decideTablePaste({
+      html: clipboardData.getData('text/html'),
+      text: clipboardData.getData('text/plain'),
+      focusedTableCardId,
+      singleSelectedTableCardId: this.singleSelectedTableCardId(),
+      isEditableFieldFocus: isEditableTarget(target),
+    });
+
+    if (action.kind === 'none') {
+      return;
+    }
+    event.preventDefault();
+
+    if (action.kind === 'fill') {
+      // Rank 1 may fire while that very cell is mid-edit locally (its own inline `<input>`
+      // still holds a stale, uncommitted value) — force-flush it first so our authoritative
+      // fill is applied last and wins (board-card commits on blur).
+      tableCellEl?.blur();
+      this.store.updateCard(action.cardId, serializeTable(action.rows));
+      return;
+    }
+
+    const center = this.pasteTargetCenter();
+    if (action.kind === 'create') {
+      this.store.addCard(
+        center.x - action.width / 2,
+        center.y - action.height / 2,
+        'TABLE',
+        serializeTable(action.rows),
+        '#FFFFFF',
+        action.width,
+        action.height,
+      );
+      return;
+    }
+    // action.kind === 'fallback-text' — plain-text-paste-creates-a-TEXT-card is US08.6.1's
+    // territory; implemented minimally here only because US08.6.6's own AC7 (error case)
+    // requires this exact fallback so a non-tabular paste is provably *not* mistaken for a
+    // table, and no other paste handler exists yet on `main` to own the general case.
+    this.store.addCard(
+      center.x - DEFAULT_CARD_W / 2,
+      center.y - DEFAULT_CARD_H / 2,
+      'TEXT',
+      action.text,
+      DEFAULT_CARD_COLOR,
+      DEFAULT_CARD_W,
+      DEFAULT_CARD_H,
+    );
+  }
+
+  /** Id of the single selected TABLE card, or `null` when 0 or >1 cards are selected. */
+  private singleSelectedTableCardId(): string | null {
+    const ids = Array.from(this.store.selectedIds());
+    if (ids.length !== 1) {
+      return null;
+    }
+    const card = this.store.cards().find((c) => c.id === ids[0]);
+    return card?.type === 'TABLE' ? card.id : null;
+  }
+
+  /** Canvas coordinates of the visible surface's centre — where a pasted-and-created card
+   *  is placed, mirroring how other placement tools centre a new card on the click point. */
+  private pasteTargetCenter(): { x: number; y: number } {
+    const rect = this.surface().nativeElement.getBoundingClientRect();
+    return screenToCanvas(rect.width / 2, rect.height / 2, this.viewport());
+  }
+
   // ── Card creation ─────────────────────────────────────────────────────────
   private placementKind(tool: ToolMode): 'sticky' | 'text' | 'table' | 'shape' | null {
     if (tool === 'sticky' || tool === 'text' || tool === 'table') {
@@ -588,4 +677,13 @@ export class StructuredCanvasComponent {
   protected onConnectionSelect(id: string): void {
     this.store.selectCards(new Set([id]));
   }
+}
+
+/** Whether `el` is a native editable field (input/textarea/contenteditable) — the generic
+ *  "focus is in an editable field" guard shared by paste handling (§4.8 rank 2). */
+function isEditableTarget(el: Element | null): boolean {
+  if (!el) {
+    return false;
+  }
+  return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable;
 }
