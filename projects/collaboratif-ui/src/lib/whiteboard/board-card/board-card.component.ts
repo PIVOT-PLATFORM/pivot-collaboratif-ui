@@ -20,10 +20,20 @@ import {
   formatFieldValue,
   TEXT_DEFAULT_COLOR,
 } from '../model/card-format';
-import { parseShape } from '../model/shape';
+import { parseShape, type ShapeKind } from '../model/shape';
 import { parseTableContent } from '../model/table';
 import { headerTint, accessibleTextColorFor } from '../model/colors';
 import { linkDisplayLabel, safeLinkHref, safeLinkImage } from '../model/link-preview';
+
+/** i18n key per {@link ShapeKind}, feeding the SHAPE `aria-label` (US08.6.3 A11y AC). */
+const SHAPE_KIND_KEYS: Record<ShapeKind, string> = {
+  rect: 'whiteboard.card.shape.kind.rect',
+  circle: 'whiteboard.card.shape.kind.circle',
+  diamond: 'whiteboard.card.shape.kind.diamond',
+  triangle: 'whiteboard.card.shape.kind.triangle',
+  line: 'whiteboard.card.shape.kind.line',
+  star: 'whiteboard.card.shape.kind.star',
+};
 
 /** 8 resize-handle directions (canvas delegates pointer events by `data-resize-dir`). */
 const RESIZE_DIRS = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'] as const;
@@ -138,6 +148,19 @@ export class BoardCardComponent {
       return this.transloco.translate('whiteboard.card.label.ariaLabel');
     }
     return null;
+  });
+
+  /**
+   * `aria-label` describing a SHAPE card's nature (e.g. "Forme : rectangle") — US08.6.3 A11y
+   * AC. The SHAPE content encoding carries no text of its own (see `model/shape.ts`), so this
+   * label is the kind alone; `null` for every other card type (no attribute rendered).
+   */
+  protected readonly shapeAriaLabel = computed(() => {
+    if (this.card().type !== 'SHAPE') {
+      return null;
+    }
+    const kindLabel = this.transloco.translate(SHAPE_KIND_KEYS[this.shape().kind]);
+    return this.transloco.translate('whiteboard.card.shape.ariaLabel', { kind: kindLabel });
   });
 
   /** Field-value chips: (field, formatted value) pairs, in field order. */

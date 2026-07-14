@@ -290,7 +290,10 @@
       "table": "Tableau",
       "link": "Relier des cartes",
       "colorGroup": "Couleurs",
-      "pickColor": "Couleur {{color}}"
+      "pickColor": "Couleur {{color}}",
+      "fillColorGroup": "Couleur de remplissage",
+      "pickFillColor": "Remplissage {{color}}",
+      "noFill": "Aucun remplissage"
     },
     "card": {
       "editText": "Modifier le texte",
@@ -308,6 +311,17 @@
       },
       "label": {
         "ariaLabel": "Étiquette"
+      },
+      "shape": {
+        "ariaLabel": "Forme : {{kind}}",
+        "kind": {
+          "rect": "rectangle",
+          "circle": "ellipse",
+          "diamond": "diamant",
+          "triangle": "triangle",
+          "line": "ligne",
+          "star": "étoile"
+        }
       }
     },
     "frame": {

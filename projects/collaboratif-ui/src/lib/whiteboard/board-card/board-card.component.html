@@ -59,7 +59,7 @@
       }
     }
     @case ('SHAPE') {
-      <svg class="wb-card__svg" viewBox="0 0 100 100" preserveAspectRatio="none" [style.opacity]="shape().opacity" aria-hidden="true">
+      <svg class="wb-card__svg" viewBox="0 0 100 100" preserveAspectRatio="none" [style.opacity]="shape().opacity" role="img" [attr.aria-label]="shapeAriaLabel()">
         @switch (shape().kind) {
           @case ('circle') {
             <ellipse cx="50" cy="50" rx="48" ry="48" [attr.fill]="shape().fill || 'none'" [attr.stroke]="shape().stroke" stroke-width="2" vector-effect="non-scaling-stroke" />
@@ -159,7 +159,8 @@
   <!--
     Resize handles — canvas reads data-resize-dir on pointerdown. tabindex + aria-label make
     them keyboard-reachable (US08.6.1 A11y AC); hidden entirely when the card is locked
-    (gated on `!card().locked` above), also per that AC.
+    (gated on `!card().locked` above) so resize affordances aren't reachable by mouse or
+    keyboard on a locked card (US08.6.3 A11y AC).
   -->
   @for (dir of resizeDirs; track dir) {
     <span
