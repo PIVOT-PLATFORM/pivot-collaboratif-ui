@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, timeout } from 'rxjs';
 import {
   Board,
   BoardListQuery,
@@ -16,6 +16,14 @@ import { COLLABORATIF_API_URL } from './config/tokens';
 
 /** Fixed page size — aligned with backend default. */
 const PAGE_SIZE = 20;
+
+/**
+ * Bound on the initial board-list load — this call gates the first render of the
+ * whiteboard route. Without it, a slow/hung backend leaves the list stuck on its
+ * loading state until nginx's own `proxy_read_timeout` (60s) finally 504s; this fails
+ * fast well before that ceiling so the list can show its error state instead.
+ */
+const BOARD_LIST_TIMEOUT_MS = 8_000;
 
 /**
  * HTTP client for the whiteboard board resource.
@@ -41,7 +49,9 @@ export class BoardService {
     if (query.trashed) {
       params['trashed'] = 'true';
     }
-    return this.http.get<BoardPage>(`${this.apiUrl}/whiteboard/boards`, { params });
+    return this.http
+      .get<BoardPage>(`${this.apiUrl}/whiteboard/boards`, { params })
+      .pipe(timeout(BOARD_LIST_TIMEOUT_MS));
   }
 
   /**
