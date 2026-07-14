@@ -177,6 +177,7 @@ jobs:
           docker run -d --name pivot-collaboratif-core \
             --network ${{ job.services.postgres.network }} \
             -p 8083:8083 \
+            -p 9083:9083 \
             -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pivot_e2e \
             -e SPRING_DATASOURCE_USERNAME=pivot \
             -e SPRING_DATASOURCE_PASSWORD=pivot_e2e \
@@ -186,10 +187,16 @@ jobs:
             ${{ env.CORE_IMAGE }}:${{ steps.core-image.outputs.tag }}
 
       - name: Wait for pivot-collaboratif-core
+        # pivot-collaboratif-core#57 (EN04.2) moved Actuator to a separate management port
+        # (9083) — when management.server.port differs from server.port, Spring Boot does NOT
+        # apply server.servlet.context-path to Actuator endpoints, so health lives at
+        # localhost:9083/actuator/health, without the /api/collaboratif prefix (see that repo's
+        # application.yml). v0.1.x predates #57 and never surfaced this; v0.2.0 is the first
+        # released image to include it.
         run: |
           curl --retry 40 --retry-delay 3 --retry-connrefused --retry-all-errors \
             --fail --silent --show-error --output /dev/null \
-            http://localhost:8083/api/collaboratif/actuator/health
+            http://localhost:9083/actuator/health
 
       - name: Setup Node.js 24
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
