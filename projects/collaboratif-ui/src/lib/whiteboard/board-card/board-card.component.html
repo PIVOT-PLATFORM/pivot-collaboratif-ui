@@ -20,7 +20,7 @@
           (input)="editValue.set($any($event.target).value)"
           (blur)="commitEdit()"
           (keydown)="onEditKeydown($event)"
-          [attr.aria-label]="'whiteboard.card.editText' | transloco"
+          [attr.aria-label]="'whiteboard.card.text.contentAriaLabel' | transloco"
           maxlength="2000"
         ></textarea>
       } @else {
@@ -30,7 +30,7 @@
           [style.fontWeight]="textFmt().bold ? '700' : '400'"
           [style.fontStyle]="textFmt().italic ? 'italic' : 'normal'"
           [style.textAlign]="textFmt().align"
-          [style.color]="textFmt().color"
+          [style.color]="displayTextColor()"
           [style.textDecoration]="(textFmt().underline ? 'underline ' : '') + (textFmt().strike ? 'line-through' : '')"
         >{{ textFmt().text }}</div>
       }
@@ -155,10 +155,20 @@
   <span class="wb-card__remote-editor">{{ 'whiteboard.card.editing' | transloco: { name: remoteEditorName() } }}</span>
 }
 
-@if (selected() && !readOnly() && !editing()) {
-  <!-- Resize handles — canvas reads data-resize-dir on pointerdown. -->
+@if (selected() && !readOnly() && !editing() && !card().locked) {
+  <!--
+    Resize handles — canvas reads data-resize-dir on pointerdown. tabindex + aria-label make
+    them keyboard-reachable (US08.6.1 A11y AC); hidden entirely when the card is locked
+    (gated on `!card().locked` above), also per that AC.
+  -->
   @for (dir of resizeDirs; track dir) {
-    <span class="wb-card__resize wb-card__resize--{{ dir }}" [attr.data-resize-dir]="dir" [attr.data-card-id]="card().id"></span>
+    <span
+      class="wb-card__resize wb-card__resize--{{ dir }}"
+      [attr.data-resize-dir]="dir"
+      [attr.data-card-id]="card().id"
+      tabindex="0"
+      [attr.aria-label]="'whiteboard.card.resizeHandle' | transloco"
+    ></span>
   }
   <!-- Connect handles (N/E/S/W) — canvas reads data-connect on pointerdown. -->
   <span class="wb-card__connect wb-card__connect--n" data-connect="N" [attr.data-card-id]="card().id" [attr.aria-label]="'whiteboard.card.connect' | transloco"></span>

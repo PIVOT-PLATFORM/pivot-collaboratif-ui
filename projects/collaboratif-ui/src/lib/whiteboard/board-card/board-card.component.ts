@@ -12,10 +12,17 @@ import {
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import type { BoardField, Card } from '../model/board.types';
-import { parseTextFmt, parseLabelFmt, serializeTextFmt, serializeLabelFmt, formatFieldValue } from '../model/card-format';
+import {
+  parseTextFmt,
+  parseLabelFmt,
+  serializeTextFmt,
+  serializeLabelFmt,
+  formatFieldValue,
+  TEXT_DEFAULT_COLOR,
+} from '../model/card-format';
 import { parseShape } from '../model/shape';
 import { parseTableContent } from '../model/table';
-import { headerTint } from '../model/colors';
+import { headerTint, accessibleTextColorFor } from '../model/colors';
 import { linkDisplayLabel, safeLinkHref, safeLinkImage } from '../model/link-preview';
 
 /** 8 resize-handle directions (canvas delegates pointer events by `data-resize-dir`). */
@@ -48,6 +55,10 @@ const RESIZE_DIRS = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'] as const;
     '[class.wb-card--selected]': 'selected()',
     '[class.wb-card--locked]': 'card().locked',
     '[attr.data-card-id]': 'card().id',
+    // A11y (US08.6.1): the card itself is a keyboard-focusable element — Enter/F2 while it
+    // has focus opens inline edit for TEXT/LABEL cards, mirroring the existing dblclick path.
+    '[attr.tabindex]': '"0"',
+    '(keydown)': 'onHostKeydown($event)',
   },
 })
 export class BoardCardComponent {
@@ -84,6 +95,17 @@ export class BoardCardComponent {
   protected readonly shape = computed(() => parseShape(this.card().content));
   protected readonly table = computed(() => parseTableContent(this.card().content));
   protected readonly headerColor = computed(() => headerTint(this.card().color));
+  /**
+   * Ink colour actually rendered for a TEXT card's (non-editing) text. Only the *default*,
+   * unstyled ink ({@link TEXT_DEFAULT_COLOR}) is ever adjusted — and only when it would
+   * otherwise fail WCAG 2.1 AA contrast against the card's background colour (US08.6.1 A11y
+   * AC: ratio ≥ 4.5:1, regardless of which background swatch was picked); a colour a user
+   * explicitly chose via rich-text formatting is always left untouched.
+   */
+  protected readonly displayTextColor = computed(() => {
+    const color = this.textFmt().color;
+    return color === TEXT_DEFAULT_COLOR ? accessibleTextColorFor(this.card().color, TEXT_DEFAULT_COLOR) : color;
+  });
 
   /**
    * Render-safe `href` for a LINK card — `null` (an inert, non-navigating link) if the card's
@@ -178,6 +200,23 @@ export class BoardCardComponent {
       this.startEdit();
     } else {
       this.openDetail.emit(this.card().id);
+    }
+  }
+
+  /**
+   * Opens inline edit on Enter/F2 while the card host itself has keyboard focus (US08.6.1
+   * A11y AC) — the keyboard-equivalent of {@link onDoubleClick}'s dblclick-to-edit for
+   * TEXT/LABEL cards. Ignored when the keydown bubbled up from a descendant (e.g. a resize
+   * handle) rather than originating on the host, and while already editing (the textarea's
+   * own {@link onEditKeydown} owns Enter at that point).
+   */
+  protected onHostKeydown(event: KeyboardEvent): void {
+    if (event.target !== this.host.nativeElement) {
+      return;
+    }
+    if ((event.key === 'Enter' || event.key === 'F2') && this.isTextual() && !this.editing()) {
+      event.preventDefault();
+      this.startEdit();
     }
   }
 }
