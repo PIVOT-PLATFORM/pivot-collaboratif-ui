@@ -85,6 +85,61 @@ export function headerTint(hex: string): string {
   return rgbToHex(r * 0.95, g * 0.95, b * 0.95);
 }
 
+function srgbToLinear(channel: number): number {
+  const v = channel / 255;
+  return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+
+/** WCAG relative luminance of a hex colour (0 = black, 1 = white). */
+export function relativeLuminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex);
+  return 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b);
+}
+
+/** WCAG contrast ratio between two hex colours (1:1 to 21:1). */
+export function contrastRatio(hexA: string, hexB: string): number {
+  const lA = relativeLuminance(hexA);
+  const lB = relativeLuminance(hexB);
+  const lighter = Math.max(lA, lB);
+  const darker = Math.min(lA, lB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Picks black or white ink — whichever yields the higher WCAG contrast ratio against
+ * `backgroundHex` — so a sticky note's text/background contrast never depends on which
+ * background swatch a user happens to pick (US08.6.1 A11y AC: ratio ≥ 4.5:1, WCAG 2.1 AA,
+ * regardless of the chosen background colour).
+ */
+export function accessibleInkColor(backgroundHex: string): string {
+  if (!isHexColor(backgroundHex)) {
+    return DEFAULT_LABEL_COLOR;
+  }
+  const white = '#FFFFFF';
+  return contrastRatio(backgroundHex, DEFAULT_LABEL_COLOR) >= contrastRatio(backgroundHex, white)
+    ? DEFAULT_LABEL_COLOR
+    : white;
+}
+
+/** Minimum WCAG 2.1 AA contrast ratio for normal-size text (US08.6.1 A11y AC). */
+export const WCAG_AA_TEXT_CONTRAST_RATIO = 4.5;
+
+/**
+ * Keeps `preferredHex` (typically a card type's *default*, unstyled ink colour) as long as it
+ * meets {@link WCAG_AA_TEXT_CONTRAST_RATIO} against `backgroundHex`; falls back to
+ * {@link accessibleInkColor} only when it does not (e.g. the default dark-gray TEXT ink against
+ * a near-black background swatch). A colour a user explicitly customised away from the default
+ * is never passed through this function — see call sites.
+ */
+export function accessibleTextColorFor(backgroundHex: string, preferredHex: string): string {
+  if (!isHexColor(backgroundHex) || !isHexColor(preferredHex)) {
+    return preferredHex;
+  }
+  return contrastRatio(backgroundHex, preferredHex) >= WCAG_AA_TEXT_CONTRAST_RATIO
+    ? preferredHex
+    : accessibleInkColor(backgroundHex);
+}
+
 /** Deterministic group ring colour derived from the group id. */
 export function groupColor(groupId: string): string {
   let hash = 0;

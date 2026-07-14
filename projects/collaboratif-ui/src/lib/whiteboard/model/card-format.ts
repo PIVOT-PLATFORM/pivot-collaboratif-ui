@@ -67,6 +67,15 @@ export interface TextFmt {
   align: TextAlign;
 }
 
+/**
+ * The default TEXT card ink colour before any explicit style is applied — exported so callers
+ * can detect "still on the default" and swap in a background-aware accessible colour instead
+ * (US08.6.1 A11y AC: text/background contrast ≥ 4.5:1 regardless of the chosen background,
+ * see {@link import('./colors').accessibleInkColor}). A user who explicitly picked a custom
+ * text colour is left alone — this only patches the unstyled/default case.
+ */
+export const TEXT_DEFAULT_COLOR = '#1f2937';
+
 const TEXT_DEFAULTS: TextFmt = {
   text: '',
   size: 14,
@@ -74,7 +83,7 @@ const TEXT_DEFAULTS: TextFmt = {
   italic: false,
   underline: false,
   strike: false,
-  color: '#1f2937',
+  color: TEXT_DEFAULT_COLOR,
   align: 'left',
 };
 
