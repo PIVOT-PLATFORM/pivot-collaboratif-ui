@@ -8,6 +8,7 @@ import {
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -67,6 +68,10 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly boardId = this.route.snapshot.paramMap.get('boardId') ?? '';
+
+  /** The canvas instance — relays the toolbar's explicit image-upload selection to it
+   *  (US08.6.4), since insertion logic (dimensioning, positioning) lives on the canvas. */
+  private readonly canvas = viewChild(StructuredCanvasComponent);
 
   protected readonly tool = signal<ToolMode>('select');
   protected readonly color = signal<string>(DEFAULT_SHAPE_COLOR);
@@ -178,6 +183,11 @@ export class BoardPageComponent implements OnInit, OnDestroy {
 
   protected onToolConsumed(): void {
     this.tool.set('select');
+  }
+
+  /** Relays the toolbar's explicit image-upload selection to the canvas (US08.6.4). */
+  protected onInsertImage(file: File): void {
+    void this.canvas()?.insertImageFile(file);
   }
 
   /**

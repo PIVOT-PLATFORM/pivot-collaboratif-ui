@@ -60,6 +60,20 @@
   }
 }
 
+// Visually hidden but present/labelled in the DOM (US08.6.4 A11y AC) — opened programmatically
+// via the "insert image" button rather than shown directly.
+.wb-toolbar__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .wb-toolbar__swatch {
   width: 18px;
   height: 18px;

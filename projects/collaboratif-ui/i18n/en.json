@@ -322,6 +322,10 @@
           "line": "line",
           "star": "star"
         }
+      },
+      "image": {
+        "insertButton": "Insert an image",
+        "uploadInput": "Choose an image file"
       }
     },
     "frame": {
