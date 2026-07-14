@@ -196,9 +196,13 @@ test.describe('US08.2.4 — Board settings modal (OWNER)', () => {
     await dialog.getByRole('button', { name: 'Enregistrer', exact: true }).click();
 
     // Save closes the modal (component emits `saved` → board-page closes it) and the change
-    // persisted server-side.
+    // persisted server-side — reload the canvas page itself first (its title comes from a
+    // fresh GET, proving persistence, not just optimistic client state) then confirm the list
+    // (a different endpoint/mapping) reflects it too.
     await expect(dialog).toBeHidden();
     await page.reload();
+    await expect(page.getByRole('heading', { name: newTitle, level: 1 })).toBeVisible();
+    await page.goto('/whiteboard');
     await expect(activeCard(page, newTitle)).toBeVisible();
   });
 
