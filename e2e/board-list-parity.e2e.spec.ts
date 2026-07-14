@@ -82,7 +82,7 @@ test.describe('US08.1.7 — Trash (soft-delete) + restore', () => {
     await expect(card).toBeVisible();
 
     // Open the card's menu and soft-delete it.
-    await card.getByRole('button', { name: `Menu du tableau ${title}` }).click();
+    await card.getByRole('button', { name: `Actions pour ${title}` }).click();
     await page.getByRole('menuitem', { name: 'Supprimer' }).click();
     await expect(page.getByRole('heading', { name: `Supprimer « ${title} » ?` })).toBeVisible();
     await page.getByRole('button', { name: 'Supprimer' }).click();
@@ -113,7 +113,7 @@ test.describe('US08.1.7 — Trash (soft-delete) + restore', () => {
 
     await page.goto('/whiteboard');
     const card = activeCard(page, title);
-    await card.getByRole('button', { name: `Menu du tableau ${title}` }).click();
+    await card.getByRole('button', { name: `Actions pour ${title}` }).click();
     await page.getByRole('menuitem', { name: 'Supprimer' }).click();
     await page.getByRole('button', { name: 'Supprimer' }).click();
     await expect(activeCard(page, title)).toHaveCount(0);

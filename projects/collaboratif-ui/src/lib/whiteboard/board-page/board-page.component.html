@@ -33,7 +33,7 @@
       <button type="button" class="wb-page__btn" (click)="showShare.set(true)"
         [attr.aria-label]="'whiteboard.share.panel.title' | transloco">{{ 'whiteboard.share.panel.title' | transloco }}</button>
 
-      @if (isOwner()) {
+      @if (isOwner() && store.board()) {
         <button type="button" class="wb-page__btn" (click)="openSettings($event)"
           [attr.aria-label]="'whiteboard.board.settings.open' | transloco">{{ 'whiteboard.board.settings.open' | transloco }}</button>
       }
