@@ -301,6 +301,10 @@
       "connect": "Connect from this card",
       "link": {
         "previewAlt": "Link preview"
+      },
+      "resizeHandle": "Resize card",
+      "text": {
+        "contentAriaLabel": "Sticky note content"
       }
     },
     "frame": {
