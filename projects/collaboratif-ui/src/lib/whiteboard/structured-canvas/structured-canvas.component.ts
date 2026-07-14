@@ -18,6 +18,14 @@ import { ConnectionLineComponent } from '../connection-line/connection-line.comp
 import type { Card, Connection } from '../model/board.types';
 import { DEFAULT_CARD_COLOR, DEFAULT_SHAPE_COLOR } from '../model/colors';
 import { isUrlOnlyPaste } from '../model/link-preview';
+import {
+  computeImageCardSize,
+  isEditableTarget,
+  isImageClipboardItem,
+  loadNaturalSize,
+  looksLikeImageFilename,
+  readAsDataUrl,
+} from '../model/image-card';
 import { serializeShape, type ShapeKind } from '../model/shape';
 import { serializeTable } from '../model/table';
 import type { ToolMode } from '../model/tools';
@@ -125,6 +133,9 @@ export class StructuredCanvasComponent {
 
   private gesture: Gesture = { kind: 'none' };
   private spaceHeld = false;
+  /** Last known pointer position in canvas coordinates — the "current position" (US08.6.4)
+   *  an image is inserted at on paste or explicit upload. Defaults to a sane in-view point. */
+  private lastPointerCanvas = { x: 100, y: 100 };
 
   // ── Selection helpers ─────────────────────────────────────────────────────
   protected isSelected(id: string): boolean {
@@ -150,45 +161,6 @@ export class StructuredCanvasComponent {
     if (event.code === 'Space') {
       this.spaceHeld = false;
     }
-  }
-
-  // ── URL paste -> LINK card (US08.6.5) ─────────────────────────────────────
-  /**
-   * Creates a LINK card when the clipboard's pasted text is a URL and nothing else (parity
-   * spec §1.5/§3.4). Skipped while focus is in an editable control (an input/textarea, or a
-   * card's own inline text editor) so pasting into an existing field is never hijacked into
-   * spawning a new card — only a paste "onto the canvas" (no editable control focused)
-   * triggers this.
-   */
-  @HostListener('document:paste', ['$event'])
-  protected onPaste(event: ClipboardEvent): void {
-    if (this.store.isReadonly() || this.isEditableElementFocused()) {
-      return;
-    }
-    const text = event.clipboardData?.getData('text/plain') ?? '';
-    if (!isUrlOnlyPaste(text)) {
-      return;
-    }
-    event.preventDefault();
-    const rect = this.surface().nativeElement.getBoundingClientRect();
-    const center = this.toCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    this.store.addCard(
-      center.x - LINK_CARD_W / 2,
-      center.y - LINK_CARD_H / 2,
-      'LINK',
-      text.trim(),
-      DEFAULT_CARD_COLOR,
-      LINK_CARD_W,
-      LINK_CARD_H,
-    );
-  }
-
-  private isEditableElementFocused(): boolean {
-    const active = document.activeElement as HTMLElement | null;
-    if (!active) {
-      return false;
-    }
-    return active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable;
   }
 
   // ── Wheel zoom / pan ──────────────────────────────────────────────────────
@@ -310,6 +282,7 @@ export class StructuredCanvasComponent {
 
   protected onPointerMove(event: PointerEvent): void {
     const pt = this.toCanvas(event.clientX, event.clientY);
+    this.lastPointerCanvas = pt;
     this.store.emitCursor(pt.x, pt.y);
     const g = this.gesture;
     switch (g.kind) {
@@ -492,6 +465,104 @@ export class StructuredCanvasComponent {
       const content = serializeShape({ kind: shapeKind, stroke: this.color(), fill: this.fillColor(), opacity: 1, rotation: 0 });
       this.store.addCard(px, py, 'SHAPE', content, this.color(), 120, 120);
     }
+  }
+
+  // ── Image insertion (US08.6.4: clipboard paste + explicit upload) ──────────
+
+  /**
+   * Explicit-upload entry point (floating-toolbar "insert image" button, via the container).
+   * Inserts the file as an `IMAGE` card at the last known pointer position, with the same
+   * dimensioning as a clipboard paste.
+   */
+  async insertImageFile(file: File): Promise<void> {
+    if (this.store.isReadonly()) {
+      return;
+    }
+    await this.createImageCardFromFile(file, this.lastPointerCanvas.x, this.lastPointerCanvas.y);
+  }
+
+  /**
+   * Native OS clipboard paste — creates a card from pasted content when focus is on the
+   * canvas, not an editable control (an input/textarea/contentEditable, or a card's own
+   * inline text editor — case 2 of parity spec §4.8; case 1, a focused TABLE cell, does not
+   * yet exist as an editable target in this Socle, so it never reaches this handler either
+   * way), so pasting into an existing field is never hijacked into spawning a new card:
+   * - a pasted file whose declared MIME type is `image/*`, or (repli) whose filename matches
+   *   the recognised image extensions → a dimensioned `IMAGE` card (US08.6.4, case 3);
+   * - text that is a URL and nothing else → a `LINK` card (US08.6.5, parity spec §1.5/§3.4);
+   * - any other pasted text → the Error-case fallback for US08.6.4: non-tabular plain text
+   *   becomes a `TEXT` card. HTML/TSV table detection (case 4, US08.6.6) is intentionally not
+   *   implemented here.
+   */
+  @HostListener('document:paste', ['$event'])
+  protected async onPaste(event: ClipboardEvent): Promise<void> {
+    if (isEditableTarget(document.activeElement) || this.store.isReadonly()) {
+      return;
+    }
+    const clipboardData = event.clipboardData;
+    if (!clipboardData) {
+      return;
+    }
+    const file = this.resolvePastedImageFile(clipboardData);
+    if (file) {
+      event.preventDefault();
+      await this.createImageCardFromFile(file, this.lastPointerCanvas.x, this.lastPointerCanvas.y);
+      return;
+    }
+    const text = clipboardData.getData('text/plain')?.trim();
+    if (!text) {
+      return;
+    }
+    event.preventDefault();
+    if (isUrlOnlyPaste(text)) {
+      const rect = this.surface().nativeElement.getBoundingClientRect();
+      const center = this.toCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      this.store.addCard(
+        center.x - LINK_CARD_W / 2,
+        center.y - LINK_CARD_H / 2,
+        'LINK',
+        text,
+        DEFAULT_CARD_COLOR,
+        LINK_CARD_W,
+        LINK_CARD_H,
+      );
+      return;
+    }
+    const px = this.lastPointerCanvas.x - DEFAULT_CARD_W / 2;
+    const py = this.lastPointerCanvas.y - DEFAULT_CARD_H / 2;
+    this.store.addCard(px, py, 'TEXT', text, DEFAULT_CARD_COLOR, DEFAULT_CARD_W, DEFAULT_CARD_H);
+  }
+
+  /** Resolves a pasted file as an image: declared MIME type first, filename extension repli. */
+  private resolvePastedImageFile(clipboardData: DataTransfer): File | null {
+    const items = Array.from(clipboardData.items);
+    const byMime = items.find((item) => isImageClipboardItem(item));
+    if (byMime) {
+      return byMime.getAsFile();
+    }
+    const anyFile = items.find((item) => item.kind === 'file');
+    const candidate = anyFile?.getAsFile() ?? null;
+    return candidate && looksLikeImageFilename(candidate.name) ? candidate : null;
+  }
+
+  /** Reads, dimensions (parity spec §7: `min(700/w, 600/h, 1)`) and creates an `IMAGE` card
+   *  centred on `(x, y)`. Silently does nothing if the file cannot be decoded as an image. */
+  private async createImageCardFromFile(file: File, x: number, y: number): Promise<void> {
+    let dataUrl: string;
+    try {
+      dataUrl = await readAsDataUrl(file);
+    } catch {
+      return;
+    }
+    let naturalW: number;
+    let naturalH: number;
+    try {
+      ({ naturalW, naturalH } = await loadNaturalSize(dataUrl));
+    } catch {
+      return;
+    }
+    const { width, height } = computeImageCardSize(naturalW, naturalH);
+    this.store.addCard(x - width / 2, y - height / 2, 'IMAGE', dataUrl, undefined, width, height);
   }
 
   // ── Small geometry ───────────────────────────────────────────────────────
