@@ -473,8 +473,14 @@ export class StructuredCanvasComponent {
   private createCard(kind: 'sticky' | 'text' | 'table' | 'shape', x: number, y: number): void {
     const px = x - DEFAULT_CARD_W / 2;
     const py = y - DEFAULT_CARD_H / 2;
-    if (kind === 'sticky' || kind === 'text') {
+    if (kind === 'sticky') {
       this.store.addCard(px, py, 'TEXT', '', DEFAULT_CARD_COLOR, DEFAULT_CARD_W, DEFAULT_CARD_H);
+    } else if (kind === 'text') {
+      // 'text' is the LABEL placement tool (US08.6.2) — a compact, persistent text label
+      // distinct from the 'sticky' post-it (TEXT). Server-side defaults are unchanged
+      // (192×128, #FFEB3B, EN08.4); only the client renders it without a post-it background
+      // (see BoardCardComponent's `type === 'LABEL'` case).
+      this.store.addCard(px, py, 'LABEL', '', DEFAULT_CARD_COLOR, DEFAULT_CARD_W, DEFAULT_CARD_H);
     } else if (kind === 'table') {
       this.store.addCard(px, py, 'TABLE', serializeTable([['', '', ''], ['', '', ''], ['', '', '']]), '#FFFFFF', 240, 140);
     } else {
