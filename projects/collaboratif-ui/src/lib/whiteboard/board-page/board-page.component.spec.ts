@@ -131,8 +131,8 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
   /** Flushes the four read-only GETs that `BoardStore.init()` fires from `ngOnInit()`. */
   async function flushInitRequests(): Promise<void> {
     httpMock.expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1`).flush({
-      id: 'board-1', name: 'Mon tableau', description: null, coverImage: null,
-      maxParticipants: null, enabledActivities: [], templateDraftOf: null, cards: [], role: 'OWNER',
+      id: 'board-1', title: 'Mon tableau', description: null, coverImage: null,
+      maxParticipants: null, enabledActivities: [], role: 'OWNER',
     });
     httpMock.expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/members`).flush([]);
     httpMock.expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/vote/current`)

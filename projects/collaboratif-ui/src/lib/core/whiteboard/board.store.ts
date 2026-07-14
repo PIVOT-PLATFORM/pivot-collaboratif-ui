@@ -135,11 +135,30 @@ export class BoardStore {
 
   private async loadBoard(): Promise<void> {
     try {
+      // GET /whiteboard/boards/{id} returns the backend's BoardResponse shape (`title`, not
+      // `name`; no `cards` — those arrive separately over the WS `board:state` reply) — mapped
+      // here into this store's BoardDetail shape rather than typed/read as one directly.
       const data = await firstValueFrom(
-        this.http.get<BoardDetail & { role?: BoardRole }>(`${this.apiUrl}/whiteboard/boards/${this.boardId}`),
+        this.http.get<{
+          id: string;
+          title: string;
+          role?: BoardRole;
+          description: string | null;
+          coverImage: string | null;
+          maxParticipants: number | null;
+          enabledActivities: string[];
+        }>(`${this.apiUrl}/whiteboard/boards/${this.boardId}`),
       );
-      this.board.set(data);
-      this.cards.set((data.cards ?? []).map((c) => ({ ...c, fieldValues: c.fieldValues ?? [] })));
+      this.board.set({
+        id: data.id,
+        name: data.title,
+        description: data.description,
+        coverImage: data.coverImage,
+        maxParticipants: data.maxParticipants,
+        enabledActivities: data.enabledActivities,
+        templateDraftOf: null,
+        cards: this.cards(),
+      });
       if (data.role) {
         this.userRole.set(data.role);
       }
