@@ -24,6 +24,8 @@ github:
       trustGithubOfficialActions: true
       trustSameOrgActions: true
       trustedGithubActions:
+        # notify-pivot-ui.yml — dispatch vers pivot-ui à chaque release (cf. pivot-ui#196)
+        - peter-evans/repository-dispatch
         - aquasecurity/trivy-action
         - ossf/scorecard-action
         - gitleaks/gitleaks-action
