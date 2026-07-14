@@ -1,3 +1,16 @@
+# [0.4.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.3.0...v0.4.0) (2026-07-14)
+
+
+### Bug Fixes
+
+* **ci:** corrige le health-check E2E vers le port de management Actuator ([#98](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/98)) ([8c0e870](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/8c0e87069ed6b74a29ff05283526bfd912f1a977))
+* **ci:** créer la GitHub Release après provenance-container, pas avant ([#91](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/91)) ([62e6d37](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/62e6d37f80c8d4ae71f856f30192f32b3380fb5d))
+
+
+### Features
+
+* **whiteboard:** parité visible — favoris, corbeille, recherche, paramètres board (US08.1.6/7/8, US08.2.4) ([#95](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/95)) ([e589aaa](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/e589aaa96efe4c9bf64f8386a05e491b7f3e378d))
+
 # [0.3.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.2.0...v0.3.0) (2026-07-13)
 
 
