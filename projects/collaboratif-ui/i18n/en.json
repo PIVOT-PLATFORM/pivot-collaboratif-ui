@@ -279,7 +279,7 @@
       "select": "Select",
       "pan": "Pan",
       "sticky": "Sticky note",
-      "text": "Text",
+      "text": "Label",
       "rect": "Rectangle",
       "circle": "Circle",
       "diamond": "Diamond",
@@ -305,6 +305,9 @@
       "resizeHandle": "Resize card",
       "text": {
         "contentAriaLabel": "Sticky note content"
+      },
+      "label": {
+        "ariaLabel": "Label"
       }
     },
     "frame": {
