@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BoardPageComponent } from './board-page.component';
@@ -91,6 +91,7 @@ describe('BoardPageComponent — activities panel wiring', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideRouter([]),
         { provide: COLLABORATIF_API_URL, useValue: 'http://localhost:8083/api/collaboratif' },
         {
           provide: ActivatedRoute,
@@ -121,6 +122,10 @@ describe('BoardPageComponent — activities panel wiring', () => {
 
 describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => {
   let httpMock: HttpTestingController;
+  /** Fake `Router` provider (not `provideRouter()`+`vi.spyOn`) — avoids monkey-patching the
+   *  real `Router` class prototype, which is shared across test files within a worker and
+   *  previously leaked into unrelated specs (whiteboard-sync.service.spec.ts's RxStomp mocks). */
+  let navigateSpy: ReturnType<typeof vi.fn>;
 
   function create() {
     const fixture = TestBed.createComponent(BoardPageComponent);
@@ -147,6 +152,7 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
   }
 
   beforeEach(() => {
+    navigateSpy = vi.fn().mockResolvedValue(true);
     TestBed.configureTestingModule({
       imports: [
         BoardPageComponent,
@@ -159,6 +165,7 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: Router, useValue: { navigateByUrl: navigateSpy } },
         { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
         {
           provide: ActivatedRoute,
@@ -174,6 +181,7 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
   afterEach(() => {
     httpMock.verify();
     TestBed.resetTestingModule();
+    vi.restoreAllMocks();
   });
 
   // ── AC08.2.4: OWNER-only settings entry point ──
@@ -284,5 +292,43 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
     cmp.onResetClick();
     httpMock.expectOne(r => r.url.includes('/reset')).flush(null);
     expect(store.cards()).toEqual([]);
+  });
+
+  // ── US08.3.2b AC5: BoardStore now performs the fail-closed access check that
+  // `boardAccessGuard` used to perform behind a blocking route guard — the canvas mounts
+  // immediately (no more pre-render blocking) and this reactively toasts + redirects once
+  // the same GET call resolves as a denial.
+  it('ac_us08_3_2b_toasts_and_redirects_to_whiteboard_list_when_the_board_get_returns_403', async () => {
+    // Fake timers around the exchange: `loadBoard()`'s GET is wrapped in `timeout(...)`
+    // (LOAD_BOARD_TIMEOUT_MS) — on the real clock, RxJS's `timeout` operator schedules a
+    // real macrotask that must be neutralized here, or it can fire seconds later during a
+    // *different* spec file's tests (this project's Vitest config runs files un-isolated —
+    // `--isolate` defaults to false — so a stray real timer is not confined to this file).
+    vi.useFakeTimers();
+    try {
+      const { fixture, store } = create();
+      fixture.detectChanges();
+      const toast = TestBed.inject(ToastService);
+      const toastSpy = vi.spyOn(toast, 'show');
+
+      httpMock
+        .expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1`)
+        .flush('', { status: 403, statusText: 'Forbidden' });
+      httpMock.expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/members`).flush([]);
+      httpMock
+        .expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/vote/current`)
+        .flush('', { status: 404, statusText: 'Not Found' });
+      httpMock
+        .expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/vote/last`)
+        .flush('', { status: 404, statusText: 'Not Found' });
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(store.accessDenied()).toBe(true);
+      expect(toastSpy).toHaveBeenCalledWith('whiteboard.guard.accessDenied', 'error');
+      expect(navigateSpy).toHaveBeenCalledWith('/whiteboard');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

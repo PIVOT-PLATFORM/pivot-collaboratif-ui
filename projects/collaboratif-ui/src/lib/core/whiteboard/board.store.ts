@@ -1,8 +1,10 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { Router } from '@angular/router';
+import { firstValueFrom, timeout } from 'rxjs';
 import { COLLABORATIF_API_URL } from './config/tokens';
 import { BoardTransport } from './board-transport';
+import { ToastService } from '../toast/toast.service';
 import { DEFAULT_CARD_COLOR } from '../../whiteboard/model/colors';
 import { HISTORY_LIMIT, CURSOR_THROTTLE_MS } from '../../whiteboard/model/board-constants';
 import type {
@@ -36,6 +38,14 @@ interface CursorState {
 type CardBox = { posX: number; posY: number; width: number; height: number };
 
 /**
+ * Bound on `loadBoard()`'s access/detail GET — this call now doubles as the fail-closed
+ * access check formerly performed by `boardAccessGuard` (see `loadBoard()`), so it must
+ * resolve (success or failure) within a bounded time instead of potentially hanging up to
+ * nginx's own `proxy_read_timeout` (60s).
+ */
+const LOAD_BOARD_TIMEOUT_MS = 8_000;
+
+/**
  * Structured whiteboard state machine — the Angular port of the PouetPouet `useBoard`
  * hook (`apps/web/src/hooks/useBoard.ts`). Owns all board domain state (cards,
  * connections, frames, fields, votes, timer, presence), a 30-deep undo/redo history,
@@ -53,6 +63,8 @@ export class BoardStore {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = inject(COLLABORATIF_API_URL);
   private readonly transport = inject(BoardTransport);
+  private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
 
   // ── State signals ──────────────────────────────────────────────────────────
   readonly board = signal<BoardDetail | null>(null);
@@ -139,15 +151,17 @@ export class BoardStore {
       // `name`; no `cards` — those arrive separately over the WS `board:state` reply) — mapped
       // here into this store's BoardDetail shape rather than typed/read as one directly.
       const data = await firstValueFrom(
-        this.http.get<{
-          id: string;
-          title: string;
-          role?: BoardRole;
-          description: string | null;
-          coverImage: string | null;
-          maxParticipants: number | null;
-          enabledActivities: string[];
-        }>(`${this.apiUrl}/whiteboard/boards/${this.boardId}`),
+        this.http
+          .get<{
+            id: string;
+            title: string;
+            role?: BoardRole;
+            description: string | null;
+            coverImage: string | null;
+            maxParticipants: number | null;
+            enabledActivities: string[];
+          }>(`${this.apiUrl}/whiteboard/boards/${this.boardId}`)
+          .pipe(timeout(LOAD_BOARD_TIMEOUT_MS)),
       );
       this.board.set({
         id: data.id,
@@ -164,12 +178,15 @@ export class BoardStore {
       }
       this.isLoading.set(false);
       this.accessDenied.set(false);
-    } catch (err) {
-      // HTTP is authoritative for access — a 403/404 denies the board.
-      if ((err as { status?: number }).status === 403 || (err as { status?: number }).status === 404) {
-        this.accessDenied.set(true);
-      }
+    } catch {
+      // Fail-closed on ANY failure (403/404 denial, network error, ...) — replicates the
+      // `boardAccessGuard` contract this replaces (US08.3.2b AC5): the canvas shell now
+      // mounts immediately instead of waiting on this check behind a route guard, so the
+      // same toast + redirect happens here, reactively, once the check actually resolves.
+      this.accessDenied.set(true);
       this.isLoading.set(false);
+      this.toast.show('whiteboard.guard.accessDenied', 'error');
+      void this.router.navigateByUrl('/whiteboard');
     }
   }
 
