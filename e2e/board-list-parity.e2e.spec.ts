@@ -19,7 +19,7 @@ async function createBoard(page: Page, title: string): Promise<void> {
   await page.goto('/whiteboard');
   await page.getByRole('button', { name: 'Nouveau tableau' }).click();
   await page.getByLabel('Titre du tableau').fill(title);
-  await page.getByRole('button', { name: 'Créer' }).click();
+  await page.getByRole('button', { name: 'Créer', exact: true }).click();
   await expect(page).toHaveURL(/\/whiteboard\/[^/]+$/);
 }
 
@@ -124,7 +124,7 @@ test.describe('US08.1.7 — Trash (soft-delete) + restore', () => {
     });
     await trashCard.getByRole('button', { name: `Supprimer définitivement ${title}` }).click();
     await expect(page.getByRole('heading', { name: `Supprimer définitivement « ${title} » ?` })).toBeVisible();
-    await page.getByRole('button', { name: 'Supprimer définitivement' }).click();
+    await page.getByRole('button', { name: 'Supprimer définitivement', exact: true }).click();
 
     await expect(trashCard).toHaveCount(0);
   });
