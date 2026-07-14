@@ -4,6 +4,13 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+// Résout une hauteur définie jusqu'à la racine — nécessaire pour que les composants routés
+// (ex. board-page du whiteboard) puissent utiliser height:100% plutôt qu'un height:100vh qui
+// ignore tout ancêtre réel (header du harnais local, ou du shell pivot-ui en production).
+html, body {
+  height: 100%;
+}
+
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;

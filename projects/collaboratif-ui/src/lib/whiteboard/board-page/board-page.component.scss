@@ -2,10 +2,13 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  // Viewport-anchored (like the former board component) — the routed host does not receive a
-  // resolved height from the router-outlet chain, so height:100% would collapse the flex body
-  // (and the absolutely-positioned canvas) to 0px, rendering the surface "hidden".
-  height: 100vh;
+  // Fills whatever the routed ancestor resolves as available height (pivot-ui's
+  // .shell__page, or this repo's own dev-harness .app-shell__body) — NOT height:100vh, which
+  // ignores any real header above this route and overshoots the viewport (collaboratif-ui#100).
+  // Requires that ancestor chain to actually resolve a definite height (html,body{height:100%}
+  // + min-height:0 on intermediate flex containers) — see src/styles/reset.scss and app.scss
+  // in this repo, and shell.component.scss in pivot-ui.
+  height: 100%;
   min-height: 0;
 }
 
