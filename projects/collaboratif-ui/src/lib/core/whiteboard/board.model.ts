@@ -46,6 +46,47 @@ export interface Board {
    * `trashed=true`; absent/null in the normal (non-trashed) listing and in single-board GETs.
    */
   deletedAt: string | null;
+  /**
+   * US08.1.9 -- number of active shares (members other than the owner) on this board. Optional
+   * for backward compatibility with any test fixture built before this field existed; always
+   * present on real API responses.
+   */
+  shareCount?: number;
+  /**
+   * US08.1.9 -- the board's cards with their field values, populated only by `GET
+   * /whiteboard/boards/{boardId}` (`BoardService.getBoard`) -- always an empty array on list
+   * responses (`GET /whiteboard/boards`), which deliberately do not fetch cards. Consumers must
+   * not use this field to pre-populate the canvas: the canvas continues to source its state
+   * exclusively from the WebSocket `board:state` reply on join (parity spec §2.2) -- this field
+   * exists only for callers that need a one-shot snapshot of a board's cards without opening a
+   * realtime connection.
+   */
+  cards?: BoardCard[];
+}
+
+/**
+ * A single card embedded in `Board.cards`, as returned by `GET /whiteboard/boards/{boardId}`
+ * (US08.1.9). Deliberately a distinct, minimal shape from the realtime canvas card model
+ * (`whiteboard/model/*`) -- this is a read-only snapshot DTO, not a live canvas object.
+ */
+export interface BoardCard {
+  id: string;
+  type: string;
+  content: string;
+  /**
+   * Per-card field values (parity spec §2.2 "fieldValues") -- in this backend, the card's
+   * opaque metadata cache (e.g. the OpenGraph preview for a LINK card), or `null` until enriched.
+   */
+  fieldValues: Record<string, unknown> | null;
+  posX: number;
+  posY: number;
+  width: number;
+  height: number;
+  color: string;
+  groupId: string | null;
+  groupColor: string | null;
+  locked: boolean;
+  layer: number;
 }
 
 /** Paginated response from GET /whiteboard/boards. */

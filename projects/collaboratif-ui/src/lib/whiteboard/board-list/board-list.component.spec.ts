@@ -89,6 +89,9 @@ const FR_TRANSLATIONS = {
         noResults: 'Aucun résultat pour « {{term}} »',
         resultsCount: '{{count}} résultat(s)',
       },
+      presence: {
+        aria: '{{count}} participant(s) connecté(s)',
+      },
     },
     template: {
       gallery: {
@@ -174,6 +177,11 @@ describe('BoardListComponent', () => {
   });
 
   afterEach(() => {
+    // US08.1.9 — every `loadBoards(0)` on the active tab also fires a `GET .../presence`
+    // request (see `BoardListComponent.loadBoards`). Tests that aren't specifically exercising
+    // presence don't care about its response — drain any request left unflushed with a neutral
+    // empty object before `verify()`, rather than updating every pre-existing test individually.
+    httpMock.match(r => r.url === `${BASE}/presence`).forEach(req => req.flush({}));
     httpMock.verify();
     TestBed.resetTestingModule();
   });
@@ -465,6 +473,94 @@ describe('BoardListComponent', () => {
     );
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.board-list__badge--online')).toBeNull();
+  });
+
+  // ── US08.1.9: presence indicator sourced from GET /boards/presence ──
+  it('ac08_1_9_04_presence endpoint count overrides the stale activeParticipantCount stub', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(
+      makePageResponse([makeBoard({ id: 'board-1', activeParticipantCount: 0 })]),
+    );
+    httpMock.expectOne(`${BASE}/presence`).flush({ 'board-1': 2 });
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.board-list__badge--online');
+    expect(badge).toBeTruthy();
+    expect(badge.textContent).toContain('2');
+  });
+
+  it('ac08_1_9_05_presence absent for a board id defaults to zero (badge hidden)', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(
+      makePageResponse([makeBoard({ id: 'board-1' })]),
+    );
+    httpMock.expectOne(`${BASE}/presence`).flush({});
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.board-list__badge--online')).toBeNull();
+  });
+
+  it('ac08_1_9_06_presence badge exposes an accessible label with the correct plural, never colour-only', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(
+      makePageResponse([makeBoard({ id: 'board-1' })]),
+    );
+    httpMock.expectOne(`${BASE}/presence`).flush({ 'board-1': 1 });
+    fixture.detectChanges();
+
+    const badge: HTMLElement = fixture.nativeElement.querySelector('.board-list__badge--online');
+    expect(badge.getAttribute('aria-label')).toBe('1 participant(s) connecté(s)');
+    // The badge always carries a visible text label alongside its colour dot.
+    expect(badge.textContent?.trim().length).toBeGreaterThan(0);
+  });
+
+  it('ac08_1_9_07_presence badge pluralizes for a count greater than one', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(
+      makePageResponse([makeBoard({ id: 'board-1' })]),
+    );
+    httpMock.expectOne(`${BASE}/presence`).flush({ 'board-1': 5 });
+    fixture.detectChanges();
+
+    const badge: HTMLElement = fixture.nativeElement.querySelector('.board-list__badge--online');
+    expect(badge.getAttribute('aria-label')).toBe('5 participant(s) connecté(s)');
+  });
+
+  it('ac08_1_9_08_presence request failure does not break the board list', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(
+      makePageResponse([makeBoard({ id: 'board-1' })]),
+    );
+    httpMock.expectOne(`${BASE}/presence`).flush('', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.board-list__card')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.board-list__badge--online')).toBeNull();
+  });
+
+  it('ac08_1_9_09_presence is not re-fetched on pagination (only the initial page-0 load)', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(
+      makePageResponse([makeBoard({ id: 'board-1' })], true),
+    );
+    httpMock.expectOne(`${BASE}/presence`).flush({ 'board-1': 1 });
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.board-list__load-more-btn')?.click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.url === BASE && r.params.get('page') === '1')
+      .flush(makePageResponse([makeBoard({ id: 'board-2' })]));
+    fixture.detectChanges();
+
+    // No second GET .../presence request was issued for the loadMore() call.
+    httpMock.expectNone(`${BASE}/presence`);
+  });
+
+  it('ac08_1_9_10_presence is not fetched when viewing the trash tab', () => {
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
+    httpMock.expectOne(`${BASE}/presence`).flush({});
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelectorAll('.board-list__tab')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    httpMock.expectOne(r => r.params.get('trashed') === 'true').flush(makePageResponse([]));
+    fixture.detectChanges();
+
+    httpMock.expectNone(`${BASE}/presence`);
   });
 
   // ── Menu ──
@@ -951,6 +1047,9 @@ describe('BoardListComponent', () => {
 
   it('ac08_1_7_16_clicking the already-active tab is a no-op (no reload)', () => {
     httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([makeBoard({ id: 'noop1' })]));
+    // US08.1.9 — the initial page-0 load of the active tab also fires GET .../presence; flush
+    // it before asserting "no request at all" for the no-op re-click below.
+    httpMock.expectOne(`${BASE}/presence`).flush({});
     fixture.detectChanges();
 
     (fixture.nativeElement.querySelectorAll('.board-list__tab')[0] as HTMLButtonElement).click();

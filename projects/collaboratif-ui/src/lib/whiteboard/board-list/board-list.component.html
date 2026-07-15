@@ -190,13 +190,13 @@
                   <span class="board-list__card-date">
                     {{ board.updatedAt | date:'shortDate' }}
                   </span>
-                  @if (board.activeParticipantCount > 0) {
+                  @if (participantCount(board) > 0) {
                     <span
                       class="board-list__badge board-list__badge--online"
-                      [attr.aria-label]="'whiteboard.board.list.aria.activeParticipants' | transloco:{ count: board.activeParticipantCount }"
+                      [attr.aria-label]="presenceAriaLabel(board)"
                     >
                       <span class="board-list__online-dot" aria-hidden="true"></span>
-                      {{ board.activeParticipantCount }}&nbsp;{{ 'whiteboard.board.list.online' | transloco }}
+                      {{ participantCount(board) }}&nbsp;{{ 'whiteboard.board.list.online' | transloco }}
                     </span>
                   }
                 </div>

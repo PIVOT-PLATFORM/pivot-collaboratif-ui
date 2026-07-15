@@ -73,6 +73,13 @@ export class BoardListComponent implements OnDestroy {
   /** US08.1.7 — board pending permanent-delete confirmation. */
   protected readonly purgingBoard = signal<Board | null>(null);
   protected readonly isPurging = signal(false);
+  /**
+   * US08.1.9 — connected-participant counts per board id, fetched once per initial load of the
+   * active tab via `GET /whiteboard/boards/presence` (an at-open read, not a live subscription
+   * — see `BoardService.getPresence`). A board id absent from this map has zero connected
+   * participants.
+   */
+  protected readonly presenceCounts = signal<ReadonlyMap<string, number>>(new Map());
 
   private readonly boardService = inject(BoardService);
   private readonly router = inject(Router);
@@ -126,10 +133,30 @@ export class BoardListComponent implements OnDestroy {
       },
       error: () => this.status.set('error'),
     });
+
+    // US08.1.9 — refresh presence counts alongside the first page of the active tab. Not
+    // fetched for pagination (page > 0, counts already cover every loaded board id) nor for the
+    // trash tab (trashed boards have no live presence). A failure here must never break the
+    // board list itself — silently keep whatever counts (if any) are already known.
+    if (page === 0 && this.viewMode() === 'active') {
+      this.boardService.getPresence().subscribe({
+        next: (counts) => this.presenceCounts.set(new Map(Object.entries(counts))),
+        error: () => undefined,
+      });
+    }
   }
 
   protected loadMore(): void {
     this.loadBoards(this.currentPage() + 1);
+  }
+
+  /**
+   * Resolves the number of participants currently connected to a board (US08.1.9) — sourced
+   * from the dedicated presence endpoint when known, falling back to the board's own
+   * (currently always-zero, see backend TODO) `activeParticipantCount` otherwise.
+   */
+  protected participantCount(board: Board): number {
+    return this.presenceCounts().get(board.id) ?? board.activeParticipantCount;
   }
 
   // ── US08.1.8: search ──
@@ -372,6 +399,17 @@ export class BoardListComponent implements OnDestroy {
       title: board.title,
       date: formattedDate,
       role: this.roleLabel(board.role),
+    });
+  }
+
+  /**
+   * Accessible label for the per-board presence indicator (US08.1.9 AC) — "N participant(s)
+   * connecté(s)", correct for both the singular and plural count, including zero. Never
+   * conveyed by the badge's colour dot alone (see the template).
+   */
+  protected presenceAriaLabel(board: Board): string {
+    return this.transloco.translate('whiteboard.board.presence.aria', {
+      count: this.participantCount(board),
     });
   }
 }
