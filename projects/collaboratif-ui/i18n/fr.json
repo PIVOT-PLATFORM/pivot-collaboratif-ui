@@ -298,7 +298,10 @@
       "imageAlt": "Image de la carte",
       "locked": "Carte verrouillée",
       "editing": "{{name}} modifie…",
-      "connect": "Relier depuis cette carte"
+      "connect": "Relier depuis cette carte",
+      "link": {
+        "previewAlt": "Aperçu du lien"
+      }
     },
     "frame": {
       "titleLabel": "Titre du cadre",

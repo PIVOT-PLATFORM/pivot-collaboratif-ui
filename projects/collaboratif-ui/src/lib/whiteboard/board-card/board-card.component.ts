@@ -10,19 +10,20 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import type { BoardField, Card } from '../model/board.types';
 import { parseTextFmt, parseLabelFmt, serializeTextFmt, serializeLabelFmt, formatFieldValue } from '../model/card-format';
 import { parseShape } from '../model/shape';
 import { parseTableContent } from '../model/table';
 import { headerTint } from '../model/colors';
+import { linkDisplayLabel, safeLinkHref, safeLinkImage } from '../model/link-preview';
 
 /** 8 resize-handle directions (canvas delegates pointer events by `data-resize-dir`). */
 const RESIZE_DIRS = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'] as const;
 
 /**
- * A single board object. Renders one of the six card types (TEXT, LABEL, SHAPE, DRAW,
- * IMAGE, TABLE), owns inline text editing, and exposes selection/resize/connect
+ * A single board object. Renders one of the seven card types (TEXT, LABEL, SHAPE, DRAW,
+ * IMAGE, TABLE, LINK), owns inline text editing, and exposes selection/resize/connect
  * affordances whose pointer interactions are delegated to the parent canvas (which owns
  * the viewport transform and the shared drag/resize state machine — mirroring how
  * PouetPouet's `board-canvas.tsx` centralises pointer handling around `board-card.tsx`).
@@ -72,6 +73,7 @@ export class BoardCardComponent {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly editArea = viewChild<ElementRef<HTMLTextAreaElement>>('editArea');
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly resizeDirs = RESIZE_DIRS;
   protected readonly editing = signal(false);
@@ -82,6 +84,21 @@ export class BoardCardComponent {
   protected readonly shape = computed(() => parseShape(this.card().content));
   protected readonly table = computed(() => parseTableContent(this.card().content));
   protected readonly headerColor = computed(() => headerTint(this.card().color));
+
+  /**
+   * Render-safe `href` for a LINK card — `null` (an inert, non-navigating link) if the card's
+   * content is somehow not a well-formed `http`/`https` URL (US08.6.5).
+   */
+  protected readonly linkHref = computed(() => safeLinkHref(this.card()));
+  /** Render-safe OpenGraph preview image URL, or `null` while unset/invalid (US08.6.5). */
+  protected readonly linkImage = computed(() => safeLinkImage(this.card().meta));
+  /** OG title if present, otherwise the raw URL — the "brut" fallback state (US08.6.5 A11y AC). */
+  protected readonly linkLabel = computed(() => linkDisplayLabel(this.card(), this.card().meta));
+  /** `alt` text for the preview image: title, then site name, then a generic translated fallback. */
+  protected readonly linkImageAlt = computed(() => {
+    const meta = this.card().meta;
+    return meta?.title?.trim() || meta?.siteName?.trim() || this.transloco.translate('whiteboard.card.link.previewAlt');
+  });
 
   /** Field-value chips: (field, formatted value) pairs, in field order. */
   protected readonly chips = computed(() => {

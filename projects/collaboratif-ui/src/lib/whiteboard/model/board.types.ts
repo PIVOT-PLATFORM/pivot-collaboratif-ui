@@ -9,6 +9,9 @@
  * - `SHAPE` → `'type|stroke|fill|opacity[|rotation]'`
  * - `DRAW` → SVG path `d` string
  * - `IMAGE` → data URL / URL
+ * - `LINK` → the raw `http(s)` URL, verbatim (US08.6.5). `meta` is populated asynchronously,
+ *   server-side, after creation/update — see `card:meta_updated` in `board.store.ts` and
+ *   `link-preview.ts` for the render-time sanitisation applied to it.
  */
 
 /** A custom-field value attached to a single card. */
@@ -28,7 +31,7 @@ export interface OgMeta {
 }
 
 /** Discriminant string for a card's rendering kind. */
-export type CardType = 'TEXT' | 'LABEL' | 'IMAGE' | 'DRAW' | 'TABLE' | 'SHAPE';
+export type CardType = 'TEXT' | 'LABEL' | 'IMAGE' | 'DRAW' | 'TABLE' | 'SHAPE' | 'LINK';
 
 /** A single board object. `content` encoding depends on `type` (see file header). */
 export interface Card {

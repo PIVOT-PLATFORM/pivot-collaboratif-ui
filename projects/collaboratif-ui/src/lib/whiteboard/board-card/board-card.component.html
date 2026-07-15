@@ -90,6 +90,29 @@
     @case ('IMAGE') {
       <img class="wb-card__image" [src]="card().content" [alt]="'whiteboard.card.imageAlt' | transloco" draggable="false" />
     }
+    @case ('LINK') {
+      <a
+        class="wb-card__link"
+        [class.wb-card__link--no-preview]="!linkImage() && !card().meta"
+        [attr.href]="linkHref()"
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+        [attr.aria-label]="linkLabel()"
+      >
+        @if (linkImage(); as image) {
+          <img class="wb-card__link-image" [src]="image" [alt]="linkImageAlt()" draggable="false" />
+        }
+        <span class="wb-card__link-body">
+          <span class="wb-card__link-title">{{ linkLabel() }}</span>
+          @if (card().meta?.description) {
+            <span class="wb-card__link-description">{{ card().meta?.description }}</span>
+          }
+          @if (card().meta?.siteName) {
+            <span class="wb-card__link-sitename">{{ card().meta?.siteName }}</span>
+          }
+        </span>
+      </a>
+    }
     @case ('TABLE') {
       <table class="wb-card__table">
         <tbody>

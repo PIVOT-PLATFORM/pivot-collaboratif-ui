@@ -37,3 +37,7 @@ export const PASTE_OFFSET = 16;
 /** Default new-card dimensions. */
 export const DEFAULT_CARD_W = 180;
 export const DEFAULT_CARD_H = 140;
+
+/** Default dimensions for a new LINK card (US08.6.5) — wider than a sticky to fit an OG preview. */
+export const LINK_CARD_W = 280;
+export const LINK_CARD_H = 170;
