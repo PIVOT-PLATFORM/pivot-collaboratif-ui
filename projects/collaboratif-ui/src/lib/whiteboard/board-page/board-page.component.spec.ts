@@ -201,6 +201,16 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
     vi.restoreAllMocks();
   });
 
+  // ── F2: real board title in the H1 (not the untitled fallback) ──
+  it('f2_renders the real board title in the H1 once loadBoard resolves', async () => {
+    const { fixture } = create();
+    fixture.detectChanges();
+    await flushInitRequests();
+    fixture.detectChanges();
+    const h1 = fixture.nativeElement.querySelector('h1.wb-page__title') as HTMLElement;
+    expect(h1.textContent?.trim()).toBe('Mon tableau');
+  });
+
   // ── AC08.2.4: OWNER-only settings entry point ──
   it('ac08_2_4_10_hides the Settings button for a non-owner role', async () => {
     const { fixture, cmp, store } = create();
