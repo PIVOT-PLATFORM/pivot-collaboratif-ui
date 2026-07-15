@@ -350,12 +350,27 @@ export class BoardStore {
       this.pendingCardHistory.shift()?.(card as Card);
       this.cards.update((prev) => [...prev, { ...(card as Card), fieldValues: [] }]);
     });
-    this.on<Card>('card:moved', (card) =>
-      this.cards.update((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...card } : c))),
-    );
-    this.on<Card>('card:resized', (card) =>
-      this.cards.update((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...card } : c))),
-    );
+    // Sender exclusion (fix/EN08.4): senderSessionId is this transport's own opaque connection
+    // id, echoed back verbatim by the backend (never persisted server-side, see
+    // CanvasActionService#handleCardMove's Javadoc). When it matches our own id, this broadcast
+    // is the echo of a move/resize *we* just sent — already applied optimistically by
+    // moveCard/resizeCard/etc — so re-applying it here would only reintroduce visual jitter on
+    // a slower-arriving, possibly stale network round trip. Every other session's card:moved/
+    // card:resized (no senderSessionId, or a different one) is applied normally.
+    this.on<Card & { senderSessionId?: string }>('card:moved', (payload) => {
+      const { senderSessionId, ...card } = payload;
+      if (senderSessionId && senderSessionId === this.transport.getSessionId()) {
+        return;
+      }
+      this.cards.update((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...card } : c)));
+    });
+    this.on<Card & { senderSessionId?: string }>('card:resized', (payload) => {
+      const { senderSessionId, ...card } = payload;
+      if (senderSessionId && senderSessionId === this.transport.getSessionId()) {
+        return;
+      }
+      this.cards.update((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...card } : c)));
+    });
     // card:update only ever changes content — never apply the echo's geometry (would clobber
     // a freshly grown height with a stale racing value).
     this.on<Card>('card:updated', (card) =>

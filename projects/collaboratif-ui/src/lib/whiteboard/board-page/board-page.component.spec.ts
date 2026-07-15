@@ -63,6 +63,9 @@ class NoopTransport extends BoardTransport {
   onReconnect(_handler: () => void): () => void {
     return () => {};
   }
+  getSessionId(): string {
+    return 'noop-session';
+  }
 }
 
 /** Protected surface exercised by these tests. */
