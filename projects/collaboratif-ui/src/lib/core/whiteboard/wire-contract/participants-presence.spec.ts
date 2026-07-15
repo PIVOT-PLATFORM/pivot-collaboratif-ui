@@ -3,7 +3,7 @@ import { Router, provideRouter } from '@angular/router';
 import { TranslocoService } from '@jsverse/transloco';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { Subject } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { WhiteboardSyncService, type ParticipantInfo } from '../whiteboard-sync.service';
 import { COLLABORATIF_API_URL, COLLABORATIF_BEARER_TOKEN } from '../config/tokens';
@@ -24,6 +24,10 @@ import participantsUpdateFixtureJson from './participants-update.json';
  * `vi.mock('@stomp/rx-stomp', …)` is file-scoped (hoisted) — this spec gets its own copy rather
  * than sharing `whiteboard-sync.service.spec.ts`'s, per the established convention in this
  * folder of keeping module-mock state isolated per spec file (see `board-transport.spec.ts`).
+ * `afterEach` restores/unstubs everything this file touches, mirroring
+ * `whiteboard-sync.service.spec.ts`'s existing cleanup, so this file never leaves dangling mock
+ * state for whichever spec happens to run next in the suite — good hygiene regardless of module
+ * scoping, and cheap insurance against this exact class of bug.
  */
 vi.mock('@stomp/rx-stomp', () => ({
   RxStomp: vi.fn(),
@@ -91,6 +95,11 @@ describe('WhiteboardSyncService presence reconciliation vs. canonical participan
     // Silence the router navigation this service performs on some unrelated error paths — not
     // under test here, but constructed eagerly by TestBed.inject.
     TestBed.inject(Router);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('parses the fixture\'s two participants with every field exactly named and typed', () => {
