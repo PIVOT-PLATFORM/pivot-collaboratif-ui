@@ -47,6 +47,20 @@ const FR_TRANSLATIONS = {
     activities: { open: 'Activités', title: 'Activités', close: 'Fermer', recentSection: '', items: {} },
     groups: { title: 'Groupes' },
     voteResults: { title: 'Résultats' },
+    connector: {
+      style: {
+        title: 'Style du connecteur',
+        shapeLabel: 'Forme',
+        shape: { straight: 'Droit', curved: 'Courbe', orthogonal: 'Orthogonal' },
+        arrowLabel: 'Flèche',
+        arrow: { none: 'Aucune', start: 'Début', end: 'Fin', both: 'Deux extrémités' },
+        dashedLabel: 'Pointillé',
+        widthLabel: 'Épaisseur',
+        colorLabel: 'Couleur',
+        labelFieldLabel: 'Étiquette',
+        labelPlaceholder: 'Texte du connecteur',
+      },
+    },
     canvas: { undo: { label: 'Annuler', redo: 'Rétablir' } },
     guard: { accessDenied: 'Accès refusé' },
   },
@@ -430,5 +444,147 @@ describe('BoardPageComponent — US08.7.1 keyboard delete of a selected connecto
     expect(transport.emitted.some((e) => e.type === 'connection:delete' && (e.data as { id: string }).id === 'conn-1')).toBe(
       true,
     );
+  });
+});
+
+describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () => {
+  /** Records every outbound `emit(type, data)` call — lets the test observe the
+   *  `connection:update` payload the style panel produces end-to-end through the store. */
+  class RecordingTransport extends BoardTransport {
+    readonly emitted: Array<{ type: string; data: unknown }> = [];
+    connect(): void {}
+    disconnect(): void {}
+    emit(type: string, data: unknown): void {
+      this.emitted.push({ type, data });
+    }
+    on<T = unknown>(_type: string, _handler: (data: T) => void): () => void {
+      return () => {};
+    }
+    onReconnect(): () => void {
+      return () => {};
+    }
+    getSessionId(): string {
+      return 'connector-style-transport-session';
+    }
+  }
+
+  let httpMock: HttpTestingController;
+
+  function create() {
+    const fixture = TestBed.createComponent(BoardPageComponent);
+    const store = fixture.debugElement.injector.get(BoardStore);
+    const transport = fixture.debugElement.injector.get(BoardTransport) as RecordingTransport;
+    return { fixture, store, transport };
+  }
+
+  /** Flushes the four read-only GETs that `BoardStore.init()` fires from `ngOnInit()`. */
+  async function flushInitRequests(): Promise<void> {
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/board-1`).flush({
+      id: 'board-1', title: 'Mon tableau', description: null, coverImage: null,
+      maxParticipants: null, enabledActivities: [], role: 'OWNER',
+    });
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/members`).flush([]);
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/vote/current`)
+      .flush('', { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/vote/last`)
+      .flush('', { status: 404, statusText: 'Not Found' });
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [
+        BoardPageComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: new Map([['boardId', 'board-1']]) } },
+        },
+      ],
+    }).overrideComponent(BoardPageComponent, {
+      set: { providers: [BoardStore, { provide: BoardTransport, useClass: RecordingTransport }] },
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    TestBed.resetTestingModule();
+  });
+
+  it('shows the style panel when exactly one connector is selected', async () => {
+    const { fixture, store } = create();
+    fixture.detectChanges();
+    await flushInitRequests();
+    store.connections.set([
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+    ]);
+    store.selectCards(new Set(['conn-1']));
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('wb-connector-style-panel');
+    expect(panel).toBeTruthy();
+    const aside = fixture.nativeElement.querySelector('[aria-label="Style du connecteur"]');
+    expect(aside).toBeTruthy();
+  });
+
+  it('hides the style panel when nothing, or more than one item, is selected', async () => {
+    const { fixture, store } = create();
+    fixture.detectChanges();
+    await flushInitRequests();
+    store.connections.set([
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+    ]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('wb-connector-style-panel')).toBeNull();
+
+    store.selectCards(new Set(['conn-1', 'some-card']));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('wb-connector-style-panel')).toBeNull();
+  });
+
+  it('hides the style panel when the lone selected id is a card, not a connector', async () => {
+    const { fixture, store } = create();
+    fixture.detectChanges();
+    await flushInitRequests();
+    store.cards.set([
+      { id: 'card-a', boardId: 'board-1', type: 'TEXT', content: '', posX: 0, posY: 0, width: 10, height: 10, color: '#fff', groupId: null, groupColor: null, locked: false, layer: 1, fieldValues: [] },
+    ]);
+    store.selectCards(new Set(['card-a']));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('wb-connector-style-panel')).toBeNull();
+  });
+
+  it('changing the shape select in the panel emits connection:update with only {shape} through the store', async () => {
+    const { fixture, store, transport } = create();
+    fixture.detectChanges();
+    await flushInitRequests();
+    store.connections.set([
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+    ]);
+    store.selectCards(new Set(['conn-1']));
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('#wbConnStyleShape') as HTMLSelectElement;
+    select.value = 'orthogonal';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const emitted = transport.emitted.filter((e) => e.type === 'connection:update');
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].data).toEqual({ id: 'conn-1', boardId: 'board-1', shape: 'orthogonal' });
+    expect(store.connections().find((c) => c.id === 'conn-1')?.shape).toBe('orthogonal');
   });
 });

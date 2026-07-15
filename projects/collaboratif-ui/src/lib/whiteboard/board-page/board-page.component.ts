@@ -19,12 +19,14 @@ import { BoardTransport, StompBoardTransport } from '../../core/whiteboard/board
 import { FloatingToolbarComponent } from '../floating-toolbar/floating-toolbar.component';
 import { StructuredCanvasComponent } from '../structured-canvas/structured-canvas.component';
 import { GroupsPanelComponent } from '../groups-panel/groups-panel.component';
+import { ConnectorStylePanelComponent } from '../connector-style-panel/connector-style-panel.component';
 import { VoteResultsPanelComponent } from '../vote-results-panel/vote-results-panel.component';
 import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component';
 import { SharePanelComponent } from '../share-panel/share-panel.component';
 import { ActivitiesPanelComponent } from '../activities-panel/activities-panel.component';
 import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
 import type { Board } from '../../core/whiteboard/board.model';
+import type { Connection, ConnectionPatch } from '../model/board.types';
 import type { ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
 
@@ -53,6 +55,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     FloatingToolbarComponent,
     StructuredCanvasComponent,
     GroupsPanelComponent,
+    ConnectorStylePanelComponent,
     VoteResultsPanelComponent,
     TimerOverlayComponent,
     SharePanelComponent,
@@ -85,6 +88,20 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly highlightedGroup = signal<string | null>(null);
 
   protected readonly isOwner = computed(() => this.store.userRole() === 'OWNER');
+
+  /**
+   * The single selected connector, or `null` when the selection is empty, holds more than one
+   * item, or matches a card instead — gates the style panel (US08.7.2). `selectedIds` is the
+   * shared card/connection selection signal (see `StructuredCanvasComponent.onConnectionSelect`).
+   */
+  protected readonly selectedConnection = computed<Connection | null>(() => {
+    const ids = this.store.selectedIds();
+    if (ids.size !== 1) {
+      return null;
+    }
+    const [id] = ids;
+    return this.store.connections().find((c) => c.id === id) ?? null;
+  });
 
   /** Board snapshot passed to the settings modal — kept in sync with the store's loaded board. */
   protected readonly settingsBoard = computed<Board | null>(() => {
@@ -208,6 +225,11 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   }
   protected onDissolveGroup(groupId: string): void {
     this.store.ungroupById(groupId);
+  }
+
+  /** Applies a connector restyle patch emitted by the style panel (US08.7.2). */
+  protected onConnectorStyleChange(connectionId: string, patch: ConnectionPatch): void {
+    this.store.updateConnection(connectionId, patch);
   }
 
   /** Board-level keyboard shortcuts (ignored while typing in an input/textarea). */
