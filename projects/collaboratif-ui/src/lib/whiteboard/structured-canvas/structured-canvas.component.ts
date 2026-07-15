@@ -298,7 +298,15 @@ export class StructuredCanvasComponent {
     // Empty canvas.
     const placing = this.placementKind(this.tool());
     if (!readOnly && placing) {
-      this.createCard(placing, pt.x, pt.y);
+      if (placing === 'frame') {
+        // Frames have no client-known default size (the server assigns width/height on
+        // `frame:create` — see BoardStore.addFrame), so the click point is used directly as
+        // the frame's top-left corner (Frame.posX/posY), unlike card placement which centres
+        // a client-known W×H on the click point.
+        this.store.addFrame(pt.x, pt.y);
+      } else {
+        this.createCard(placing, pt.x, pt.y);
+      }
       this.toolConsumed.emit();
       return;
     }
@@ -490,8 +498,8 @@ export class StructuredCanvasComponent {
   }
 
   // ── Card creation ─────────────────────────────────────────────────────────
-  private placementKind(tool: ToolMode): 'sticky' | 'text' | 'table' | 'shape' | null {
-    if (tool === 'sticky' || tool === 'text' || tool === 'table') {
+  private placementKind(tool: ToolMode): 'sticky' | 'text' | 'table' | 'shape' | 'frame' | null {
+    if (tool === 'sticky' || tool === 'text' || tool === 'table' || tool === 'frame') {
       return tool;
     }
     if (SHAPE_TOOLS[tool]) {

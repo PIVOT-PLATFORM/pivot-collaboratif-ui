@@ -291,6 +291,7 @@
       "star": "Star",
       "draw": "Freehand",
       "table": "Table",
+      "frame": "Frame",
       "link": "Link cards",
       "colorGroup": "Colours",
       "pickColor": "Colour {{color}}",

@@ -23,6 +23,7 @@ const TOOLS: readonly ToolButton[] = [
   { mode: 'star', icon: '★', labelKey: 'whiteboard.toolbar.star' },
   { mode: 'draw', icon: '✏️', labelKey: 'whiteboard.toolbar.draw' },
   { mode: 'table', icon: '▦', labelKey: 'whiteboard.toolbar.table' },
+  { mode: 'frame', icon: '⬜', labelKey: 'whiteboard.toolbar.frame' },
   { mode: 'link-cards', icon: '↔', labelKey: 'whiteboard.toolbar.link' },
 ];
 
