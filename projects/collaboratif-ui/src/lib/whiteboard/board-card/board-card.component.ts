@@ -86,7 +86,6 @@ export class BoardCardComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly transloco = inject(TranslocoService);
   private readonly editArea = viewChild<ElementRef<HTMLTextAreaElement>>('editArea');
-  private readonly transloco = inject(TranslocoService);
 
   protected readonly resizeDirs = RESIZE_DIRS;
   protected readonly editing = signal(false);
