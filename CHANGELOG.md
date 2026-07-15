@@ -1,3 +1,23 @@
+# [0.6.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.5.0...v0.6.0) (2026-07-15)
+
+
+### Bug Fixes
+
+* **whiteboard:** EN08.4 — garde locked sur card:delete + exclusion émetteur move/resize ([#113](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/113)) ([2de4f56](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/2de4f56cec1b9134d237145dbf82165f234e9094))
+* **whiteboard:** US08.7.1 — suppression clavier d'un connecteur sélectionné ([#114](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/114)) ([b39b3ec](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/b39b3ec0ecc279b50be5815b00fbdb319001c799))
+
+
+### Features
+
+* **whiteboard:** carte TEXT — a11y clavier + contraste AA + tests (US08.6.1) ([#110](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/110)) ([7b36cbc](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/7b36cbc81af6a85b90f96d74bb23e35377af0756))
+* **whiteboard:** tableau (TABLE) + collage tableur (US08.6.6) ([#105](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/105)) ([cc7ebd1](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/cc7ebd1e18f89c4914488a2866142a202d9f03d8))
+* **whiteboard:** US08.1.9 indicateur de présence agrégée par tableau ([#111](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/111)) ([79f108e](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/79f108e72e7e87a458085c0bc05d218240af4a9f))
+* **whiteboard:** US08.6.2 — carte Étiquette (LABEL) ([#107](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/107)) ([202839a](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/202839a9923a3a883dc1e9bb81316f40ef6310ee))
+* **whiteboard:** US08.6.3 — Forme (SHAPE) ([#109](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/109)) ([c16f29c](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/c16f29c753603ec72c7df896e4b37d38ec7e7d22))
+* **whiteboard:** US08.6.4 — carte Image (collage + upload, dimensionnement) ([#106](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/106)) ([998c1c9](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/998c1c96c7baa0c97050e494d0b6a3b1d2148fd6))
+* **whiteboard:** US08.6.5 — rendu carte lien (LINK) + aperçu OpenGraph ([#112](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/112)) ([e267c6d](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/e267c6d321b4ece3d128ad615a0648259bad9ce5))
+* **whiteboard:** US08.7.2 — styler un connecteur ([#115](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/115)) ([41dd9cb](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/41dd9cb352e011534b3f4d133d2128981572ce4a))
+
 # [0.5.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.4.0...v0.5.0) (2026-07-14)
 
 
