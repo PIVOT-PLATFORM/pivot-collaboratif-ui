@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { BoardStore } from './board.store';
 import { BoardTransport } from './board-transport';
 import { COLLABORATIF_API_URL } from './config/tokens';
@@ -36,6 +36,10 @@ class FakeTransport extends BoardTransport {
 
   onReconnect(): () => void {
     return () => {};
+  }
+
+  getSessionId(): string {
+    return 'fake-transport-session';
   }
 
   /** Delivers a fake inbound broadcast to every handler registered for `type`. */
@@ -74,16 +78,8 @@ describe('BoardStore — US08.6.1 TEXT card lifecycle', () => {
   let httpMock: HttpTestingController;
   let transport: FakeTransport;
   let store: BoardStore;
-  let rafCallbacks: FrameRequestCallback[];
 
   beforeEach(() => {
-    rafCallbacks = [];
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-      rafCallbacks.push(cb);
-      return rafCallbacks.length;
-    });
-    vi.stubGlobal('cancelAnimationFrame', () => {});
-
     TestBed.configureTestingModule({
       providers: [
         BoardStore,
@@ -100,7 +96,6 @@ describe('BoardStore — US08.6.1 TEXT card lifecycle', () => {
 
   afterEach(() => {
     httpMock.verify();
-    vi.unstubAllGlobals();
     TestBed.resetTestingModule();
   });
 
@@ -120,10 +115,15 @@ describe('BoardStore — US08.6.1 TEXT card lifecycle', () => {
     await Promise.resolve();
   }
 
-  function flushRaf(): void {
-    const callbacks = [...rafCallbacks];
-    rafCallbacks = [];
-    callbacks.forEach((cb) => cb(0));
+  /**
+   * Waits for a real animation frame rather than stubbing the global
+   * {@link requestAnimationFrame} — a global stub here previously corrupted Angular's
+   * zoneless change-detection scheduler (which also relies on the real rAF), causing
+   * unrelated failures in other spec files sharing the same test worker. Real frames in
+   * jsdom fire promptly (no visible test slowdown) and leave the global untouched.
+   */
+  function flushRaf(): Promise<void> {
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
   }
 
   // ── Rendu + réconciliation clientTag → id serveur ──────────────────────────
@@ -168,7 +168,7 @@ describe('BoardStore — US08.6.1 TEXT card lifecycle', () => {
 
     // The wire emit is rAF-batched — nothing sent yet until the frame flushes.
     expect(transport.emitted.some((e) => e.type === 'card:move')).toBe(false);
-    flushRaf();
+    await flushRaf();
     const moveCall = transport.lastEmit('card:move') as { id: string; posX: number; posY: number };
     expect(moveCall).toEqual({ id: 'card-1', boardId: BOARD_ID, posX: 42, posY: 84 });
   });
