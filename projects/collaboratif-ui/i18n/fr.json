@@ -301,6 +301,10 @@
       "connect": "Relier depuis cette carte",
       "link": {
         "previewAlt": "Aperçu du lien"
+      },
+      "resizeHandle": "Redimensionner la carte",
+      "text": {
+        "contentAriaLabel": "Contenu du pense-bête"
       }
     },
     "frame": {

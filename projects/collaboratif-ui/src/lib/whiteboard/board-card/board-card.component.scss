@@ -5,6 +5,18 @@
   user-select: none;
 }
 
+// A11y (US08.6.1): visible keyboard-focus indicator for the card itself and its resize
+// handles — :focus-visible only (not :focus) so a pointer-driven select doesn't draw the ring.
+:host(:focus-visible) {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+}
+
+.wb-card__resize:focus-visible {
+  outline: 2px solid #2196f3;
+  outline-offset: 1px;
+}
+
 .wb-card__body {
   position: relative;
   width: 100%;
