@@ -1,0 +1,140 @@
+// =============================================================================
+// Whiteboard design tokens (`--wb-*`) — charte design whiteboard (ADR-007).
+// Spec de référence : projects/collaboratif-ui/docs/design-spec-whiteboard.md (§2).
+//
+// Ces tokens DÉRIVENT des tokens du design-system (`@pivot/design-system`, pas encore
+// consommé — cf. CLAUDE.md). En attendant la publication du package, chaque `--wb-*` porte
+// la valeur littérale + le token DS de provenance en commentaire, pour un basculement
+// mécanique une fois le DS branché.
+//
+// PLACEMENT — Angular émule l'encapsulation de vue : un `:root` déclaré dans un SCSS de
+// composant serait ré-écrit `:root[_ngcontent-…]` et ne matcherait jamais l'élément racine.
+// On expose donc les tokens via un mixin inclus sur le `:host` du composant hôte du module
+// (`wb-board-page`). Les propriétés custom héritent le long de l'arbre DOM : tous les
+// composants du board (toolbar, canvas, cartes, panneaux, overlays) qui sont des descendants
+// de `wb-board-page` en héritent — aucun besoin de les redéclarer par composant.
+//
+// NE PAS dupliquer ici la palette 14 pastels des cartes : source de vérité = whiteboard/model/colors.ts.
+// =============================================================================
+
+@mixin wb-tokens {
+  // ── 2.1 Accent système (marque) — remplace tout #2196f3 / #6366f1 ──
+  --wb-accent:            #6d28d9; // = --color-brand-600 (accent système du board)
+  --wb-accent-hover:      #5b1fb4; // = --color-brand-700
+  --wb-accent-active:     #4e1a98; // = --color-brand-800
+  --wb-accent-weak:       #ede4fd; // = --color-brand-100 (fond outil actif, chip)
+  --wb-accent-weak-2:     #dcc9fb; // = --color-brand-200 (bordure outil actif)
+  --wb-accent-ghost:      rgba(109, 40, 217, 0.55); // ghost de connexion / lasso stroke
+  --wb-accent-ghost-fill: rgba(109, 40, 217, 0.08); // remplissage lasso / marquee
+  --wb-focus:             #6d28d9; // focus-ring clavier (= accent)
+
+  // ── 2.2 Canvas & grille ──
+  --wb-canvas-bg:       #fbfaff; // blanc froid légèrement violacé
+  --wb-grid-dot:        #d8d4e4; // point de grille au repos (teinté violet froid)
+  --wb-grid-dot-strong: #c4bed8; // point renforcé aux forts niveaux de zoom
+  --wb-guide:           #db2777; // = --color-accent (magenta) — guides d'alignement (contraste max vs violet système)
+  --wb-frame-band:      #f3eefc; // = --color-gray-100 — bande d'en-tête de frame
+
+  // ── 2.3 Surfaces châssis (toolbar, panneaux, pilule, en-tête) ──
+  --wb-surface:        #ffffff; // = --surface-card
+  --wb-surface-hover:  #f6f3fd; // = --color-gray-50 (hover bouton châssis)
+  --wb-surface-sunken: #f3eefc; // = --color-gray-100 (fonds de champ, stats)
+  --wb-border:         #e9e1f7; // = --color-gray-200 (bordures 1px châssis)
+  --wb-border-strong:  #d0bff0; // = --color-gray-300
+  --wb-ink:            #1a1230; // = --color-gray-900 (texte fort)
+  --wb-ink-muted:      #756693; // = --color-gray-500 (labels, méta ; AA sur blanc 5.15:1)
+  --wb-ink-faint:      #a99bc7; // = --color-gray-400 (placeholder, hints)
+
+  // ── 2.4 Échelle d'espacement (4-pt) ──
+  --wb-space-1: 4px;
+  --wb-space-2: 8px;
+  --wb-space-3: 12px;
+  --wb-space-4: 16px;
+  --wb-space-5: 20px;
+  --wb-space-6: 24px;
+  --wb-space-8: 32px;
+
+  // ── 2.5 Rayons (whiteboard — assument l'arrondi, cf. §0.3) ──
+  --wb-radius-card:    8px;    // sticky / texte / image / lien / tableau
+  --wb-radius-shape:   6px;    // formes rectangulaires
+  --wb-radius-control: 10px;   // boutons toolbar, boutons en-tête
+  --wb-radius-panel:   14px;   // toolbar conteneur, popovers, pilule zoom, cartes de panneau
+  --wb-radius-pill:    9999px; // avatars, badges, dots de vote, pilule ronde
+  --wb-radius-chip:    6px;    // chips / tags
+
+  // ── 2.6 Ombres (elevation — teinte encre violette rgba(26,18,48,·)) ──
+  --wb-elev-0: none;
+  --wb-elev-1: 0 1px 3px rgba(26, 18, 48, 0.10), 0 1px 2px rgba(26, 18, 48, 0.06); // carte au repos
+  --wb-elev-2: 0 4px 10px rgba(26, 18, 48, 0.12), 0 2px 4px rgba(26, 18, 48, 0.06); // toolbar, pilule, hover carte
+  --wb-elev-3: 0 10px 24px rgba(26, 18, 48, 0.16), 0 4px 8px rgba(26, 18, 48, 0.08); // popovers, carte en drag
+  --wb-elev-4: 0 20px 48px rgba(26, 18, 48, 0.22); // modales, overlays
+  --wb-halo-select: 0 0 0 2px var(--wb-accent); // halo de sélection (remplace box-shadow #2196f3)
+  --wb-halo-select-soft: 0 0 0 2px var(--wb-accent), 0 4px 12px rgba(109, 40, 217, 0.20); // sélection + lift
+
+  // ── 2.7 Typographie ──
+  --wb-font:      'Fira Sans', 'Segoe UI', Arial, sans-serif;         // = --font-sans
+  --wb-font-mono: 'Fira Mono', 'SFMono-Regular', Consolas, monospace; // = --font-mono (zoom %, timer)
+
+  --wb-text-hint: 10px; // hints (« Échap »), sitename lien
+  --wb-text-xs:   11px; // méta, description lien, chips
+  --wb-text-sm:   12px; // labels toolbar/panneaux, cellules tableau
+  --wb-text-13:   13px; // boutons en-tête, titre lien
+  --wb-text-base: 14px; // texte de carte par défaut, corps panneaux
+  --wb-text-md:   16px; // titre board
+  --wb-text-lg:   18px; // titres de panneaux (vote, connecteur)
+  --wb-text-card: 16px; // texte sticky par défaut
+
+  --wb-fw-regular:  400;
+  --wb-fw-medium:   500;
+  --wb-fw-semibold: 600;
+  --wb-fw-bold:     700;
+
+  --wb-lh-tight: 1.25; // titres
+  --wb-lh-body:  1.4;  // corps carte / panneaux
+
+  // ── 2.8 Z-index (échelle explicite) ──
+  --wb-z-grid:        0;
+  --wb-z-connections: 1;
+  --wb-z-frames:      2;   // frames sous les cartes
+  --wb-z-cards:       3;
+  --wb-z-card-drag:   4;   // carte soulevée
+  --wb-z-guides:      5;   // guides d'alignement
+  --wb-z-presence:    6;   // curseurs distants
+  --wb-z-marquee:     7;   // lasso de sélection
+  --wb-z-chrome:      10;  // toolbar, pilule zoom, en-tête, minimap
+  --wb-z-popover:     20;  // color picker, connector-style, vote panel flottant
+  --wb-z-drawer:      30;  // drawer activités
+  --wb-z-overlay:     150; // overlay timer plein écran
+  --wb-z-modal:       200; // modales (settings, template gallery)
+
+  // ── 2.9 Motion (durées & easings) ──
+  --wb-dur-instant: 80ms;  // suivi curseur distant, retour pressed
+  --wb-dur-fast:    120ms; // hover, opacity poignées
+  --wb-dur-base:    160ms; // apparition carte, lift au drag, snap
+  --wb-dur-slow:    240ms; // panneaux entrants, barres de vote
+  --wb-dur-overlay: 400ms; // fade overlay timer
+
+  --wb-ease-standard: cubic-bezier(0.2, 0, 0, 1);     // entrées/sorties d'état (calme)
+  --wb-ease-out:      cubic-bezier(0, 0, 0.2, 1);      // apparitions
+  --wb-ease-in:       cubic-bezier(0.4, 0, 1, 1);      // disparitions
+  --wb-ease-spring:   cubic-bezier(0.34, 1.4, 0.64, 1); // RÉSERVÉ moments d'atelier (carte timer)
+
+  // ── 2.11 Couleurs sémantiques (statut uniquement — jamais décoratif) ──
+  --wb-success:       #0e9f6e; // = --color-success
+  --wb-success-bg:    #e3f6ee; // = --color-success-light
+  --wb-warning:       #f59e0b; // = --color-warning
+  --wb-danger:        #dc2626; // = --color-error
+  --wb-danger-bg:     #fde4e6; // = --color-error-light
+  --wb-danger-border: #f5b8be; // = --color-error-border
+  --wb-info:          #0284c7; // = --color-info (bleu distinct du violet système)
+
+  // ── 2.12 Curseurs distants — palette participants (déterministe, hash userId) ──
+  --wb-user-1: #6d28d9; // violet marque
+  --wb-user-2: #db2777; // magenta
+  --wb-user-3: #0e9f6e; // vert
+  --wb-user-4: #0284c7; // bleu
+  --wb-user-5: #f59e0b; // ambre
+  --wb-user-6: #dc2626; // rouge
+  --wb-user-7: #7c3aed; // violet clair
+  --wb-user-8: #0891b2; // cyan
+}

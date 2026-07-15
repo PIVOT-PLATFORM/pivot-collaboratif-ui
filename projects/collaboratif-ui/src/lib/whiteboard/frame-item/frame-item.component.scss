@@ -1,9 +1,9 @@
 :host {
   position: absolute;
   box-sizing: border-box;
-  border: 2px dashed #c0c0c0;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.015);
+  border: 2px dashed var(--wb-border-strong);
+  border-radius: var(--wb-radius-card);
+  background: rgba(26, 18, 48, 0.015); // teinte encre violette très légère (= --color-navy-900)
   pointer-events: none;
 }
 
@@ -12,7 +12,7 @@
 }
 
 .wb-frame--selected {
-  border-color: #2196f3;
+  border-color: var(--wb-accent);
 }
 
 .wb-frame--active {
@@ -27,11 +27,12 @@
   align-items: center;
   gap: 6px;
   height: 24px;
-  padding: 0 8px;
+  padding: 0 var(--wb-space-2);
   border-radius: 6px 6px 0 0;
-  color: #1f2937;
-  font-size: 12px;
-  font-weight: 600;
+  background: var(--wb-frame-band);
+  color: var(--wb-ink);
+  font-size: var(--wb-text-sm);
+  font-weight: var(--wb-fw-semibold);
   cursor: grab;
   max-width: 100%;
 }
@@ -47,7 +48,7 @@
   outline: none;
   background: rgba(255, 255, 255, 0.9);
   font: inherit;
-  border-radius: 3px;
+  border-radius: var(--wb-radius-chip);
   padding: 0 4px;
 }
 
@@ -64,7 +65,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid #2196f3;
+    outline: 2px solid var(--wb-focus);
   }
 }
 
@@ -72,8 +73,8 @@
   position: absolute;
   width: 10px;
   height: 10px;
-  background: #ffffff;
-  border: 1px solid #2196f3;
+  background: var(--wb-surface);
+  border: 1.5px solid var(--wb-accent);
   border-radius: 2px;
   box-sizing: border-box;
 

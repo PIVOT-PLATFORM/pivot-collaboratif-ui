@@ -5,26 +5,26 @@
 .wb-toolbar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px;
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+  gap: var(--wb-space-2);
+  padding: var(--wb-space-2);
+  background: var(--wb-surface);
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius-panel);
+  box-shadow: var(--wb-elev-2);
   user-select: none;
 }
 
 .wb-toolbar__group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--wb-space-1);
 
   &--colors {
     flex-direction: row;
     flex-wrap: wrap;
     width: 84px;
-    padding-top: 8px;
-    border-top: 1px solid #eee;
+    padding-top: var(--wb-space-2);
+    border-top: 1px solid var(--wb-border);
   }
 }
 
@@ -35,18 +35,21 @@
   align-items: center;
   justify-content: center;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--wb-radius-control);
   background: transparent;
+  color: var(--wb-ink-muted);
   font-size: 16px;
   cursor: pointer;
 
   &:hover:not(:disabled) {
-    background: #f3f4f6;
+    background: var(--wb-surface-hover);
+    color: var(--wb-ink);
   }
 
   &--active {
-    background: #e0e7ff;
-    border-color: #6366f1;
+    background: var(--wb-accent-weak);
+    border-color: var(--wb-accent-weak-2);
+    color: var(--wb-accent);
   }
 
   &:disabled {
@@ -55,7 +58,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid #2196f3;
+    outline: 2px solid var(--wb-focus);
     outline-offset: 2px;
   }
 }
@@ -77,18 +80,18 @@
 .wb-toolbar__swatch {
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 0 1px #d0d0d0;
+  border-radius: var(--wb-radius-pill);
+  border: 2px solid var(--wb-surface);
+  box-shadow: 0 0 0 1px var(--wb-border-strong);
   cursor: pointer;
   padding: 0;
 
   &--active {
-    box-shadow: 0 0 0 2px #2196f3;
+    box-shadow: 0 0 0 2px var(--wb-accent);
   }
 
   &:focus-visible {
-    outline: 2px solid #2196f3;
+    outline: 2px solid var(--wb-focus);
     outline-offset: 1px;
   }
 
@@ -96,7 +99,7 @@
      background, distinguishable without relying on colour alone. */
   &--none {
     background:
-      linear-gradient(to top left, transparent calc(50% - 1px), #d0362b calc(50% - 1px), #d0362b calc(50% + 1px), transparent calc(50% + 1px)),
-      #ffffff;
+      linear-gradient(to top left, transparent calc(50% - 1px), var(--wb-danger) calc(50% - 1px), var(--wb-danger) calc(50% + 1px), transparent calc(50% + 1px)),
+      var(--wb-surface);
   }
 }
