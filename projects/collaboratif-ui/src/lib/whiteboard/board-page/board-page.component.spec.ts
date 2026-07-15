@@ -362,6 +362,9 @@ describe('BoardPageComponent — US08.7.1 keyboard delete of a selected connecto
     onReconnect(): () => void {
       return () => {};
     }
+    getSessionId(): string {
+      return 'recording-transport-session';
+    }
   }
 
   function create() {
