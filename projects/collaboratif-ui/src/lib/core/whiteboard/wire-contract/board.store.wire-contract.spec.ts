@@ -51,7 +51,11 @@ interface VocabularyEntry {
 
 /**
  * Every literal type argument passed to `this.transport.emit('<type>', …)` in `board.store.ts`
- * (37 call sites at the time of writing — see regeneration command above).
+ * (36 call sites at the time of writing — see regeneration command above).
+ *
+ * `RESET` is deliberately absent: `BoardStore.resetBoard()` (the only call site that ever
+ * emitted it) was dead code — no application caller — and has been removed (EN08.5 review
+ * finding). See the dedicated regression test below.
  */
 const EMITTED_TYPES: readonly string[] = [
   'board:cursor',
@@ -83,7 +87,6 @@ const EMITTED_TYPES: readonly string[] = [
   'frame:move',
   'frame:resize',
   'frame:update',
-  'RESET',
   'timer:start',
   'timer:stop',
   'vote:cast',
@@ -152,11 +155,26 @@ const DOCUMENTED_WIREOUT_EXTRAS = new Set(['board:state', 'board:resetted']);
  * not implement at all yet (no corresponding `vocabulary.json` entry under ANY name) — frames,
  * timer, vote sessions, board/card custom fields, card locking, card-grouping, and the
  * editing-presence soft-lock. See `BoardTransport`'s class TSDoc ("⚠️ WIP: … the structured
- * events below have no backend handler yet"). Intentionally excludes `RESET`'s former
- * `'board:reset'` typo: unlike these, `RESET` DOES have a canonical entry in `vocabulary.json`
- * (`wireIn: "RESET"`) — a mismatched name for an existing contract entry is a real divergence,
- * not a missing feature, so it must never be allowlisted here (fixed in `board.store.ts`
- * alongside this test — see the dedicated regression test below).
+ * events below have no backend handler yet").
+ *
+ * `RESET` is intentionally absent from this allowlist (and from `EMITTED_TYPES`): it is not a
+ * missing feature, it is *never emitted by this front at all*. `RESET` is server-emitted-only —
+ * `pivot-collaboratif-core`'s `CanvasActionService` drops any inbound `RESET` outright
+ * (`LOG.warn("Inbound RESET dropped — RESET is server-emitted only …")`), regardless of the
+ * wire literal used. The real reset flow is REST (`BoardService.resetBoard()` →
+ * `POST /whiteboard/boards/{id}/reset`), and the result reaches the front via the
+ * `board:resetted` broadcast (see `DOCUMENTED_WIREOUT_EXTRAS` above and the `on('board:resetted', …)`
+ * handler in `board.store.ts`). `BoardStore.resetBoard()` — the only call site that ever emitted
+ * a `RESET`/`board:reset` wire message — was dead code (no application caller) and has been
+ * removed; see the dedicated regression test below.
+ *
+ * `DRAW` and `UNDO` are likewise absent: this front never emits either literal. Undo/redo is
+ * implemented client-side (`BoardStore`'s local history stack replays the same typed mutation
+ * events — `card:move`, `card:update`, …), not by round-tripping a generic `DRAW`/`UNDO` wire
+ * action. `JOIN`, `LEAVE`, and `CURSOR_MOVE`, by contrast, ARE emitted by this front — under
+ * their canonical `wireIn` aliases `board:join`, `board:leave`, `board:cursor` respectively
+ * (see `EMITTED_TYPES` above and the vocabulary sweep below, which validates those aliases
+ * directly against `vocabulary.json`).
  */
 const KNOWN_WIP_EMIT_TYPES = new Set([
   'boardfield:create',
@@ -262,15 +280,19 @@ describe('BoardStore wire vocabulary vs. canonical vocabulary.json (EN08.5, Couc
     expect(stale, 'these types should be removed from the WIP allowlist — the backend now implements them').toEqual([]);
   });
 
-  it('RESET is emitted with the exact canonical wireIn string ("RESET"), not a guessed "board:reset"', () => {
-    // Regression pin (EN08.5 finding): board.store.ts's resetBoard() used to emit the literal
-    // type 'board:reset', which does not match vocabulary.json's RESET entry (wireIn: "RESET",
-    // matching DRAW/UNDO's raw, un-namespaced convention rather than JOIN/LEAVE's "board:*"
-    // convention) — a silent wire-contract divergence the backend would have ignored outright.
-    // Fixed in board.store.ts alongside this test; asserted here explicitly (in addition to the
-    // generic emit()-vs-vocabulary sweep above) so a regression back to 'board:reset' fails with
-    // a message pointing straight at the historical bug, not just a generic allowlist miss.
-    expect(EMITTED_TYPES).toContain('RESET');
+  it('never emits RESET (or the guessed "board:reset" typo) — RESET is server-emitted only', () => {
+    // Regression pin (EN08.5 review finding, superseding an earlier fix attempt in f2bd42b):
+    // board.store.ts's resetBoard() used to emit a RESET wire message — first under the wrong
+    // literal 'board:reset', then "corrected" to the canonical wireIn literal 'RESET'. Both were
+    // wrong: the backend's CanvasActionService drops every inbound RESET unconditionally
+    // (RESET is server-emitted-only, broadcast as `board:resetted` after the real REST reset —
+    // see BoardService.resetBoard() / POST /whiteboard/boards/{id}/reset), so resetBoard() had
+    // no effect either way. It also had no application caller. It has been removed from
+    // board.store.ts entirely. Asserted here explicitly (in addition to the generic
+    // emit()-vs-vocabulary sweep above) so a regression that re-introduces an outbound RESET —
+    // under any spelling — fails with a message pointing straight at this history, not just a
+    // generic allowlist miss.
+    expect(EMITTED_TYPES).not.toContain('RESET');
     expect(EMITTED_TYPES).not.toContain('board:reset');
   });
 });
