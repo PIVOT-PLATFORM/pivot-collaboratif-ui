@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BoardStore } from './board.store';
 import { BoardTransport } from './board-transport';
-import { COLLABORATIF_API_URL } from './config/tokens';
+import { COLLABORATIF_API_URL, COLLABORATIF_CURRENT_USER } from './config/tokens';
 import type { Card, Connection } from '../../whiteboard/model/board.types';
 
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
@@ -213,8 +213,11 @@ class FakeBoardTransport extends BoardTransport {
     return () => set.delete(handler as (data: unknown) => void);
   }
 
-  onReconnect(): () => void {
-    return () => {};
+  private readonly reconnectHandlers = new Set<() => void>();
+
+  onReconnect(handler: () => void): () => void {
+    this.reconnectHandlers.add(handler);
+    return () => this.reconnectHandlers.delete(handler);
   }
 
   getSessionId(): string {
@@ -224,6 +227,11 @@ class FakeBoardTransport extends BoardTransport {
   /** Simulates the server broadcasting `type` with `data` to every registered handler. */
   trigger<T>(type: string, data: T): void {
     this.handlers.get(type)?.forEach((h) => h(data));
+  }
+
+  /** Simulates an automatic reconnect, firing every registered re-join handler. */
+  triggerReconnect(): void {
+    this.reconnectHandlers.forEach((h) => h());
   }
 }
 
@@ -531,5 +539,246 @@ describe('BoardStore — connections (US08.7.1)', () => {
 
     store.redo();
     expect(store.connections().find((c) => c.id === 'conn-1')?.color).toBe('#00ff00');
+  });
+});
+
+describe('BoardStore — F1 optimistic card creation', () => {
+  let httpMock: HttpTestingController;
+  let transport: FakeBoardTransport;
+  let store: BoardStore;
+
+  async function flushInitRequests(): Promise<void> {
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}`).flush({
+      id: BOARD_ID,
+      title: 'Board',
+      role: 'OWNER',
+      description: null,
+      coverImage: null,
+      maxParticipants: null,
+      enabledActivities: [],
+    });
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/members`).flush([]);
+    httpMock
+      .expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/vote/current`)
+      .flush('', { status: 404, statusText: 'Not Found' });
+    httpMock
+      .expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/vote/last`)
+      .flush('', { status: 404, statusText: 'Not Found' });
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  beforeEach(() => {
+    transport = new FakeBoardTransport();
+    TestBed.configureTestingModule({
+      providers: [
+        BoardStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: Router, useValue: { navigateByUrl: vi.fn().mockResolvedValue(true) } },
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        { provide: BoardTransport, useValue: transport },
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(BoardStore);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    TestBed.resetTestingModule();
+  });
+
+  /** Extracts the clientTag attached to the (single) card:create emit. */
+  function emittedClientTag(): string {
+    const call = transport.emitted.find((e) => e.type === 'card:create');
+    expect(call).toBeDefined();
+    return (call!.data as { clientTag: string }).clientTag;
+  }
+
+  it('renders a provisional card immediately, before any server echo', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    expect(store.cards()).toHaveLength(0);
+
+    store.addCard(10, 20, 'TEXT', 'hello', '#FFEB3B', 180, 140);
+
+    expect(store.cards()).toHaveLength(1);
+    const card = store.cards()[0];
+    expect(card.posX).toBe(10);
+    expect(card.posY).toBe(20);
+    expect(card.type).toBe('TEXT');
+    expect(card.content).toBe('hello');
+    expect(card.color).toBe('#FFEB3B');
+    expect(card.width).toBe(180);
+    expect(card.height).toBe(140);
+    expect(card.fieldValues).toEqual([]);
+    // The provisional card is keyed by the emitted clientTag (temporary id).
+    expect(card.id).toBe(emittedClientTag());
+  });
+
+  it('opens the provisional card in edit mode immediately (autoEditCardId = clientTag)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+
+    store.addCard(10, 20, 'TEXT', '', '#FFEB3B', 180, 140);
+
+    expect(store.autoEditCardId()).toBe(emittedClientTag());
+  });
+
+  it('reconciles the matching echo in place — replaces the provisional card, no duplicate', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.addCard(10, 20, 'TEXT', 'hello', '#FFEB3B', 180, 140);
+    const clientTag = emittedClientTag();
+
+    transport.trigger('card:created', {
+      ...makeCard('server-id', { content: 'hello', posX: 10, posY: 20 }),
+      clientTag,
+    });
+
+    expect(store.cards()).toHaveLength(1);
+    expect(store.cards()[0].id).toBe('server-id');
+    expect(store.cards().some((c) => c.id === clientTag)).toBe(false);
+  });
+
+  it('moves autoEditCardId from the clientTag to the reconciled server id', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.addCard(10, 20, 'TEXT', '', '#FFEB3B', 180, 140);
+    const clientTag = emittedClientTag();
+    expect(store.autoEditCardId()).toBe(clientTag);
+
+    transport.trigger('card:created', { ...makeCard('server-id'), clientTag });
+
+    expect(store.autoEditCardId()).toBe('server-id');
+  });
+
+  it('appends a card:created with an unknown clientTag (another participant)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+
+    transport.trigger('card:created', makeCard('remote-card'));
+
+    expect(store.cards().some((c) => c.id === 'remote-card')).toBe(true);
+    expect(store.autoEditCardId()).toBeNull();
+  });
+
+  it('reaps the provisional card if the server never echoes (safety timeout)', async () => {
+    // NB: a pass-through `setTimeout` spy (not `vi.useFakeTimers()`) — fake timers leak across
+    // this non-isolated worker and break sibling specs that mock `@stomp/rx-stomp`. The spy
+    // still delegates to the real timer; we only reach in to fire the reaper callback directly.
+    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    try {
+      store.init(BOARD_ID);
+      await flushInitRequests();
+
+      store.addCard(10, 20, 'TEXT', 'hello', '#FFEB3B', 180, 140);
+      expect(store.cards()).toHaveLength(1);
+
+      // The reaper is the 10s timer registered by addCard — invoke it as the platform would.
+      const reaper = timeoutSpy.mock.calls.find(([, delay]) => delay === 10_000)?.[0] as
+        | (() => void)
+        | undefined;
+      expect(reaper).toBeDefined();
+      reaper!();
+
+      expect(store.cards()).toHaveLength(0);
+    } finally {
+      timeoutSpy.mockRestore();
+    }
+  });
+});
+
+describe('BoardStore — F3 presence join payload', () => {
+  let httpMock: HttpTestingController;
+  let transport: FakeBoardTransport;
+
+  async function flushInitRequests(): Promise<void> {
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}`).flush({
+      id: BOARD_ID, title: 'Board', role: 'OWNER', description: null,
+      coverImage: null, maxParticipants: null, enabledActivities: [],
+    });
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/members`).flush([]);
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/vote/current`)
+      .flush('', { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/vote/last`)
+      .flush('', { status: 404, statusText: 'Not Found' });
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  function configure(currentUser?: () => { displayName: string | null; avatarUrl: string | null }): BoardStore {
+    transport = new FakeBoardTransport();
+    TestBed.configureTestingModule({
+      providers: [
+        BoardStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: Router, useValue: { navigateByUrl: vi.fn().mockResolvedValue(true) } },
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        { provide: BoardTransport, useValue: transport },
+        ...(currentUser ? [{ provide: COLLABORATIF_CURRENT_USER, useValue: currentUser }] : []),
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    return TestBed.inject(BoardStore);
+  }
+
+  afterEach(() => {
+    httpMock.verify();
+    TestBed.resetTestingModule();
+  });
+
+  function joinCalls(): Array<Record<string, unknown>> {
+    return transport.emitted
+      .filter((e) => e.type === 'board:join')
+      .map((e) => e.data as Record<string, unknown>);
+  }
+
+  it('emits board:join with the current user displayName + avatarUrl (not a bare boardId string)', async () => {
+    const store = configure(() => ({ displayName: 'Alice', avatarUrl: 'http://a/x.png' }));
+    store.init(BOARD_ID);
+    await flushInitRequests();
+
+    const calls = joinCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual({ displayName: 'Alice', avatarUrl: 'http://a/x.png' });
+    expect(typeof calls[0]).toBe('object');
+  });
+
+  it('re-emits the same join payload on reconnect', async () => {
+    const store = configure(() => ({ displayName: 'Alice', avatarUrl: 'http://a/x.png' }));
+    store.init(BOARD_ID);
+    await flushInitRequests();
+
+    transport.triggerReconnect();
+
+    const calls = joinCalls();
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual({ displayName: 'Alice', avatarUrl: 'http://a/x.png' });
+  });
+
+  it('omits displayName when unknown so the backend applies its Anonymous fallback', async () => {
+    const store = configure(); // default accessor → { displayName: null, avatarUrl: null }
+    store.init(BOARD_ID);
+    await flushInitRequests();
+
+    const calls = joinCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).not.toHaveProperty('displayName');
+    expect(calls[0]).not.toHaveProperty('avatarUrl');
+  });
+
+  it('still emits board:leave unchanged (contract preserved)', async () => {
+    const store = configure(() => ({ displayName: 'Alice', avatarUrl: null }));
+    store.init(BOARD_ID);
+    await flushInitRequests();
+
+    store.destroy();
+
+    const leave = transport.emitted.find((e) => e.type === 'board:leave');
+    expect(leave).toBeDefined();
+    expect(leave!.data).toBe(BOARD_ID);
   });
 });

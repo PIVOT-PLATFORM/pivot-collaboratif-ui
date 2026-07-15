@@ -2,11 +2,16 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom, timeout } from 'rxjs';
-import { COLLABORATIF_API_URL } from './config/tokens';
+import { COLLABORATIF_API_URL, COLLABORATIF_CURRENT_USER } from './config/tokens';
 import { BoardTransport } from './board-transport';
 import { ToastService } from '../toast/toast.service';
 import { DEFAULT_CARD_COLOR } from '../../whiteboard/model/colors';
-import { HISTORY_LIMIT, CURSOR_THROTTLE_MS } from '../../whiteboard/model/board-constants';
+import {
+  HISTORY_LIMIT,
+  CURSOR_THROTTLE_MS,
+  DEFAULT_CARD_W,
+  DEFAULT_CARD_H,
+} from '../../whiteboard/model/board-constants';
 import type {
   Card,
   Connection,
@@ -46,6 +51,14 @@ type CardBox = { posX: number; posY: number; width: number; height: number };
 const LOAD_BOARD_TIMEOUT_MS = 8_000;
 
 /**
+ * Safety window (F1) for an optimistically-rendered card to receive its authoritative
+ * `card:created` echo. If none arrives within this delay (dropped message, backend error),
+ * the provisional card is reaped so a failed creation cannot linger as a ghost sticky. Kept
+ * generous — reconciliation is the normal, near-instant path; this is only a last-resort net.
+ */
+const OPTIMISTIC_CARD_TIMEOUT_MS = 10_000;
+
+/**
  * Structured whiteboard state machine — the Angular port of the PouetPouet `useBoard`
  * hook (`apps/web/src/hooks/useBoard.ts`). Owns all board domain state (cards,
  * connections, frames, fields, votes, timer, presence), a 30-deep undo/redo history,
@@ -65,6 +78,7 @@ export class BoardStore {
   private readonly transport = inject(BoardTransport);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
+  private readonly currentUser = inject(COLLABORATIF_CURRENT_USER);
 
   // ── State signals ──────────────────────────────────────────────────────────
   readonly board = signal<BoardDetail | null>(null);
@@ -99,6 +113,8 @@ export class BoardStore {
   private boardId = '';
   private readonly unsubscribers: Array<() => void> = [];
   private readonly pendingLocalTags = new Set<string>();
+  /** Per-clientTag reaper timers for optimistically-rendered cards awaiting their echo (F1). */
+  private readonly optimisticCardTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** Id of a freshly self-created card that should open in edit mode (one-shot). */
   readonly autoEditCardId = signal<string | null>(null);
   private readonly pendingCardHistory: Array<(card: Card) => void> = [];
@@ -128,9 +144,31 @@ export class BoardStore {
     void this.loadVote('current', this.activeVoteSession);
     void this.loadVote('last', this.lastVoteSession);
     this.transport.connect(boardId);
-    this.transport.emit('board:join', boardId);
-    this.unsubscribers.push(this.transport.onReconnect(() => this.transport.emit('board:join', boardId)));
+    // F3 — announce our presence identity on join so other participants see our real name/avatar
+    // (the backend defaults an empty `displayName` to "Anonymous"). Re-sent verbatim on every
+    // reconnect. The board is scoped by the destination URL, so it is not part of this payload.
+    this.transport.emit('board:join', this.buildJoinPayload());
+    this.unsubscribers.push(
+      this.transport.onReconnect(() => this.transport.emit('board:join', this.buildJoinPayload())),
+    );
     this.registerHandlers();
+  }
+
+  /**
+   * Builds the `board:join` presence payload from {@link COLLABORATIF_CURRENT_USER} (F3). A field
+   * is included only when known: an unknown `displayName`/`avatarUrl` is omitted entirely so the
+   * backend applies its own fallback rather than persisting a `null`.
+   */
+  private buildJoinPayload(): { displayName?: string; avatarUrl?: string } {
+    const user = this.currentUser();
+    const payload: { displayName?: string; avatarUrl?: string } = {};
+    if (user.displayName != null && user.displayName !== '') {
+      payload.displayName = user.displayName;
+    }
+    if (user.avatarUrl != null && user.avatarUrl !== '') {
+      payload.avatarUrl = user.avatarUrl;
+    }
+    return payload;
   }
 
   /** Leaves the room and tears down subscriptions. Call from the container's ngOnDestroy. */
@@ -139,6 +177,8 @@ export class BoardStore {
       cancelAnimationFrame(this.moveEmit.raf);
       this.moveEmit.raf = null;
     }
+    this.optimisticCardTimers.forEach((t) => clearTimeout(t));
+    this.optimisticCardTimers.clear();
     this.transport.emit('board:leave', this.boardId);
     this.unsubscribers.forEach((u) => u());
     this.unsubscribers.length = 0;
@@ -343,12 +383,32 @@ export class BoardStore {
     );
 
     this.on<Card & { clientTag?: string }>('card:created', (payload) => {
-      const { clientTag, ...card } = payload;
-      if (clientTag && this.pendingLocalTags.delete(clientTag)) {
-        this.autoEditCardId.set(card.id);
+      const { clientTag, ...rest } = payload;
+      const card: Card = { ...(rest as Card), fieldValues: (rest as Card).fieldValues ?? [] };
+      // A tag we're still waiting on ⇒ this is the authoritative echo of a card WE created
+      // optimistically (F1). Reconcile the provisional entry (keyed by clientTag) in place
+      // rather than appending a duplicate, and carry the auto-edit flag from the temporary id
+      // over to the real one so the sticky stays in edit mode across the swap.
+      const isOwnOptimistic = !!clientTag && this.pendingLocalTags.delete(clientTag);
+      if (isOwnOptimistic && clientTag) {
+        this.clearOptimisticTimer(clientTag);
+        if (this.autoEditCardId() === clientTag) {
+          this.autoEditCardId.set(card.id);
+        }
       }
-      this.pendingCardHistory.shift()?.(card as Card);
-      this.cards.update((prev) => [...prev, { ...(card as Card), fieldValues: [] }]);
+      this.pendingCardHistory.shift()?.(card);
+      this.cards.update((prev) => {
+        if (isOwnOptimistic && clientTag) {
+          const idx = prev.findIndex((c) => c.id === clientTag);
+          if (idx !== -1) {
+            const next = [...prev];
+            next[idx] = card;
+            return next;
+          }
+        }
+        // Another participant's card, or an already-reaped optimistic one: append (deduped).
+        return prev.some((c) => c.id === card.id) ? prev : [...prev, card];
+      });
     });
     // Sender exclusion (fix/EN08.4): senderSessionId is this transport's own opaque connection
     // id, echoed back verbatim by the backend (never persisted server-side, see
@@ -547,7 +607,63 @@ export class BoardStore {
 
     const clientTag = crypto.randomUUID();
     this.pendingLocalTags.add(clientTag);
+
+    // F1 — optimistic render: insert a provisional card immediately (keyed by clientTag as its
+    // temporary id) so the sticky appears without waiting for the server round trip, mirroring
+    // the fluidity of the already-optimistic move/resize paths. The matching `card:created`
+    // echo replaces this entry in place (see registerHandlers); a failed/dropped create is
+    // reaped by the safety timeout below so no ghost card lingers.
+    const provisional: Card = {
+      id: clientTag,
+      boardId: this.boardId,
+      type: emitParams.type,
+      content: emitParams.content,
+      meta: null,
+      posX,
+      posY,
+      width: width ?? DEFAULT_CARD_W,
+      height: height ?? DEFAULT_CARD_H,
+      color: cardColor,
+      groupId: null,
+      groupColor: null,
+      locked: false,
+      layer: 1,
+      fieldValues: [],
+    };
+    this.cards.update((prev) => [...prev, provisional]);
+    // Open the freshly created sticky in edit mode right away; reconciliation carries this flag
+    // over to the real server id (see the `card:created` handler).
+    this.autoEditCardId.set(clientTag);
+    this.optimisticCardTimers.set(
+      clientTag,
+      setTimeout(() => this.reapOptimisticCard(clientTag), OPTIMISTIC_CARD_TIMEOUT_MS),
+    );
+
     this.transport.emit('card:create', { ...emitParams, clientTag });
+  }
+
+  /** Clears (and forgets) the optimistic reaper timer for a clientTag, if any (F1). */
+  private clearOptimisticTimer(clientTag: string): void {
+    const timer = this.optimisticCardTimers.get(clientTag);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      this.optimisticCardTimers.delete(clientTag);
+    }
+  }
+
+  /**
+   * Safety net (F1): drops a provisional card whose authoritative `card:created` echo never
+   * arrived within {@link OPTIMISTIC_CARD_TIMEOUT_MS}. No-op if the tag was already reconciled.
+   */
+  private reapOptimisticCard(clientTag: string): void {
+    this.optimisticCardTimers.delete(clientTag);
+    if (!this.pendingLocalTags.delete(clientTag)) {
+      return;
+    }
+    this.cards.update((prev) => prev.filter((c) => c.id !== clientTag));
+    if (this.autoEditCardId() === clientTag) {
+      this.autoEditCardId.set(null);
+    }
   }
 
   private flushMoveEmits(): void {
