@@ -422,8 +422,12 @@ export class BoardStore {
     this.on<string>('connection:deleted', (id) =>
       this.connections.update((prev) => prev.filter((c) => c.id !== id)),
     );
+    // Unlike card:updated (content-only patch), connection:updated broadcasts the connector's
+    // full, authoritative state (US08.7.2 AC4) — the in-memory entry is replaced outright
+    // rather than merged, so a field a concurrent update cleared server-side (e.g. label back
+    // to null) can never linger locally from a stale spread.
     this.on<Connection>('connection:updated', (conn) =>
-      this.connections.update((prev) => prev.map((c) => (c.id === conn.id ? { ...c, ...conn } : c))),
+      this.connections.update((prev) => prev.map((c) => (c.id === conn.id ? conn : c))),
     );
 
     this.on<Frame>('frame:created', (frame) => {
@@ -1047,6 +1051,15 @@ export class BoardStore {
     this.transport.emit('connection:delete', { id, boardId: this.boardId });
   }
 
+  /**
+   * Restyles an existing connector (US08.7.2) — emits `connection:update` as a **partial
+   * patch**: only the keys present on {@link patch} are sent (`Object.keys`, so an omitted
+   * field is never transmitted), while an explicitly-provided `label: null` *is* sent
+   * (distinct from "absent" — the backend clears the label). Applies the patch optimistically
+   * to local state, then relies on the `connection:updated` broadcast (see
+   * {@link registerHandlers}) for full reconciliation. Pushes a single undo/redo history
+   * entry restoring exactly the fields that were changed.
+   */
   updateConnection(id: string, patch: ConnectionPatch): void {
     const conn = this.connections().find((c) => c.id === id);
     if (!conn) {

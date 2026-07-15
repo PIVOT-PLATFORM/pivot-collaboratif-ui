@@ -435,4 +435,101 @@ describe('BoardStore — connections (US08.7.1)', () => {
 
     expect(transport.emitted).toHaveLength(emittedBefore);
   });
+
+  // ── Restyle a connection (US08.7.2) ────────────────────────────────────────
+
+  it('updateConnection emits connection:update with exactly the provided fields (AC1)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.connections.set([makeConnection('conn-1', 'card-a', 'card-b')]);
+
+    store.updateConnection('conn-1', { color: '#ff0000', width: 4 });
+
+    const emitted = transport.emitted.filter((e) => e.type === 'connection:update');
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].data).toEqual({ id: 'conn-1', boardId: BOARD_ID, color: '#ff0000', width: 4 });
+  });
+
+  it('updateConnection omits every field not present in the patch (partial patch, AC2)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.connections.set([makeConnection('conn-1', 'card-a', 'card-b')]);
+
+    store.updateConnection('conn-1', { shape: 'orthogonal' });
+
+    const data = transport.emitted.find((e) => e.type === 'connection:update')?.data as Record<string, unknown>;
+    expect(data).toEqual({ id: 'conn-1', boardId: BOARD_ID, shape: 'orthogonal' });
+    expect('label' in data).toBe(false);
+    expect('color' in data).toBe(false);
+    expect('arrow' in data).toBe(false);
+    expect('dashed' in data).toBe(false);
+    expect('width' in data).toBe(false);
+  });
+
+  it('updateConnection with an explicit label:null emits label:null, distinct from an omitted label (AC3)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.connections.set([makeConnection('conn-1', 'card-a', 'card-b', { label: 'old label' })]);
+
+    store.updateConnection('conn-1', { label: null });
+
+    const data = transport.emitted.find((e) => e.type === 'connection:update')?.data as Record<string, unknown>;
+    expect('label' in data).toBe(true);
+    expect(data['label']).toBeNull();
+  });
+
+  it('updateConnection is a no-op for an unknown connection id', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.connections.set([]);
+
+    store.updateConnection('does-not-exist', { color: '#000000' });
+
+    expect(transport.emitted.some((e) => e.type === 'connection:update')).toBe(false);
+  });
+
+  it('updateConnection applies the patch optimistically to local state', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.connections.set([makeConnection('conn-1', 'card-a', 'card-b')]);
+
+    store.updateConnection('conn-1', { dashed: true, width: 5 });
+
+    const conn = store.connections().find((c) => c.id === 'conn-1');
+    expect(conn?.dashed).toBe(true);
+    expect(conn?.width).toBe(5);
+  });
+
+  it('reconciles connection:updated by fully replacing the connector state with the broadcast object (AC4)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.connections.set([makeConnection('conn-1', 'card-a', 'card-b', { color: '#111111', shape: 'curved', width: 2 })]);
+
+    const updated = makeConnection('conn-1', 'card-a', 'card-b', {
+      color: '#00ff00',
+      shape: 'orthogonal',
+      arrow: 'both',
+      dashed: true,
+      width: 6,
+      label: 'new label',
+    });
+    transport.trigger('connection:updated', updated);
+
+    expect(store.connections()).toEqual([updated]);
+  });
+
+  it('updateConnection supports undo/redo of a restyle', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.connections.set([makeConnection('conn-1', 'card-a', 'card-b', { color: '#111111' })]);
+
+    store.updateConnection('conn-1', { color: '#00ff00' });
+    expect(store.connections().find((c) => c.id === 'conn-1')?.color).toBe('#00ff00');
+
+    store.undo();
+    expect(store.connections().find((c) => c.id === 'conn-1')?.color).toBe('#111111');
+
+    store.redo();
+    expect(store.connections().find((c) => c.id === 'conn-1')?.color).toBe('#00ff00');
+  });
 });

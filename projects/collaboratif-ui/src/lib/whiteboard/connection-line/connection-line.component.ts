@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { TranslocoService } from '@jsverse/transloco';
 import type { Connection, ConnShape } from '../model/board.types';
 import { type EdgeSide, type Rect, edgeAnchor } from '../model/board-geometry';
 
@@ -9,6 +9,13 @@ const DEFAULT_COLOR = '#9ca3af';
 const SELECTED_COLOR = '#6366f1';
 /** Fallback stroke width when {@link Connection.width} is falsy. */
 const DEFAULT_WIDTH = 2;
+
+/** i18n key per {@link ConnShape}, feeding the descriptive `aria-label` (US08.7.2 A11y AC). */
+const SHAPE_KEYS: Record<ConnShape, string> = {
+  straight: 'whiteboard.connector.style.shape.straight',
+  curved: 'whiteboard.connector.style.shape.curved',
+  orthogonal: 'whiteboard.connector.style.shape.orthogonal',
+};
 
 /** A 2D point in board (canvas) coordinates. */
 interface Point {
@@ -101,11 +108,12 @@ function arrowPolygon(tip: Point, dir: Point, size: number): string {
   selector: '[wbConnectionLine]',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoPipe],
   templateUrl: './connection-line.component.html',
   styleUrl: './connection-line.component.scss',
 })
 export class ConnectionLineComponent {
+  private readonly transloco = inject(TranslocoService);
+
   /** The connection to render (shape, arrow, color, width, dashed, label). */
   readonly connection = input.required<Connection>();
   /** Bounding rect of the source card, in board coordinates. */
@@ -114,6 +122,10 @@ export class ConnectionLineComponent {
   readonly toRect = input.required<Rect>();
   /** Whether this connection is currently selected (draws a highlight halo). */
   readonly selected = input<boolean>(false);
+  /** Short display name of the source card, used to compose the descriptive {@link ariaLabel}. */
+  readonly fromLabel = input<string>('');
+  /** Short display name of the target card, used to compose the descriptive {@link ariaLabel}. */
+  readonly toLabel = input<string>('');
 
   /** Emits the connection id when the hit-area is clicked or activated by keyboard. */
   readonly select = output<string>();
@@ -204,6 +216,23 @@ export class ConnectionLineComponent {
 
   /** Arrowhead size, scaled with stroke width (mirrors the reference). */
   private readonly headSize = computed<number>(() => 7 + this.strokeWidth() * 1.5);
+
+  /**
+   * Descriptive `aria-label` for the focusable hit-area (US08.7.2 A11y AC) — states the
+   * connector's shape, whether it is dashed, and its direction (e.g. "Connecteur courbe en
+   * pointillés, de Idée 1 vers Idée 2"), so a screen-reader user can tell connectors apart
+   * without relying on colour/shape alone. Falls back to a generic placeholder for either
+   * endpoint when {@link fromLabel}/{@link toLabel} is empty (endpoint card with no readable
+   * text, e.g. an IMAGE/DRAW/SHAPE card — see `StructuredCanvasComponent`).
+   */
+  protected readonly ariaLabel = computed<string>(() => {
+    const conn = this.connection();
+    const shape = this.transloco.translate(SHAPE_KEYS[conn.shape]);
+    const from = this.fromLabel() || this.transloco.translate('whiteboard.connection.untitledCard');
+    const to = this.toLabel() || this.transloco.translate('whiteboard.connection.untitledCard');
+    const key = conn.dashed ? 'whiteboard.connection.ariaLabel.dashed' : 'whiteboard.connection.ariaLabel.solid';
+    return this.transloco.translate(key, { shape, from, to });
+  });
 
   /** Emits {@link select} with the connection id. */
   protected onSelect(event: Event): void {

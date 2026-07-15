@@ -341,7 +341,34 @@
       "carryCards": "Carry the frame's cards"
     },
     "connection": {
-      "ariaLabel": "Connection"
+      "untitledCard": "untitled card",
+      "ariaLabel": {
+        "solid": "Connector {{shape}} from {{from}} to {{to}}",
+        "dashed": "Connector {{shape}}, dashed, from {{from}} to {{to}}"
+      }
+    },
+    "connector": {
+      "style": {
+        "title": "Connector style",
+        "shapeLabel": "Shape",
+        "shape": {
+          "straight": "Straight",
+          "curved": "Curved",
+          "orthogonal": "Orthogonal"
+        },
+        "arrowLabel": "Arrow",
+        "arrow": {
+          "none": "None",
+          "start": "Start",
+          "end": "End",
+          "both": "Both ends"
+        },
+        "dashedLabel": "Dashed",
+        "widthLabel": "Width",
+        "colorLabel": "Colour",
+        "labelFieldLabel": "Label",
+        "labelPlaceholder": "Connector text"
+      }
     },
     "timer": {
       "dialogLabel": "The timer has ended",

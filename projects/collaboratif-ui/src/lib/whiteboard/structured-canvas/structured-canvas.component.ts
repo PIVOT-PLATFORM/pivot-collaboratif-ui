@@ -10,13 +10,14 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { BoardStore } from '../../core/whiteboard/board.store';
 import { BoardCardComponent } from '../board-card/board-card.component';
 import { FrameItemComponent } from '../frame-item/frame-item.component';
 import { ConnectionLineComponent } from '../connection-line/connection-line.component';
 import type { Card, Connection } from '../model/board.types';
 import { DEFAULT_CARD_COLOR, DEFAULT_SHAPE_COLOR } from '../model/colors';
+import { cardDisplayText } from '../model/card-format';
 import { isUrlOnlyPaste } from '../model/link-preview';
 import {
   computeImageCardSize,
@@ -68,7 +69,17 @@ interface RenderConnection {
   conn: Connection;
   fromRect: Rect;
   toRect: Rect;
+  /** Short display name of the source/target card, for the connector's descriptive
+   *  `aria-label` (US08.7.2 A11y AC) — see {@link StructuredCanvasComponent.endpointLabel}. */
+  fromLabel: string;
+  toLabel: string;
 }
+
+/** Card types whose `content` is not human-readable (data URL, SVG path, encoded shape spec)
+ *  — {@link StructuredCanvasComponent.endpointLabel} falls back to a generic label for these. */
+const RAW_CONTENT_TYPES = new Set(['IMAGE', 'DRAW', 'SHAPE']);
+/** Endpoint label truncation length in {@link StructuredCanvasComponent.endpointLabel}. */
+const ENDPOINT_LABEL_MAX = 24;
 
 /**
  * The structured whiteboard surface — the Angular port of PouetPouet's `board-canvas.tsx`.
@@ -95,6 +106,7 @@ interface RenderConnection {
 })
 export class StructuredCanvasComponent {
   protected readonly store = inject(BoardStore);
+  private readonly transloco = inject(TranslocoService);
 
   /** Active tool (owned by the container/toolbar). */
   readonly tool = input<ToolMode>('select');
@@ -127,10 +139,35 @@ export class StructuredCanvasComponent {
       .map((conn) => {
         const from = byId.get(conn.fromId);
         const to = byId.get(conn.toId);
-        return from && to ? { conn, fromRect: cardRect(from), toRect: cardRect(to) } : null;
+        return from && to
+          ? {
+              conn,
+              fromRect: cardRect(from),
+              toRect: cardRect(to),
+              fromLabel: this.endpointLabel(from),
+              toLabel: this.endpointLabel(to),
+            }
+          : null;
       })
       .filter((c): c is RenderConnection => c !== null);
   });
+
+  /**
+   * Short, screen-reader-friendly display name for a connection endpoint card — feeds
+   * {@link ConnectionLineComponent}'s descriptive `aria-label` (US08.7.2 A11y AC). Uses the
+   * card's plain text for TEXT/LABEL/LINK (truncated); falls back to a generic translated
+   * placeholder for {@link RAW_CONTENT_TYPES} (IMAGE/DRAW/SHAPE) whose `content` encoding is
+   * not human-readable, and for any card with no readable text at all.
+   */
+  private endpointLabel(card: Card): string {
+    if (!RAW_CONTENT_TYPES.has(card.type)) {
+      const text = cardDisplayText(card).trim();
+      if (text) {
+        return text.length > ENDPOINT_LABEL_MAX ? `${text.slice(0, ENDPOINT_LABEL_MAX)}…` : text;
+      }
+    }
+    return this.transloco.translate('whiteboard.connection.untitledCard');
+  }
 
   private gesture: Gesture = { kind: 'none' };
   private spaceHeld = false;
