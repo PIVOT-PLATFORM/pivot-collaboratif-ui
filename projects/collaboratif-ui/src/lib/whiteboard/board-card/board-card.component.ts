@@ -21,7 +21,7 @@ import {
   TEXT_DEFAULT_COLOR,
 } from '../model/card-format';
 import { parseShape, type ShapeKind } from '../model/shape';
-import { parseTableContent } from '../model/table';
+import { parseTableContent, serializeTable } from '../model/table';
 import { headerTint, accessibleTextColorFor } from '../model/colors';
 import { linkDisplayLabel, safeLinkHref, safeLinkImage } from '../model/link-preview';
 
@@ -96,10 +96,16 @@ export class BoardCardComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly transloco = inject(TranslocoService);
   private readonly editArea = viewChild<ElementRef<HTMLTextAreaElement>>('editArea');
+  private readonly cellInput = viewChild<ElementRef<HTMLInputElement>>('cellInput');
 
   protected readonly resizeDirs = RESIZE_DIRS;
   protected readonly editing = signal(false);
   protected readonly editValue = signal('');
+
+  /** Cell currently in inline edit mode for a TABLE card (US08.6.6 a11y: F2/Enter to edit,
+   *  arrow keys to navigate, per {@link onCellNavKeydown}), or `null` when none is editing. */
+  protected readonly editingCell = signal<{ r: number; c: number } | null>(null);
+  protected readonly editCellValue = signal('');
 
   protected readonly textFmt = computed(() => parseTextFmt(this.card().content));
   protected readonly labelFmt = computed(() => parseLabelFmt(this.card().content));
@@ -263,5 +269,97 @@ export class BoardCardComponent {
       event.preventDefault();
       this.startEdit();
     }
+  }
+
+  // ── TABLE cell editing + keyboard navigation (US08.6.6, a11y) ────────────────────────────
+
+  /** Whether the given grid coordinates are the cell currently being edited. */
+  protected isEditingCell(r: number, c: number): boolean {
+    const e = this.editingCell();
+    return e !== null && e.r === r && e.c === c;
+  }
+
+  /** Double-click on a cell starts editing it — stops propagation so the card body's own
+   *  `(dblclick)` (which opens the detail modal for non-textual cards) never fires too. */
+  protected onCellDoubleClick(event: MouseEvent, r: number, c: number): void {
+    event.stopPropagation();
+    this.startCellEdit(r, c);
+  }
+
+  /** Enters inline edit mode for a single TABLE cell. */
+  protected startCellEdit(r: number, c: number): void {
+    if (this.readOnly() || this.card().locked) {
+      return;
+    }
+    const rows = this.table().rows;
+    this.editCellValue.set(rows[r]?.[c] ?? '');
+    this.editingCell.set({ r, c });
+    queueMicrotask(() => this.cellInput()?.nativeElement.focus());
+  }
+
+  /** Commits the edited cell value, re-serializing the whole grid (content is the full
+   *  table JSON, not a per-cell diff — see `table.ts`). No-op if the grid is unchanged. */
+  protected commitCellEdit(): void {
+    const cell = this.editingCell();
+    if (!cell) {
+      return;
+    }
+    this.editingCell.set(null);
+    const { rows, colW } = this.table();
+    const nextRows = rows.map((row, ri) =>
+      ri === cell.r ? row.map((value, ci) => (ci === cell.c ? this.editCellValue() : value)) : row,
+    );
+    const nextContent = serializeTable(nextRows, colW);
+    if (nextContent !== this.card().content) {
+      this.contentCommit.emit(nextContent);
+    }
+  }
+
+  /** Cancels the in-progress cell edit without committing. */
+  protected cancelCellEdit(): void {
+    this.editingCell.set(null);
+  }
+
+  /** Enter commits, Escape cancels — mirrors {@link onEditKeydown} for TEXT/LABEL. */
+  protected onCellEditKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.commitCellEdit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelCellEdit();
+    }
+  }
+
+  /** Roving keyboard navigation between TABLE cells: arrow keys move focus, F2/Enter opens
+   *  inline edit on the focused cell (WCAG 2.1 AA keyboard-operability AC). */
+  protected onCellNavKeydown(event: KeyboardEvent, r: number, c: number): void {
+    if (event.key === 'F2' || event.key === 'Enter') {
+      event.preventDefault();
+      this.startCellEdit(r, c);
+      return;
+    }
+    const deltas: Record<string, [number, number]> = {
+      ArrowUp: [-1, 0],
+      ArrowDown: [1, 0],
+      ArrowLeft: [0, -1],
+      ArrowRight: [0, 1],
+    };
+    const delta = deltas[event.key];
+    if (!delta) {
+      return;
+    }
+    event.preventDefault();
+    const rows = this.table().rows;
+    const nextR = Math.min(rows.length - 1, Math.max(0, r + delta[0]));
+    const nextC = Math.min(rows[0].length - 1, Math.max(0, c + delta[1]));
+    this.focusCell(nextR, nextC);
+  }
+
+  /** Moves DOM focus to the cell at the given grid coordinates (roving tabindex pattern). */
+  protected focusCell(r: number, c: number): void {
+    this.host.nativeElement
+      .querySelector<HTMLElement>(`[data-wb-table-nav][data-row="${r}"][data-col="${c}"]`)
+      ?.focus();
   }
 }

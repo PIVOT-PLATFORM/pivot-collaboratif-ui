@@ -114,15 +114,51 @@
       </a>
     }
     @case ('TABLE') {
-      <table class="wb-card__table">
+      <table class="wb-card__table" role="table" [attr.aria-label]="'whiteboard.card.table.aria' | transloco">
         <tbody>
           @for (row of table().rows; track $index; let ri = $index) {
-            <tr>
-              @for (cell of row; track $index) {
-                @if (ri === 0) {
-                  <th scope="col">{{ cell }}</th>
+            <tr role="row">
+              @for (cell of row; track $index; let ci = $index) {
+                @if (isEditingCell(ri, ci)) {
+                  <td role="cell">
+                    <input
+                      #cellInput
+                      class="wb-card__table-cell-input"
+                      type="text"
+                      data-wb-table-cell="true"
+                      [attr.data-card-id]="card().id"
+                      [value]="editCellValue()"
+                      (input)="editCellValue.set($any($event.target).value)"
+                      (blur)="commitCellEdit()"
+                      (keydown)="onCellEditKeydown($event)"
+                      (pointerdown)="$event.stopPropagation()"
+                      (dblclick)="$event.stopPropagation()"
+                      [attr.aria-label]="'whiteboard.card.table.editCell' | transloco"
+                    />
+                  </td>
+                } @else if (ri === 0) {
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabindex="0"
+                    data-wb-table-nav="true"
+                    [attr.data-row]="ri"
+                    [attr.data-col]="ci"
+                    (click)="focusCell(ri, ci)"
+                    (dblclick)="onCellDoubleClick($event, ri, ci)"
+                    (keydown)="onCellNavKeydown($event, ri, ci)"
+                  >{{ cell }}</th>
                 } @else {
-                  <td>{{ cell }}</td>
+                  <td
+                    role="cell"
+                    tabindex="0"
+                    data-wb-table-nav="true"
+                    [attr.data-row]="ri"
+                    [attr.data-col]="ci"
+                    (click)="focusCell(ri, ci)"
+                    (dblclick)="onCellDoubleClick($event, ri, ci)"
+                    (keydown)="onCellNavKeydown($event, ri, ci)"
+                  >{{ cell }}</td>
                 }
               }
             </tr>

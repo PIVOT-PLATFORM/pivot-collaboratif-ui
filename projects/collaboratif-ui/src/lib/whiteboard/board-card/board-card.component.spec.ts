@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Card } from '../model/board.types';
+import { serializeTable } from '../model/table';
 import { BoardCardComponent } from './board-card.component';
 
 const FR_TRANSLATIONS = {
@@ -656,5 +657,177 @@ describe('BoardCardComponent — SHAPE (US08.6.3)', () => {
     component['onDoubleClick']();
     expect(opened).toBe('card-1');
     expect(component['editing']()).toBe(false);
+  });
+});
+
+const TABLE_FR_TRANSLATIONS = {
+  whiteboard: {
+    card: {
+      editText: 'Modifier le texte',
+      editLabel: "Modifier l'étiquette",
+      imageAlt: 'Image de la carte',
+      locked: 'Carte verrouillée',
+      editing: '{{name}} modifie…',
+      connect: 'Relier depuis cette carte',
+      table: {
+        aria: 'Tableau',
+        editCell: 'Modifier la cellule',
+      },
+    },
+  },
+};
+
+function tableCard(rows: string[][], overrides: Partial<Card> = {}): Card {
+  return {
+    id: 'card-1',
+    boardId: 'board-1',
+    type: 'TABLE',
+    content: serializeTable(rows),
+    meta: null,
+    posX: 0,
+    posY: 0,
+    width: 240,
+    height: 140,
+    color: '#FFFFFF',
+    groupId: null,
+    groupColor: null,
+    locked: false,
+    layer: 1,
+    fieldValues: [],
+    ...overrides,
+  };
+}
+
+describe('BoardCardComponent — TABLE type (US08.6.6)', () => {
+  let fixture: ComponentFixture<BoardCardComponent>;
+
+  async function render(card: Card): Promise<void> {
+    await TestBed.configureTestingModule({
+      imports: [
+        BoardCardComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: TABLE_FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(BoardCardComponent);
+    fixture.componentRef.setInput('card', card);
+    fixture.detectChanges();
+  }
+
+  function table(): HTMLTableElement {
+    return fixture.nativeElement.querySelector('.wb-card__table');
+  }
+
+  function cellAt(r: number, c: number): HTMLElement {
+    return fixture.nativeElement.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+  }
+
+  // ── A11y ──
+
+  it('renders a native <table> with role="table" and an aria-label', async () => {
+    await render(tableCard([['a', 'b']]));
+
+    const el = table();
+    expect(el.tagName).toBe('TABLE');
+    expect(el.getAttribute('role')).toBe('table');
+    expect(el.getAttribute('aria-label')).toBe('Tableau');
+  });
+
+  it('renders the first row as column headers (<th scope="col">)', async () => {
+    await render(tableCard([['h1', 'h2'], ['v1', 'v2']]));
+
+    const headers = fixture.nativeElement.querySelectorAll('th');
+    expect(headers).toHaveLength(2);
+    expect(headers[0].getAttribute('scope')).toBe('col');
+    expect(headers[0].textContent?.trim()).toBe('h1');
+  });
+
+  it('every cell is keyboard-focusable (tabindex="0")', async () => {
+    await render(tableCard([['a', 'b'], ['c', 'd']]));
+
+    expect(cellAt(0, 0).getAttribute('tabindex')).toBe('0');
+    expect(cellAt(1, 1).getAttribute('tabindex')).toBe('0');
+  });
+
+  it('renders cell text via interpolation, never as markup (XSS safety)', async () => {
+    await render(tableCard([['<img src=x onerror=alert(1)>', 'safe']]));
+
+    expect(fixture.nativeElement.querySelector('img[src="x"]')).toBeNull();
+    expect(cellAt(0, 0).textContent).toContain('<img src=x onerror=alert(1)>');
+  });
+
+  // ── Cell edit (F2/Enter to edit, Enter/blur to commit, Escape to cancel) ──
+
+  it('F2 on a focused cell opens inline edit with an aria-labelled input', async () => {
+    await render(tableCard([['h1'], ['a']]));
+
+    cellAt(1, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true }));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.wb-card__table-cell-input');
+    expect(input).not.toBeNull();
+    expect(input.getAttribute('aria-label')).toBe('Modifier la cellule');
+    expect(input.value).toBe('a');
+  });
+
+  it('commits the edited cell value via contentCommit, preserving other cells', async () => {
+    await render(tableCard([['h1', 'h2'], ['a', 'b']]));
+    const emitted: string[] = [];
+    fixture.componentInstance.contentCommit.subscribe((v: string) => emitted.push(v));
+
+    cellAt(1, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('.wb-card__table-cell-input');
+    input.value = 'edited';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    fixture.detectChanges();
+
+    expect(emitted).toHaveLength(1);
+    expect(JSON.parse(emitted[0]).rows).toEqual([
+      ['h1', 'h2'],
+      ['edited', 'b'],
+    ]);
+  });
+
+  it('Escape cancels the edit without emitting contentCommit', async () => {
+    await render(tableCard([['h1'], ['a']]));
+    const emitted: string[] = [];
+    fixture.componentInstance.contentCommit.subscribe((v: string) => emitted.push(v));
+
+    cellAt(1, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('.wb-card__table-cell-input');
+    input.value = 'discarded';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+
+    expect(emitted).toHaveLength(0);
+    expect(fixture.nativeElement.querySelector('.wb-card__table-cell-input')).toBeNull();
+  });
+
+  it('does not open inline edit on a read-only (VIEWER) board', async () => {
+    await render(tableCard([['h1'], ['a']]));
+    fixture.componentRef.setInput('readOnly', true);
+    fixture.detectChanges();
+
+    cellAt(1, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.wb-card__table-cell-input')).toBeNull();
+  });
+
+  it('does not open inline edit on a locked card', async () => {
+    await render(tableCard([['h1'], ['a']], { locked: true }));
+
+    cellAt(1, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.wb-card__table-cell-input')).toBeNull();
   });
 });

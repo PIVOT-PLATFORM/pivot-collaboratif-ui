@@ -100,6 +100,27 @@
     background: #f3f4f6;
     font-weight: 600;
   }
+
+  th[tabindex],
+  td[tabindex] {
+    cursor: text;
+    outline-offset: -2px;
+
+    &:focus-visible {
+      outline: 2px solid #2196f3;
+    }
+  }
+}
+
+.wb-card__table-cell-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  outline: 2px solid #2196f3;
+  outline-offset: -2px;
+  padding: 1px 4px;
+  font: inherit;
+  background: #ffffff;
 }
 
 .wb-card__link {
