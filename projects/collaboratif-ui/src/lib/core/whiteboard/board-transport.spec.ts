@@ -1,41 +1,23 @@
 import { TestBed } from '@angular/core/testing';
-import { RxStomp } from '@stomp/rx-stomp';
-import { Subject } from 'rxjs';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Mock } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { StompBoardTransport } from './board-transport';
 import { COLLABORATIF_API_URL, COLLABORATIF_BEARER_TOKEN } from './config/tokens';
 
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 const BOARD_ID = 'board-abc';
 
-// Mocked so `new RxStomp()` inside StompBoardTransport#connect returns our FakeRxStomp instead
-// of opening a real WebSocket — same technique as whiteboard-sync.service.spec.ts.
-vi.mock('@stomp/rx-stomp', () => ({
-  RxStomp: vi.fn(),
-}));
-
-/** Minimal fake standing in for `@stomp/rx-stomp`'s `RxStomp`, fully test-driven. */
+/** Minimal fake standing in for `@stomp/rx-stomp`'s `RxStomp`, capturing `publish()` calls. */
 class FakeRxStomp {
-  readonly connected$ = new Subject<void>();
   readonly publishCalls: { destination: string; body: string }[] = [];
-  activateCalls = 0;
-  deactivateCalls = 0;
-
-  configure(): void {}
-  activate(): void {
-    this.activateCalls++;
-  }
-  deactivate(): Promise<void> {
-    this.deactivateCalls++;
-    return Promise.resolve();
-  }
   publish(params: { destination: string; body: string }): void {
     this.publishCalls.push(params);
   }
-  watch() {
-    return new Subject().asObservable();
-  }
+}
+
+/** Test-only view onto {@link StompBoardTransport}'s private connection state. */
+interface TransportInternals {
+  rxStomp: unknown;
+  boardId: string | null;
 }
 
 describe('StompBoardTransport — sender tagging on card:move/card:resize (fix/EN08.4)', () => {
@@ -43,11 +25,6 @@ describe('StompBoardTransport — sender tagging on card:move/card:resize (fix/E
   let fake: FakeRxStomp;
 
   beforeEach(() => {
-    fake = new FakeRxStomp();
-    (RxStomp as unknown as Mock).mockImplementation(function (this: unknown) {
-      return fake;
-    });
-
     TestBed.configureTestingModule({
       providers: [
         StompBoardTransport,
@@ -56,11 +33,17 @@ describe('StompBoardTransport — sender tagging on card:move/card:resize (fix/E
       ],
     });
     transport = TestBed.inject(StompBoardTransport);
-    transport.connect(BOARD_ID);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    fake = new FakeRxStomp();
+    // Bypasses connect()'s real @stomp/rx-stomp wiring (WebSocket handshake, reconnection,
+    // heartbeats) — out of scope here and already exercised in spirit by
+    // whiteboard-sync.service.spec.ts's equivalent RxStomp mocking for the sibling STOMP
+    // client. This spec targets only emit()'s sender-tagging logic (fix/EN08.4), so it pokes
+    // the two private fields emit() actually reads directly rather than mocking the RxStomp
+    // constructor — avoids depending on module-level `vi.mock('@stomp/rx-stomp', ...)` state
+    // that would otherwise be shared with that sibling spec file.
+    const internals = transport as unknown as TransportInternals;
+    internals.rxStomp = fake;
+    internals.boardId = BOARD_ID;
   });
 
   function lastPublishedData(): Record<string, unknown> {
