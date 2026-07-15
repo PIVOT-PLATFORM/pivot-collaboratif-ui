@@ -111,6 +111,72 @@ describe('FloatingToolbarComponent — SHAPE fill picker (US08.6.3)', () => {
   });
 });
 
+/** The frame tool button — the toolbar entry point this US adds (frame creation/rendering
+ *  itself pre-existed in the store and `frame-item`; only this button was missing). */
+describe('FloatingToolbarComponent — frame tool button', () => {
+  let fixture: ComponentFixture<FloatingToolbarComponent>;
+  let component: FloatingToolbarComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        FloatingToolbarComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: {}, en: {} },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr', 'en'] },
+          preloadLangs: true,
+        }),
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(FloatingToolbarComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('renders a frame tool button among the palette buttons', () => {
+    expect(component['tools'].some((t) => t.mode === 'frame')).toBe(true);
+    const buttons = fixture.nativeElement.querySelectorAll('.wb-toolbar__btn');
+    expect(buttons.length).toBeGreaterThanOrEqual(component['tools'].length);
+  });
+
+  it('emits toolChange("frame") when the frame button is clicked', () => {
+    let emitted: string | undefined;
+    component.toolChange.subscribe((t) => (emitted = t));
+
+    const index = component['tools'].findIndex((t) => t.mode === 'frame');
+    const buttons = fixture.nativeElement.querySelectorAll('.wb-toolbar__btn');
+    (buttons[index] as HTMLButtonElement).click();
+
+    expect(emitted).toBe('frame');
+  });
+
+  it('marks the frame button active and aria-pressed when tool() is "frame"', () => {
+    fixture.componentRef.setInput('tool', 'frame');
+    fixture.detectChanges();
+
+    const index = component['tools'].findIndex((t) => t.mode === 'frame');
+    const buttons = fixture.nativeElement.querySelectorAll('.wb-toolbar__btn');
+    const frameBtn = buttons[index] as HTMLButtonElement;
+
+    expect(frameBtn.classList.contains('wb-toolbar__btn--active')).toBe(true);
+    expect(frameBtn.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('does not emit toolChange when disabled', () => {
+    fixture.componentRef.setInput('disabled', true);
+    fixture.detectChanges();
+    let emitted: string | undefined;
+    component.toolChange.subscribe((t) => (emitted = t));
+
+    const index = component['tools'].findIndex((t) => t.mode === 'frame');
+    const buttons = fixture.nativeElement.querySelectorAll('.wb-toolbar__btn');
+    (buttons[index] as HTMLButtonElement).click();
+
+    expect(emitted).toBeUndefined();
+  });
+});
+
 const FR_TRANSLATIONS = {
   whiteboard: {
     toolbar: {

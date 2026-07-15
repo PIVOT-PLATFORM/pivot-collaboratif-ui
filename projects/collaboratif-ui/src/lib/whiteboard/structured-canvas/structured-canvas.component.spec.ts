@@ -188,6 +188,109 @@ describe('StructuredCanvasComponent — LABEL placement tool (US08.6.2)', () => 
   });
 });
 
+/**
+ * Frame placement tool — the toolbar gap this US fills. The frame model/rendering already
+ * existed (`BoardStore.addFrame`, `frame-item`); only the UI entry point (toolbar button +
+ * canvas placement) was missing. Mirrors the existing `createCard` flow: a click on the empty
+ * canvas while `tool() === 'frame'` calls `store.addFrame` with the click point (the frame's
+ * top-left corner — the server assigns a default width/height on `frame:create`, unlike cards
+ * whose client-known W×H lets `createCard` centre them on the click point) and emits
+ * `toolConsumed` to fall back to `select`.
+ */
+describe('StructuredCanvasComponent — frame placement tool', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let addFrame: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    addFrame = vi.fn();
+    const storeStub = {
+      addFrame,
+      isReadonly: () => false,
+      frames: () => [],
+      cards: () => [],
+      connections: () => [],
+      selectedIds: () => new Set<string>(),
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      emitCursor: vi.fn(),
+      selectCards: vi.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: storeStub }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    fixture.componentRef.setInput('tool', 'frame');
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  it('placementKind resolves the "frame" tool to a frame-placement gesture', () => {
+    expect(component['placementKind']('frame')).toBe('frame');
+  });
+
+  it('clicking empty canvas with the frame tool active calls store.addFrame at the click point and consumes the tool', () => {
+    const consumed = vi.fn();
+    component.toolConsumed.subscribe(consumed);
+
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    surfaceEl.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof surfaceEl.getBoundingClientRect;
+    // jsdom does not implement the Pointer Events capture API.
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+
+    const event = {
+      button: 0,
+      target: surfaceEl,
+      currentTarget: surfaceEl,
+      clientX: 120,
+      clientY: 80,
+      pointerId: 1,
+      shiftKey: false,
+    } as unknown as PointerEvent;
+
+    component['onPointerDown'](event);
+
+    expect(addFrame).toHaveBeenCalledTimes(1);
+    expect(addFrame).toHaveBeenCalledWith(120, 80);
+    expect(consumed).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not place a frame in read-only mode', () => {
+    vi.spyOn(component['store'], 'isReadonly').mockReturnValue(true);
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    surfaceEl.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof surfaceEl.getBoundingClientRect;
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+
+    const event = {
+      button: 0,
+      target: surfaceEl,
+      currentTarget: surfaceEl,
+      clientX: 120,
+      clientY: 80,
+      pointerId: 1,
+      shiftKey: false,
+    } as unknown as PointerEvent;
+
+    component['onPointerDown'](event);
+
+    expect(addFrame).not.toHaveBeenCalled();
+  });
+});
+
 /** Protected surface exercised by this suite (same pattern as `board-page.component.spec.ts`). */
 interface CanvasApi {
   insertImageFile(file: File): Promise<void>;
