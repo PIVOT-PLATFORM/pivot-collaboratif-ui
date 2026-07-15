@@ -14,7 +14,7 @@
   [attr.stroke-width]="hitWidth()"
   role="button"
   tabindex="0"
-  [attr.aria-label]="'whiteboard.connection.ariaLabel' | transloco"
+  [attr.aria-label]="ariaLabel()"
   (click)="onSelect($event)"
   (keydown.enter)="onSelect($event)"
   (keydown.space)="onSelect($event)" />

@@ -22,6 +22,8 @@
           [fromRect]="rc.fromRect"
           [toRect]="rc.toRect"
           [selected]="isSelected(rc.conn.id)"
+          [fromLabel]="rc.fromLabel"
+          [toLabel]="rc.toLabel"
           (select)="onConnectionSelect($event)"
         ></svg:g>
       }
