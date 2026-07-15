@@ -341,7 +341,34 @@
       "carryCards": "Emporter les cartes du cadre"
     },
     "connection": {
-      "ariaLabel": "Connexion"
+      "untitledCard": "carte sans titre",
+      "ariaLabel": {
+        "solid": "Connecteur {{shape}} de {{from}} vers {{to}}",
+        "dashed": "Connecteur {{shape}} en pointillés de {{from}} vers {{to}}"
+      }
+    },
+    "connector": {
+      "style": {
+        "title": "Style du connecteur",
+        "shapeLabel": "Forme",
+        "shape": {
+          "straight": "Droit",
+          "curved": "Courbe",
+          "orthogonal": "Orthogonal"
+        },
+        "arrowLabel": "Flèche",
+        "arrow": {
+          "none": "Aucune",
+          "start": "Début",
+          "end": "Fin",
+          "both": "Deux extrémités"
+        },
+        "dashedLabel": "Pointillé",
+        "widthLabel": "Épaisseur",
+        "colorLabel": "Couleur",
+        "labelFieldLabel": "Étiquette",
+        "labelPlaceholder": "Texte du connecteur"
+      }
     },
     "timer": {
       "dialogLabel": "Le minuteur est écoulé",
