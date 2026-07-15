@@ -14,6 +14,24 @@
         <span aria-hidden="true">{{ t.icon }}</span>
       </button>
     }
+    <button
+      type="button"
+      class="wb-toolbar__btn"
+      [disabled]="disabled()"
+      [attr.aria-label]="'whiteboard.card.image.insertButton' | transloco"
+      [title]="'whiteboard.card.image.insertButton' | transloco"
+      (click)="pickImageFile()"
+    >
+      <span aria-hidden="true">🖼️</span>
+    </button>
+    <input
+      #imageInput
+      type="file"
+      accept="image/png,image/jpeg,image/gif,image/webp,image/bmp"
+      class="wb-toolbar__file-input"
+      [attr.aria-label]="'whiteboard.card.image.uploadInput' | transloco"
+      (change)="onImageInputChange($event)"
+    />
   </div>
 
   <div class="wb-toolbar__group wb-toolbar__group--colors" role="group" [attr.aria-label]="'whiteboard.toolbar.colorGroup' | transloco">

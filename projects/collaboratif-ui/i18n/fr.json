@@ -322,6 +322,10 @@
           "line": "ligne",
           "star": "étoile"
         }
+      },
+      "image": {
+        "insertButton": "Insérer une image",
+        "uploadInput": "Choisir un fichier image"
       }
     },
     "frame": {

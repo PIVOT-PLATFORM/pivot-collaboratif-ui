@@ -160,7 +160,8 @@
     Resize handles — canvas reads data-resize-dir on pointerdown. tabindex + aria-label make
     them keyboard-reachable (US08.6.1 A11y AC); hidden entirely when the card is locked
     (gated on `!card().locked` above) so resize affordances aren't reachable by mouse or
-    keyboard on a locked card (US08.6.3 A11y AC).
+    keyboard on a locked card (US08.6.3/US08.6.4 A11y AC), on top of the pre-existing
+    readOnly/editing guards.
   -->
   @for (dir of resizeDirs; track dir) {
     <span
@@ -171,7 +172,10 @@
       [attr.aria-label]="'whiteboard.card.resizeHandle' | transloco"
     ></span>
   }
-  <!-- Connect handles (N/E/S/W) — canvas reads data-connect on pointerdown. -->
+}
+@if (selected() && !readOnly() && !editing()) {
+  <!-- Connect handles (N/E/S/W) — canvas reads data-connect on pointerdown. Connecting is not
+       blocked by `locked` in this Socle (only move/resize/update/recolor are — EN08.4). -->
   <span class="wb-card__connect wb-card__connect--n" data-connect="N" [attr.data-card-id]="card().id" [attr.aria-label]="'whiteboard.card.connect' | transloco"></span>
   <span class="wb-card__connect wb-card__connect--e" data-connect="E" [attr.data-card-id]="card().id"></span>
   <span class="wb-card__connect wb-card__connect--s" data-connect="S" [attr.data-card-id]="card().id"></span>

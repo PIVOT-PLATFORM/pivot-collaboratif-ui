@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, input, output, viewChild } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { SHAPE_TOOLS, type ToolMode } from '../model/tools';
 import { BASE_COLORS } from '../model/colors';
@@ -59,16 +59,38 @@ export class FloatingToolbarComponent {
   readonly colorChange = output<string>();
   /** Emits when the user picks a fill colour, or `null` for "no fill". */
   readonly fillColorChange = output<string | null>();
+  /** Emits the selected file once the user picks one via the "insert image" button
+   *  (US08.6.4 — accessible upload entry point, not only drag-and-drop/paste). */
+  readonly insertImage = output<File>();
 
   protected readonly tools = TOOLS;
   protected readonly palette = BASE_COLORS;
 
   /** Whether the active tool places a SHAPE card — gates the fill colour picker's visibility. */
   protected readonly isShapeTool = computed(() => !!SHAPE_TOOLS[this.tool()]);
+  private readonly imageInput = viewChild<ElementRef<HTMLInputElement>>('imageInput');
 
   protected pick(mode: ToolMode): void {
     if (!this.disabled()) {
       this.toolChange.emit(mode);
     }
+  }
+
+  /** Opens the hidden file picker for image insertion. */
+  protected pickImageFile(): void {
+    if (!this.disabled()) {
+      this.imageInput()?.nativeElement.click();
+    }
+  }
+
+  /** Handles the hidden `<input type="file">` selection, then resets it so the same file can
+   *  be re-selected consecutively (the `change` event does not fire on an unchanged value). */
+  protected onImageInputChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      this.insertImage.emit(file);
+    }
+    input.value = '';
   }
 }

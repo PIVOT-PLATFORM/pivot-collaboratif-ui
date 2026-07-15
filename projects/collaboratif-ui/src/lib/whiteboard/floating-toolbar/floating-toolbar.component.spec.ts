@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FloatingToolbarComponent } from './floating-toolbar.component';
 
 /**
@@ -108,5 +108,114 @@ describe('FloatingToolbarComponent — SHAPE fill picker (US08.6.3)', () => {
     const fillGroup = fillGroups()[1];
     const swatches = fillGroup.querySelectorAll<HTMLButtonElement>('.wb-toolbar__swatch');
     swatches.forEach((s) => expect(s.disabled).toBe(true));
+  });
+});
+
+const FR_TRANSLATIONS = {
+  whiteboard: {
+    toolbar: {
+      label: "Barre d'outils",
+      select: 'Sélection',
+      pan: 'Déplacer la vue',
+      sticky: 'Post-it',
+      text: 'Texte',
+      rect: 'Rectangle',
+      circle: 'Cercle',
+      diamond: 'Losange',
+      triangle: 'Triangle',
+      line: 'Ligne',
+      star: 'Étoile',
+      draw: 'Dessin libre',
+      table: 'Tableau',
+      link: 'Relier des cartes',
+      colorGroup: 'Couleurs',
+      pickColor: 'Couleur {{color}}',
+    },
+    card: {
+      image: {
+        insertButton: 'Insérer une image',
+        uploadInput: 'Choisir un fichier image',
+      },
+    },
+  },
+};
+
+/** US08.6.4 — the toolbar's "insert image" button + hidden accessible file input. */
+describe('FloatingToolbarComponent — image insertion (US08.6.4)', () => {
+  let fixture: ComponentFixture<FloatingToolbarComponent>;
+
+  async function create(): Promise<void> {
+    await TestBed.configureTestingModule({
+      imports: [
+        FloatingToolbarComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(FloatingToolbarComponent);
+    fixture.detectChanges();
+  }
+
+  it('renders a labelled "insert image" button and a labelled, hidden file input', async () => {
+    await create();
+    const btn = fixture.nativeElement.querySelector('[aria-label="Insérer une image"]') as HTMLButtonElement;
+    const input = fixture.nativeElement.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(btn).toBeTruthy();
+    expect(input).toBeTruthy();
+    expect(input.getAttribute('aria-label')).toBe('Choisir un fichier image');
+    expect(input.accept).toContain('image/png');
+  });
+
+  it('clicking the button opens the native file picker (delegates to the hidden input)', async () => {
+    await create();
+    const input = fixture.nativeElement.querySelector('input[type="file"]') as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, 'click');
+    const btn = fixture.nativeElement.querySelector('[aria-label="Insérer une image"]') as HTMLButtonElement;
+
+    btn.click();
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open the file picker while the toolbar is disabled', async () => {
+    await create();
+    fixture.componentRef.setInput('disabled', true);
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('input[type="file"]') as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, 'click');
+    const btn = fixture.nativeElement.querySelector('[aria-label="Insérer une image"]') as HTMLButtonElement;
+
+    btn.click();
+
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it('emits insertImage with the selected file and resets the input value', async () => {
+    await create();
+    const emitted: File[] = [];
+    fixture.componentInstance.insertImage.subscribe((f: File) => emitted.push(f));
+    const input = fixture.nativeElement.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['data'], 'photo.png', { type: 'image/png' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+
+    input.dispatchEvent(new Event('change'));
+
+    expect(emitted).toEqual([file]);
+    expect(input.value).toBe('');
+  });
+
+  it('does not emit when the input change fires with no file selected', async () => {
+    await create();
+    const emitted: File[] = [];
+    fixture.componentInstance.insertImage.subscribe((f: File) => emitted.push(f));
+    const input = fixture.nativeElement.querySelector('input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [], configurable: true });
+
+    input.dispatchEvent(new Event('change'));
+
+    expect(emitted).toEqual([]);
   });
 });
