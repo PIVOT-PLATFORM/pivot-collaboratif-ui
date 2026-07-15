@@ -37,7 +37,10 @@ const FR_TRANSLATIONS = {
 function pasteEventWith(text: string): Event {
   const event = new Event('paste', { bubbles: true, cancelable: true });
   Object.defineProperty(event, 'clipboardData', {
-    value: { getData: () => text },
+    // `items` is always present (though possibly empty) on a real browser DataTransfer —
+    // the merged onPaste handler checks for a pasted image file first (US08.6.4) before
+    // falling back to text (US08.6.5/US08.6.4), so the mock needs to look like a real one.
+    value: { getData: () => text, items: [] },
   });
   return event;
 }
@@ -204,6 +207,9 @@ class RecordingTransport extends BoardTransport {
   }
   onReconnect(_handler: () => void): () => void {
     return () => {};
+  }
+  getSessionId(): string {
+    return 'recording-transport-session';
   }
 }
 
