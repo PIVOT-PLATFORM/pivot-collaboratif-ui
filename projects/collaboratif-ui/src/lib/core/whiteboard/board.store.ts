@@ -1314,10 +1314,14 @@ export class BoardStore {
     if (snapCards.length > 0 || snapConns.length > 0 || snapFrames.length > 0) {
       this.pushHistory({
         undo: () => this.restoreSnapshot(snapCards, snapConns, snapFrames),
-        redo: () => this.transport.emit('board:reset', { boardId: this.boardId }),
+        // fix/EN08.5: the wire-contract fixtures generated from the real backend DTOs
+        // (`vocabulary.json`) fix RESET's wireIn as the raw string "RESET" (same
+        // un-namespaced convention as DRAW/UNDO), not "board:reset" — the previous literal
+        // here would have been silently ignored by the backend's action dispatcher.
+        redo: () => this.transport.emit('RESET', { boardId: this.boardId }),
       });
     }
-    this.transport.emit('board:reset', { boardId: this.boardId });
+    this.transport.emit('RESET', { boardId: this.boardId });
     this.selectedIds.set(new Set());
   }
 
