@@ -298,7 +298,10 @@
       "imageAlt": "Card image",
       "locked": "Locked card",
       "editing": "{{name}} is editing…",
-      "connect": "Connect from this card"
+      "connect": "Connect from this card",
+      "link": {
+        "previewAlt": "Link preview"
+      }
     },
     "frame": {
       "titleLabel": "Frame title",

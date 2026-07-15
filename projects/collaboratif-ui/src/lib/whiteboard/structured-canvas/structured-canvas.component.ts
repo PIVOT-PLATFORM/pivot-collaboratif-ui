@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  HostListener,
   computed,
   inject,
   input,
@@ -16,6 +17,7 @@ import { FrameItemComponent } from '../frame-item/frame-item.component';
 import { ConnectionLineComponent } from '../connection-line/connection-line.component';
 import type { Card, Connection } from '../model/board.types';
 import { DEFAULT_CARD_COLOR, DEFAULT_SHAPE_COLOR } from '../model/colors';
+import { isUrlOnlyPaste } from '../model/link-preview';
 import { serializeShape, type ShapeKind } from '../model/shape';
 import { serializeTable } from '../model/table';
 import type { ToolMode } from '../model/tools';
@@ -29,7 +31,17 @@ import {
   type Rect,
   type Viewport,
 } from '../model/board-geometry';
-import { MIN_W, MIN_H, SHAPE_MIN, MIN_ZOOM, MAX_ZOOM, DEFAULT_CARD_W, DEFAULT_CARD_H } from '../model/board-constants';
+import {
+  MIN_W,
+  MIN_H,
+  SHAPE_MIN,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  DEFAULT_CARD_W,
+  DEFAULT_CARD_H,
+  LINK_CARD_W,
+  LINK_CARD_H,
+} from '../model/board-constants';
 
 type Gesture =
   | { kind: 'none' }
@@ -136,6 +148,45 @@ export class StructuredCanvasComponent {
     if (event.code === 'Space') {
       this.spaceHeld = false;
     }
+  }
+
+  // ── URL paste -> LINK card (US08.6.5) ─────────────────────────────────────
+  /**
+   * Creates a LINK card when the clipboard's pasted text is a URL and nothing else (parity
+   * spec §1.5/§3.4). Skipped while focus is in an editable control (an input/textarea, or a
+   * card's own inline text editor) so pasting into an existing field is never hijacked into
+   * spawning a new card — only a paste "onto the canvas" (no editable control focused)
+   * triggers this.
+   */
+  @HostListener('document:paste', ['$event'])
+  protected onPaste(event: ClipboardEvent): void {
+    if (this.store.isReadonly() || this.isEditableElementFocused()) {
+      return;
+    }
+    const text = event.clipboardData?.getData('text/plain') ?? '';
+    if (!isUrlOnlyPaste(text)) {
+      return;
+    }
+    event.preventDefault();
+    const rect = this.surface().nativeElement.getBoundingClientRect();
+    const center = this.toCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    this.store.addCard(
+      center.x - LINK_CARD_W / 2,
+      center.y - LINK_CARD_H / 2,
+      'LINK',
+      text.trim(),
+      DEFAULT_CARD_COLOR,
+      LINK_CARD_W,
+      LINK_CARD_H,
+    );
+  }
+
+  private isEditableElementFocused(): boolean {
+    const active = document.activeElement as HTMLElement | null;
+    if (!active) {
+      return false;
+    }
+    return active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable;
   }
 
   // ── Wheel zoom / pan ──────────────────────────────────────────────────────

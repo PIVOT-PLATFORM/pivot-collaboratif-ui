@@ -90,6 +90,74 @@
   }
 }
 
+.wb-card__link {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+
+  &:focus-visible {
+    outline: 2px solid #2196f3;
+    outline-offset: -2px;
+  }
+
+  &--no-preview {
+    justify-content: center;
+    padding: 8px;
+  }
+}
+
+.wb-card__link-image {
+  display: block;
+  width: 100%;
+  height: 55%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.wb-card__link-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.wb-card__link-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.wb-card__link-description {
+  font-size: 11px;
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.wb-card__link-sitename {
+  font-size: 10px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .wb-card__chips {
   position: absolute;
   left: 4px;
