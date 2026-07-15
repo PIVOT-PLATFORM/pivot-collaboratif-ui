@@ -309,3 +309,206 @@ describe('BoardCardComponent — US08.6.1 TEXT card', () => {
     expect(fixture.nativeElement.querySelector('.wb-card__lock')).toBeTruthy();
   });
 });
+
+/**
+ * Tests for US08.6.2 (LABEL card) rendered through the shared {@link BoardCardComponent}:
+ * compact rendering (no post-it background, distinct from TEXT), inline edit round-trip via
+ * the LABEL-specific format codec, and the A11y contract (focusable, Enter/F2 to edit, an
+ * explicit "Étiquette" aria-label, WCAG AA contrast of the default label colour against the
+ * canvas background).
+ */
+
+function makeLabelCard(overrides: Partial<Card> = {}): Card {
+  return {
+    id: 'card-1',
+    boardId: 'board-1',
+    type: 'LABEL',
+    content: '',
+    meta: null,
+    posX: 0,
+    posY: 0,
+    width: 192,
+    height: 128,
+    color: '#FFEB3B',
+    groupId: null,
+    groupColor: null,
+    locked: false,
+    layer: 1,
+    fieldValues: [],
+    ...overrides,
+  };
+}
+
+/** Relative luminance + contrast ratio per WCAG 2.1 — local helper (no shared export exists yet). */
+function relativeLuminance(hex: string): number {
+  const c = hex.replace('#', '');
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(c.slice(i, i + 2), 16) / 255);
+  const lin = (v: number) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+function contrastRatio(hexA: string, hexB: string): number {
+  const la = relativeLuminance(hexA) + 0.05;
+  const lb = relativeLuminance(hexB) + 0.05;
+  return la > lb ? la / lb : lb / la;
+}
+
+describe('BoardCardComponent — LABEL (US08.6.2)', () => {
+  let fixture: ComponentFixture<BoardCardComponent>;
+  let component: BoardCardComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        BoardCardComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: {}, en: {} },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr', 'en'] },
+          preloadLangs: true,
+        }),
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(BoardCardComponent);
+    component = fixture.componentInstance;
+  });
+
+  function setCard(overrides: Partial<Card> = {}): void {
+    fixture.componentRef.setInput('card', makeLabelCard(overrides));
+    fixture.detectChanges();
+  }
+
+  // ── Rendering: compact, no post-it background, distinct from TEXT ──────────────
+
+  it('renders the LABEL content as compact text, not a post-it', () => {
+    setCard({ content: 'Sprint 12' });
+    const body = fixture.nativeElement.querySelector('.wb-card__body');
+    const label = fixture.nativeElement.querySelector('.wb-card__label');
+    expect(label).not.toBeNull();
+    expect(label.textContent).toContain('Sprint 12');
+    // The post-it background is only ever applied for TEXT — never for LABEL.
+    expect(body.style.background).toBe('');
+  });
+
+  it('applies the post-it background for TEXT but not for LABEL — visual distinction', () => {
+    setCard({ type: 'TEXT', content: 'note', color: '#FFEB3B' });
+    const textBody = fixture.nativeElement.querySelector('.wb-card__body');
+    // jsdom normalizes a hex colour assigned via [style.background] to rgb().
+    expect(textBody.style.background).toBe('rgb(255, 235, 59)');
+
+    setCard({ type: 'LABEL', content: 'note', color: '#FFEB3B' });
+    const labelBody = fixture.nativeElement.querySelector('.wb-card__body');
+    expect(labelBody.style.background).toBe('');
+    expect(fixture.nativeElement.querySelector('.wb-card__text')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.wb-card__label')).not.toBeNull();
+  });
+
+  it('an empty LABEL renders (no server-side minimum length) and stays editable at double-click', () => {
+    setCard({ content: '' });
+    expect(fixture.nativeElement.querySelector('.wb-card__label').textContent.trim()).toBe('');
+    component['onDoubleClick']();
+    fixture.detectChanges();
+    expect(component['editing']()).toBe(true);
+  });
+
+  // ── Inline edit round-trip — LABEL uses its own format codec, distinct from TEXT ───
+
+  it('double-click starts inline edit with the LABEL plain text pre-filled', () => {
+    setCard({ content: 'Étiquette existante' });
+    component['onDoubleClick']();
+    fixture.detectChanges();
+    expect(component['editing']()).toBe(true);
+    expect(component['editValue']()).toBe('Étiquette existante');
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit--label');
+    expect(textarea).not.toBeNull();
+  });
+
+  it('commits edited text through the LABEL serializer, emitting contentCommit', () => {
+    setCard({ content: 'before' });
+    let committed: string | undefined;
+    component.contentCommit.subscribe((v) => (committed = v));
+    component['onDoubleClick']();
+    component['editValue'].set('after');
+    component['commitEdit']();
+    expect(committed).toBe('after');
+  });
+
+  it('committing an unchanged value does not emit contentCommit', () => {
+    setCard({ content: 'same' });
+    let emitted = false;
+    component.contentCommit.subscribe(() => (emitted = true));
+    component['onDoubleClick']();
+    component['commitEdit']();
+    expect(emitted).toBe(false);
+  });
+
+  // ── A11y: focusable, Enter/F2 to edit, explicit aria-label ──────────────────────
+
+  it('the LABEL host is focusable (tabindex=0)', () => {
+    setCard();
+    expect(fixture.nativeElement.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('the LABEL host carries an explicit, translated aria-label ("Étiquette")', () => {
+    setCard();
+    expect(fixture.nativeElement.getAttribute('aria-label')).toBeTruthy();
+    expect(component['hostAriaLabel']()).toBe('whiteboard.card.label.ariaLabel');
+  });
+
+  it('a non-textual card type (SHAPE) gets no host aria-label and is not made focusable', () => {
+    setCard({ type: 'SHAPE', content: '{}' });
+    expect(fixture.nativeElement.getAttribute('aria-label')).toBeNull();
+    expect(fixture.nativeElement.getAttribute('tabindex')).toBeNull();
+  });
+
+  // The four tests below dispatch a real event on the host element (bubbles: true) rather
+  // than calling `onHostKeydown` directly — the handler now also checks `event.target ===
+  // this.host.nativeElement` (merged in from US08.6.1, guards against a keydown bubbling up
+  // from a focused resize handle re-triggering edit mode), which a directly-constructed,
+  // never-dispatched KeyboardEvent would fail (its `target` is `null`).
+
+  it('Enter on the focused, non-editing host opens inline edit', () => {
+    setCard({ content: 'x' });
+    expect(component['editing']()).toBe(false);
+    fixture.nativeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(component['editing']()).toBe(true);
+  });
+
+  it('F2 on the focused, non-editing host opens inline edit', () => {
+    setCard({ content: 'x' });
+    fixture.nativeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true }));
+    expect(component['editing']()).toBe(true);
+  });
+
+  it('a key other than Enter/F2 on the host does not open inline edit', () => {
+    setCard({ content: 'x' });
+    fixture.nativeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    expect(component['editing']()).toBe(false);
+  });
+
+  it('Enter is ignored on the host while read-only', () => {
+    fixture.componentRef.setInput('readOnly', true);
+    setCard({ content: 'x' });
+    fixture.nativeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(component['editing']()).toBe(false);
+  });
+
+  it('pressing Enter inside the edit textarea commits and does not immediately reopen edit mode', () => {
+    // Regression guard: onEditKeydown must stop propagation, otherwise the same keydown
+    // would bubble to the host's own listener right after `editing` flips back to false,
+    // instantly reopening edit mode.
+    setCard({ content: 'before' });
+    component['onDoubleClick']();
+    component['editValue'].set('after');
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    component['onEditKeydown'](event);
+    expect(component['editing']()).toBe(false);
+  });
+
+  // ── Contrast: default LABEL text colour vs the canvas background (WCAG AA ≥ 4.5:1) ──
+
+  it('the default LABEL text colour passes WCAG AA against the canvas background (#fafafa)', () => {
+    setCard({ content: 'x' });
+    const defaultLabelColor = component['labelFmt']().color;
+    expect(contrastRatio(defaultLabelColor, '#fafafa')).toBeGreaterThanOrEqual(4.5);
+  });
+});

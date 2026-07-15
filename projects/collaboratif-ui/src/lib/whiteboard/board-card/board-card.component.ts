@@ -55,9 +55,10 @@ const RESIZE_DIRS = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'] as const;
     '[class.wb-card--selected]': 'selected()',
     '[class.wb-card--locked]': 'card().locked',
     '[attr.data-card-id]': 'card().id',
-    // A11y (US08.6.1): the card itself is a keyboard-focusable element — Enter/F2 while it
-    // has focus opens inline edit for TEXT/LABEL cards, mirroring the existing dblclick path.
-    '[attr.tabindex]': '"0"',
+    // A11y (US08.6.1/US08.6.2): TEXT/LABEL cards are keyboard-focusable — Enter/F2 while
+    // focused opens inline edit, mirroring the existing dblclick path.
+    '[attr.tabindex]': 'isTextualCard() ? 0 : null',
+    '[attr.aria-label]': 'hostAriaLabel()',
     '(keydown)': 'onHostKeydown($event)',
   },
 })
@@ -83,8 +84,8 @@ export class BoardCardComponent {
   readonly openDetail = output<string>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly editArea = viewChild<ElementRef<HTMLTextAreaElement>>('editArea');
   private readonly transloco = inject(TranslocoService);
+  private readonly editArea = viewChild<ElementRef<HTMLTextAreaElement>>('editArea');
 
   protected readonly resizeDirs = RESIZE_DIRS;
   protected readonly editing = signal(false);
@@ -122,6 +123,23 @@ export class BoardCardComponent {
     return meta?.title?.trim() || meta?.siteName?.trim() || this.transloco.translate('whiteboard.card.link.previewAlt');
   });
 
+  /** TEXT and LABEL are the two inline-editable ("textual") card types. */
+  protected readonly isTextualCard = computed(() => {
+    const t = this.card().type;
+    return t === 'TEXT' || t === 'LABEL';
+  });
+
+  /**
+   * Explicit `aria-label` for the card host — required by US08.6.2's A11y AC for LABEL
+   * ("Étiquette"). Other card types are left to their own AC (returns `null`, no attribute).
+   */
+  protected readonly hostAriaLabel = computed(() => {
+    if (this.card().type === 'LABEL') {
+      return this.transloco.translate('whiteboard.card.label.ariaLabel');
+    }
+    return null;
+  });
+
   /** Field-value chips: (field, formatted value) pairs, in field order. */
   protected readonly chips = computed(() => {
     const values = this.card().fieldValues;
@@ -136,20 +154,15 @@ export class BoardCardComponent {
   constructor() {
     // Auto-open editing once, for the creator of a new TEXT/LABEL card.
     effect(() => {
-      if (this.autoEdit() && !this.readOnly() && this.isTextual()) {
+      if (this.autoEdit() && !this.readOnly() && this.isTextualCard()) {
         this.startEdit();
       }
     });
   }
 
-  private isTextual(): boolean {
-    const t = this.card().type;
-    return t === 'TEXT' || t === 'LABEL';
-  }
-
   /** Enters inline edit mode for TEXT/LABEL cards. */
   protected startEdit(): void {
-    if (this.readOnly() || !this.isTextual() || this.editing()) {
+    if (this.readOnly() || !this.isTextualCard() || this.editing()) {
       return;
     }
     const t = this.card().type;
@@ -186,17 +199,22 @@ export class BoardCardComponent {
   }
 
   protected onEditKeydown(event: KeyboardEvent): void {
+    // Stops here — without it, the same keydown would bubble up to the host's own
+    // (keydown) listener (onHostKeydown) after commitEdit()/cancelEdit() has already flipped
+    // `editing` back to false, immediately reopening edit mode on every Enter/Escape.
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
+      event.stopPropagation();
       this.commitEdit();
     } else if (event.key === 'Escape') {
       event.preventDefault();
+      event.stopPropagation();
       this.cancelEdit();
     }
   }
 
   protected onDoubleClick(): void {
-    if (this.isTextual()) {
+    if (this.isTextualCard()) {
       this.startEdit();
     } else {
       this.openDetail.emit(this.card().id);
@@ -204,17 +222,21 @@ export class BoardCardComponent {
   }
 
   /**
-   * Opens inline edit on Enter/F2 while the card host itself has keyboard focus (US08.6.1
-   * A11y AC) — the keyboard-equivalent of {@link onDoubleClick}'s dblclick-to-edit for
-   * TEXT/LABEL cards. Ignored when the keydown bubbled up from a descendant (e.g. a resize
-   * handle) rather than originating on the host, and while already editing (the textarea's
-   * own {@link onEditKeydown} owns Enter at that point).
+   * Opens inline edit on Enter/F2 while the card host itself has keyboard focus (US08.6.1/
+   * US08.6.2 A11y AC) — the keyboard-equivalent of {@link onDoubleClick}'s dblclick-to-edit
+   * for TEXT/LABEL cards. Ignored when the keydown bubbled up from a descendant (e.g. a
+   * resize handle, which has no keydown handling of its own and would otherwise re-trigger
+   * this on every Enter/F2 press while focused) rather than originating on the host, and
+   * while already editing or read-only.
    */
   protected onHostKeydown(event: KeyboardEvent): void {
     if (event.target !== this.host.nativeElement) {
       return;
     }
-    if ((event.key === 'Enter' || event.key === 'F2') && this.isTextual() && !this.editing()) {
+    if (this.editing() || this.readOnly() || !this.isTextualCard()) {
+      return;
+    }
+    if (event.key === 'Enter' || event.key === 'F2') {
       event.preventDefault();
       this.startEdit();
     }

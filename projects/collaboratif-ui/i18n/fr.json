@@ -279,7 +279,7 @@
       "select": "Sélection",
       "pan": "Déplacer la vue",
       "sticky": "Post-it",
-      "text": "Texte",
+      "text": "Étiquette",
       "rect": "Rectangle",
       "circle": "Cercle",
       "diamond": "Losange",
@@ -305,6 +305,9 @@
       "resizeHandle": "Redimensionner la carte",
       "text": {
         "contentAriaLabel": "Contenu du pense-bête"
+      },
+      "label": {
+        "ariaLabel": "Étiquette"
       }
     },
     "frame": {

@@ -124,3 +124,53 @@ describe('StructuredCanvasComponent — URL paste creates a LINK card (US08.6.5)
     expect(addCard).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * US08.6.2 — the 'text' placement tool must create a LABEL card (a compact, persistent text
+ * label), not a TEXT (post-it) card. 'sticky' keeps creating TEXT — a regression guard so a
+ * future edit to this dispatch does not silently collapse the two tools back together.
+ *
+ * Scoped to `createCard`/`placementKind` only: the rest of `StructuredCanvasComponent`'s
+ * pointer state machine (drag/resize/connect/marquee) is pre-existing, untouched by this US,
+ * and out of scope here.
+ */
+describe('StructuredCanvasComponent — LABEL placement tool (US08.6.2)', () => {
+  let component: StructuredCanvasComponent;
+  let addCard: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    addCard = vi.fn();
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: {}, en: {} },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr', 'en'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: { addCard } }],
+    }).compileComponents();
+
+    component = TestBed.createComponent(StructuredCanvasComponent).componentInstance;
+  });
+
+  it('placementKind resolves the "text" tool to a card-placement gesture', () => {
+    expect(component['placementKind']('text')).toBe('text');
+  });
+
+  it('the "text" tool creates a LABEL card with empty content', () => {
+    component['createCard']('text', 100, 50);
+    expect(addCard).toHaveBeenCalledTimes(1);
+    const [, , type, content] = addCard.mock.calls[0];
+    expect(type).toBe('LABEL');
+    expect(content).toBe('');
+  });
+
+  it('the "sticky" tool still creates a TEXT card — LABEL and TEXT stay distinct', () => {
+    component['createCard']('sticky', 100, 50);
+    expect(addCard).toHaveBeenCalledTimes(1);
+    const [, , type] = addCard.mock.calls[0];
+    expect(type).toBe('TEXT');
+  });
+});
