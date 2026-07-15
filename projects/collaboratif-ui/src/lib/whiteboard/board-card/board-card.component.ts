@@ -362,5 +362,4 @@ export class BoardCardComponent {
       .querySelector<HTMLElement>(`[data-wb-table-nav][data-row="${r}"][data-col="${c}"]`)
       ?.focus();
   }
->>>>>>> a2b681c (feat(a11y): TABLE card inline cell edit + keyboard navigation (US08.6.6))
 }

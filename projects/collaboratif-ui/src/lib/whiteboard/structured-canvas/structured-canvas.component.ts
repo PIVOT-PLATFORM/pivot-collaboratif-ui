@@ -435,77 +435,6 @@ export class StructuredCanvasComponent {
     this.toolConsumed.emit();
   }
 
-  // ── Spreadsheet clipboard paste (US08.6.6, parity spec §4.8 ranks 1 & 4) ─────────────────
-  /**
-   * Resolves and applies a paste event against the TABLE priority order documented in
-   * `table-clipboard.ts`: fills a focused/selected TABLE card's grid, creates a new
-   * dimensioned TABLE card, falls back to a trimmed TEXT card for non-tabular plain text, or
-   * no-ops (letting the browser's native paste proceed) while any other editable field has
-   * focus.
-   */
-  @HostListener('document:paste', ['$event'])
-  protected onPaste(event: ClipboardEvent): void {
-    if (this.store.isReadonly()) {
-      return;
-    }
-    const clipboardData = event.clipboardData;
-    if (!clipboardData) {
-      return;
-    }
-    const target = event.target as HTMLElement | null;
-    const tableCellEl = target?.closest<HTMLElement>('[data-wb-table-cell]') ?? null;
-    const focusedTableCardId = tableCellEl?.closest<HTMLElement>('[data-card-id]')?.getAttribute('data-card-id') ?? null;
-
-    const action = decideTablePaste({
-      html: clipboardData.getData('text/html'),
-      text: clipboardData.getData('text/plain'),
-      focusedTableCardId,
-      singleSelectedTableCardId: this.singleSelectedTableCardId(),
-      isEditableFieldFocus: isEditableTarget(target),
-    });
-
-    if (action.kind === 'none') {
-      return;
-    }
-    event.preventDefault();
-
-    if (action.kind === 'fill') {
-      // Rank 1 may fire while that very cell is mid-edit locally (its own inline `<input>`
-      // still holds a stale, uncommitted value) — force-flush it first so our authoritative
-      // fill is applied last and wins (board-card commits on blur).
-      tableCellEl?.blur();
-      this.store.updateCard(action.cardId, serializeTable(action.rows));
-      return;
-    }
-
-    const center = this.pasteTargetCenter();
-    if (action.kind === 'create') {
-      this.store.addCard(
-        center.x - action.width / 2,
-        center.y - action.height / 2,
-        'TABLE',
-        serializeTable(action.rows),
-        '#FFFFFF',
-        action.width,
-        action.height,
-      );
-      return;
-    }
-    // action.kind === 'fallback-text' — plain-text-paste-creates-a-TEXT-card is US08.6.1's
-    // territory; implemented minimally here only because US08.6.6's own AC7 (error case)
-    // requires this exact fallback so a non-tabular paste is provably *not* mistaken for a
-    // table, and no other paste handler exists yet on `main` to own the general case.
-    this.store.addCard(
-      center.x - DEFAULT_CARD_W / 2,
-      center.y - DEFAULT_CARD_H / 2,
-      'TEXT',
-      action.text,
-      DEFAULT_CARD_COLOR,
-      DEFAULT_CARD_W,
-      DEFAULT_CARD_H,
-    );
-  }
-
   /** Id of the single selected TABLE card, or `null` when 0 or >1 cards are selected. */
   private singleSelectedTableCardId(): string | null {
     const ids = Array.from(this.store.selectedIds());
@@ -571,46 +500,99 @@ export class StructuredCanvasComponent {
   }
 
   /**
-   * Native OS clipboard paste — creates a card from pasted content when focus is on the
-   * canvas, not an editable control (an input/textarea/contentEditable, or a card's own
-   * inline text editor — case 2 of parity spec §4.8; case 1, a focused TABLE cell, does not
-   * yet exist as an editable target in this Socle, so it never reaches this handler either
-   * way), so pasting into an existing field is never hijacked into spawning a new card:
-   * - a pasted file whose declared MIME type is `image/*`, or (repli) whose filename matches
-   *   the recognised image extensions → a dimensioned `IMAGE` card (US08.6.4, case 3);
-   * - text that is a URL and nothing else → a `LINK` card (US08.6.5, parity spec §1.5/§3.4);
-   * - any other pasted text → the Error-case fallback for US08.6.4: non-tabular plain text
-   *   becomes a `TEXT` card. HTML/TSV table detection (case 4, US08.6.6) is intentionally not
-   *   implemented here.
+   * Native OS clipboard paste — resolves what to do with pasted content when focus is on the
+   * canvas, not an editable control (an input/textarea/contentEditable other than a TABLE
+   * cell mid-edit, or a card's own inline text editor), so pasting into an existing field is
+   * never hijacked into spawning a new card. Priority order (parity spec §4.8):
+   * 1. Tabular content (HTML `<table>` or TSV) with a focused TABLE cell → fills that card's
+   *    grid (US08.6.6, rank 1); with a single TABLE card selected → fills it; otherwise →
+   *    creates a new dimensioned TABLE card (rank 4). See {@link decideTablePaste}.
+   * 2. A pasted file whose declared MIME type is `image/*`, or (repli) whose filename matches
+   *    the recognised image extensions → a dimensioned `IMAGE` card (US08.6.4, case 3) — never
+   *    reached if rank 1 already matched (a file paste has no meaningful text/html for
+   *    {@link decideTablePaste} to recognise as a table).
+   * 3. Non-tabular text that is a URL and nothing else → a `LINK` card (US08.6.5, parity spec
+   *    §1.5/§3.4).
+   * 4. Any other non-tabular pasted text → the Error-case fallback: a `TEXT` card (US08.6.4/
+   *    US08.6.1) — HTML/TSV was already ruled out as a table above.
    */
   @HostListener('document:paste', ['$event'])
   protected async onPaste(event: ClipboardEvent): Promise<void> {
-    if (isEditableTarget(document.activeElement) || this.store.isReadonly()) {
+    if (this.store.isReadonly()) {
       return;
     }
     const clipboardData = event.clipboardData;
     if (!clipboardData) {
       return;
     }
+    // `event.target` reflects the browser's real paste target, but tests dispatch paste
+    // events on `document` directly (`document.dispatchEvent`), which makes `event.target`
+    // resolve to `document` itself regardless of which element actually has focus.
+    // `document.activeElement` is what genuinely tracks focus in both cases, so it's the
+    // only reliable signal for "is an editable field currently focused".
+    const activeEl = document.activeElement instanceof Element ? (document.activeElement as HTMLElement) : null;
+    const tableCellEl = activeEl?.closest<HTMLElement>('[data-wb-table-cell]') ?? null;
+    const focusedTableCardId = tableCellEl?.closest<HTMLElement>('[data-card-id]')?.getAttribute('data-card-id') ?? null;
+
+    const tableAction = decideTablePaste({
+      html: clipboardData.getData('text/html'),
+      text: clipboardData.getData('text/plain'),
+      focusedTableCardId,
+      singleSelectedTableCardId: this.singleSelectedTableCardId(),
+      isEditableFieldFocus: isEditableTarget(activeEl),
+    });
+
+    if (tableAction.kind === 'fill') {
+      event.preventDefault();
+      // Rank 1 may fire while that very cell is mid-edit locally (its own inline `<input>`
+      // still holds a stale, uncommitted value) — force-flush it first so our authoritative
+      // fill is applied last and wins (board-card commits on blur).
+      tableCellEl?.blur();
+      this.store.updateCard(tableAction.cardId, serializeTable(tableAction.rows));
+      return;
+    }
+    if (tableAction.kind === 'create') {
+      event.preventDefault();
+      const center = this.pasteTargetCenter();
+      this.store.addCard(
+        center.x - tableAction.width / 2,
+        center.y - tableAction.height / 2,
+        'TABLE',
+        serializeTable(tableAction.rows),
+        '#FFFFFF',
+        tableAction.width,
+        tableAction.height,
+      );
+      return;
+    }
+
+    // Neither a table fill nor a table creation — either a genuinely editable field owns
+    // this paste natively, or the content isn't tabular. Re-check the editable-field guard
+    // explicitly: decideTablePaste already returns 'none' for a pure image/file paste
+    // (no recognisable text/html), so this is the one guard the table logic can't cover.
+    if (isEditableTarget(activeEl)) {
+      return;
+    }
+
     const file = this.resolvePastedImageFile(clipboardData);
     if (file) {
       event.preventDefault();
       await this.createImageCardFromFile(file, this.lastPointerCanvas.x, this.lastPointerCanvas.y);
       return;
     }
-    const text = clipboardData.getData('text/plain')?.trim();
-    if (!text) {
+
+    if (tableAction.kind !== 'fallback-text') {
       return;
     }
     event.preventDefault();
-    if (isUrlOnlyPaste(text)) {
+    if (isUrlOnlyPaste(tableAction.text)) {
       const rect = this.surface().nativeElement.getBoundingClientRect();
       const center = this.toCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
       this.store.addCard(
         center.x - LINK_CARD_W / 2,
         center.y - LINK_CARD_H / 2,
         'LINK',
-        text,
+        tableAction.text,
         DEFAULT_CARD_COLOR,
         LINK_CARD_W,
         LINK_CARD_H,
@@ -619,7 +601,7 @@ export class StructuredCanvasComponent {
     }
     const px = this.lastPointerCanvas.x - DEFAULT_CARD_W / 2;
     const py = this.lastPointerCanvas.y - DEFAULT_CARD_H / 2;
-    this.store.addCard(px, py, 'TEXT', text, DEFAULT_CARD_COLOR, DEFAULT_CARD_W, DEFAULT_CARD_H);
+    this.store.addCard(px, py, 'TEXT', tableAction.text, DEFAULT_CARD_COLOR, DEFAULT_CARD_W, DEFAULT_CARD_H);
   }
 
   /** Resolves a pasted file as an image: declared MIME type first, filename extension repli. */
@@ -677,13 +659,4 @@ export class StructuredCanvasComponent {
   protected onConnectionSelect(id: string): void {
     this.store.selectCards(new Set([id]));
   }
-}
-
-/** Whether `el` is a native editable field (input/textarea/contenteditable) — the generic
- *  "focus is in an editable field" guard shared by paste handling (§4.8 rank 2). */
-function isEditableTarget(el: Element | null): boolean {
-  if (!el) {
-    return false;
-  }
-  return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable;
 }
