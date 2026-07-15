@@ -31,6 +31,15 @@ export abstract class BoardTransport {
   abstract on<T = unknown>(type: string, handler: (data: T) => void): () => void;
   /** Registers a callback fired on every automatic reconnect (to re-join the room). */
   abstract onReconnect(handler: () => void): () => void;
+  /**
+   * This connection's own opaque correlation id — a client-generated value, stable for the
+   * lifetime of this transport instance, **not** the server's STOMP session id (fix/EN08.4).
+   * Used for `card:moved`/`card:resized` sender exclusion: this same value is attached to
+   * every outgoing `card:move`/`card:resize` action (see {@link StompBoardTransport.emit}) and
+   * echoed back verbatim by the backend as `senderSessionId` in the broadcast — the consumer
+   * (`BoardStore`) compares the two to recognise and ignore its own echo.
+   */
+  abstract getSessionId(): string;
 }
 
 interface Envelope {
@@ -55,6 +64,19 @@ export class StompBoardTransport extends BoardTransport {
 
   private readonly handlers = new Map<string, Set<(data: unknown) => void>>();
   private readonly reconnectHandlers = new Set<() => void>();
+
+  /**
+   * This transport instance's own opaque correlation id (see {@link BoardTransport.getSessionId}
+   * for the full rationale). Generated once per instance — `BoardStore` is provided per board
+   * container, so a fresh id is minted on every board mount, which is all sender-exclusion
+   * needs (uniqueness across the *current* set of connected sessions, not stability across
+   * reconnects or page reloads).
+   */
+  private readonly connectionId = crypto.randomUUID();
+
+  /** Outgoing action types that carry this transport's {@link connectionId} for sender exclusion
+   *  (fix/EN08.4) — see {@link BoardTransport.getSessionId}. */
+  private static readonly SENDER_TAGGED_TYPES = new Set(['card:move', 'card:resize']);
 
   connect(boardId: string): void {
     this.boardId = boardId;
@@ -100,9 +122,10 @@ export class StompBoardTransport extends BoardTransport {
     if (!this.rxStomp || !this.boardId) {
       return;
     }
+    const payload = this.withSenderSessionId(type, data);
     this.rxStomp.publish({
       destination: `/app/whiteboard/${this.boardId}/action`,
-      body: JSON.stringify({ type, data }),
+      body: JSON.stringify({ type, data: payload }),
     });
   }
 
@@ -116,6 +139,33 @@ export class StompBoardTransport extends BoardTransport {
   onReconnect(handler: () => void): () => void {
     this.reconnectHandlers.add(handler);
     return () => this.reconnectHandlers.delete(handler);
+  }
+
+  getSessionId(): string {
+    return this.connectionId;
+  }
+
+  /**
+   * Attaches `senderSessionId: this.connectionId` to `card:move`/`card:resize` payloads only —
+   * every other action type passes through unchanged. Centralised here rather than at each
+   * `BoardStore` call site (`moveCard`, `commitDragCard`, `resizeCard`, `resizeCardBox`,
+   * `commitResizeCard`, `scaleSelection`, `commitResizeSelection`, `moveFrame`,
+   * `commitDragFrame`, `setCardPositions`, …) — there are too many emit sites for `card:move`/
+   * `card:resize` to tag individually without a high risk of missing one.
+   *
+   * @param type the outgoing action type
+   * @param data the raw payload — only tagged if it is a plain object (defensive; every real
+   *             `card:move`/`card:resize` call site already sends one)
+   * @return the payload, tagged if applicable
+   */
+  private withSenderSessionId(type: string, data: unknown): unknown {
+    if (!StompBoardTransport.SENDER_TAGGED_TYPES.has(type)) {
+      return data;
+    }
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+      return data;
+    }
+    return { ...(data as Record<string, unknown>), senderSessionId: this.connectionId };
   }
 
   private dispatch(body: string): void {
