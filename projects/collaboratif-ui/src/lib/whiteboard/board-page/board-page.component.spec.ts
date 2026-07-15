@@ -335,3 +335,97 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
     }
   });
 });
+
+describe('BoardPageComponent — US08.7.1 keyboard delete of a selected connector (A11y)', () => {
+  /** Exposes the protected `document:keydown` host listener for direct invocation, the same
+   *  cast-and-call pattern used elsewhere in this repo for protected interaction handlers
+   *  (e.g. `whiteboard-canvas.component.spec.ts`'s `component['onKeyDown'](...)`). */
+  interface KeydownApi {
+    onKeydown(event: KeyboardEvent): void;
+  }
+
+  /** Records every outbound `emit(type, data)` call — like the store's own delete-of-a-card
+   *  path, `deleteConnection` fires `connection:delete` and only removes the connection from
+   *  local state once the server echoes back `connection:deleted` (see `board.store.spec.ts`
+   *  for the reconciliation itself); this transport double lets the test observe that emit
+   *  without needing a full echo round-trip. */
+  class RecordingTransport extends BoardTransport {
+    readonly emitted: Array<{ type: string; data: unknown }> = [];
+    connect(): void {}
+    disconnect(): void {}
+    emit(type: string, data: unknown): void {
+      this.emitted.push({ type, data });
+    }
+    on<T = unknown>(_type: string, _handler: (data: T) => void): () => void {
+      return () => {};
+    }
+    onReconnect(): () => void {
+      return () => {};
+    }
+  }
+
+  function create() {
+    const fixture = TestBed.createComponent(BoardPageComponent);
+    const store = fixture.debugElement.injector.get(BoardStore);
+    const transport = fixture.debugElement.injector.get(BoardTransport) as RecordingTransport;
+    return { cmp: fixture.componentInstance as unknown as KeydownApi, store, transport };
+  }
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [BoardPageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: new Map([['boardId', 'board-1']]) } },
+        },
+      ],
+    }).overrideComponent(BoardPageComponent, {
+      set: { providers: [BoardStore, { provide: BoardTransport, useClass: RecordingTransport }] },
+    });
+  });
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  /** `onKeydown` reads `event.target` (to skip input/textarea focus) before anything else —
+   *  a synthetic `KeyboardEvent` built with `new KeyboardEvent(...)` (not dispatched through
+   *  the DOM) has a `null` target, so it is stubbed here to a plain, non-editable element. */
+  function keydownEvent(key: string): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key });
+    Object.defineProperty(event, 'target', { value: document.createElement('div') });
+    return event;
+  }
+
+  it('Delete emits connection:delete for a selected connector, no card selected, no hover required', () => {
+    const { cmp, store, transport } = create();
+    store.connections.set([
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+    ]);
+    store.selectCards(new Set(['conn-1']));
+
+    cmp.onKeydown(keydownEvent('Delete'));
+
+    expect(transport.emitted.some((e) => e.type === 'connection:delete' && (e.data as { id: string }).id === 'conn-1')).toBe(
+      true,
+    );
+    expect(store.selectedIds().size).toBe(0);
+  });
+
+  it('Backspace also emits connection:delete for a selected connector', () => {
+    const { cmp, store, transport } = create();
+    store.connections.set([
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+    ]);
+    store.selectCards(new Set(['conn-1']));
+
+    cmp.onKeydown(keydownEvent('Backspace'));
+
+    expect(transport.emitted.some((e) => e.type === 'connection:delete' && (e.data as { id: string }).id === 'conn-1')).toBe(
+      true,
+    );
+  });
+});

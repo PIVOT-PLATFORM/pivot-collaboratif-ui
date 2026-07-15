@@ -882,33 +882,49 @@ export class BoardStore {
     ids.forEach((id) => applyOne(id, color));
   }
 
+  /**
+   * Deletes every currently-selected, unlocked item — cards and/or connections alike
+   * (US08.7.1: a selected connector must be deletable via Delete/Backspace exactly like a
+   * card, without requiring mouse hover). `selectedIds` is a single shared signal for both
+   * domains (see {@link selectCards}/{@link StructuredCanvasComponent#onConnectionSelect}), so
+   * each id is resolved against both the current card list and the current connection list —
+   * an id matching neither (e.g. already deleted by a concurrent remote mutation) is silently
+   * skipped, consistent with every other silent-refusal mutation in this store.
+   */
   deleteSelected(): void {
     const ids = this.unlockedSelectedIds();
     const cards = this.cards();
+    const connections = this.connections();
     const savedCards = ids.map((id) => cards.find((c) => c.id === id)).filter((c): c is Card => !!c);
-    if (savedCards.length === 0) {
+    const connectionIds = ids.filter((id) => connections.some((c) => c.id === id));
+    if (savedCards.length === 0 && connectionIds.length === 0) {
       return;
     }
-    const trackedIds = savedCards.map((c) => c.id);
-    this.pushHistory({
-      undo: () => {
-        savedCards.forEach((card, i) => {
-          this.transport.emit('card:create', {
-            boardId: this.boardId,
-            content: card.content,
-            posX: card.posX,
-            posY: card.posY,
-            color: card.color,
-            type: card.type,
-            width: card.width,
-            height: card.height,
+    if (savedCards.length > 0) {
+      const trackedIds = savedCards.map((c) => c.id);
+      this.pushHistory({
+        undo: () => {
+          savedCards.forEach((card, i) => {
+            this.transport.emit('card:create', {
+              boardId: this.boardId,
+              content: card.content,
+              posX: card.posX,
+              posY: card.posY,
+              color: card.color,
+              type: card.type,
+              width: card.width,
+              height: card.height,
+            });
+            this.pendingCardHistory.push((newCard: Card) => (trackedIds[i] = newCard.id));
           });
-          this.pendingCardHistory.push((newCard: Card) => (trackedIds[i] = newCard.id));
-        });
-      },
-      redo: () => trackedIds.forEach((id) => this.transport.emit('card:delete', { id, boardId: this.boardId })),
-    });
-    ids.forEach((id) => this.transport.emit('card:delete', { id, boardId: this.boardId }));
+        },
+        redo: () => trackedIds.forEach((id) => this.transport.emit('card:delete', { id, boardId: this.boardId })),
+      });
+      trackedIds.forEach((id) => this.transport.emit('card:delete', { id, boardId: this.boardId }));
+    }
+    // Each connection gets its own undo/redo history entry via deleteConnection — consistent
+    // with how a lone connector delete (mouse-driven) already behaves.
+    connectionIds.forEach((id) => this.deleteConnection(id));
     this.selectedIds.set(new Set());
   }
 
