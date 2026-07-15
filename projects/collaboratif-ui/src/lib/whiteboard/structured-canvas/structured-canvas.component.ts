@@ -89,8 +89,10 @@ export class StructuredCanvasComponent {
 
   /** Active tool (owned by the container/toolbar). */
   readonly tool = input<ToolMode>('select');
-  /** Active drawing colour. */
+  /** Active drawing colour (SHAPE stroke colour). */
   readonly color = input<string>(DEFAULT_SHAPE_COLOR);
+  /** Active SHAPE fill colour, or `null` for no fill (US08.6.3). */
+  readonly fillColor = input<string | null>(null);
 
   /** Emitted after a placement tool creates a card, so the container can reset to select. */
   readonly toolConsumed = output<void>();
@@ -485,7 +487,9 @@ export class StructuredCanvasComponent {
       this.store.addCard(px, py, 'TABLE', serializeTable([['', '', ''], ['', '', ''], ['', '', '']]), '#FFFFFF', 240, 140);
     } else {
       const shapeKind = SHAPE_TOOLS[this.tool()] as ShapeKind;
-      const content = serializeShape({ kind: shapeKind, stroke: this.color(), fill: null, opacity: 1, rotation: 0 });
+      // Fill (US08.6.3, second colour picker) defaults to `null` (no fill, outline-only) —
+      // the SHAPE default — unless the user picked one in the floating toolbar.
+      const content = serializeShape({ kind: shapeKind, stroke: this.color(), fill: this.fillColor(), opacity: 1, rotation: 0 });
       this.store.addCard(px, py, 'SHAPE', content, this.color(), 120, 120);
     }
   }

@@ -290,7 +290,10 @@
       "table": "Table",
       "link": "Link cards",
       "colorGroup": "Colours",
-      "pickColor": "Colour {{color}}"
+      "pickColor": "Colour {{color}}",
+      "fillColorGroup": "Fill colour",
+      "pickFillColor": "Fill {{color}}",
+      "noFill": "No fill"
     },
     "card": {
       "editText": "Edit text",
@@ -308,6 +311,17 @@
       },
       "label": {
         "ariaLabel": "Label"
+      },
+      "shape": {
+        "ariaLabel": "Shape: {{kind}}",
+        "kind": {
+          "rect": "rectangle",
+          "circle": "ellipse",
+          "diamond": "diamond",
+          "triangle": "triangle",
+          "line": "line",
+          "star": "star"
+        }
       }
     },
     "frame": {

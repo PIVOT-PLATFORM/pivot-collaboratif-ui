@@ -29,4 +29,30 @@
       ></button>
     }
   </div>
+
+  @if (isShapeTool()) {
+    <!-- SHAPE-only second colour picker (US08.6.3): fill, distinct from the stroke `color`
+         group above. "No fill" keeps the shape outline-only, the SHAPE default. -->
+    <div class="wb-toolbar__group wb-toolbar__group--colors" role="group" [attr.aria-label]="'whiteboard.toolbar.fillColorGroup' | transloco">
+      <button
+        type="button"
+        class="wb-toolbar__swatch wb-toolbar__swatch--none"
+        [class.wb-toolbar__swatch--active]="fillColor() === null"
+        [disabled]="disabled()"
+        [attr.aria-label]="'whiteboard.toolbar.noFill' | transloco"
+        (click)="fillColorChange.emit(null)"
+      ></button>
+      @for (c of palette; track c) {
+        <button
+          type="button"
+          class="wb-toolbar__swatch"
+          [class.wb-toolbar__swatch--active]="fillColor()?.toLowerCase() === c.toLowerCase()"
+          [style.background]="c"
+          [disabled]="disabled()"
+          [attr.aria-label]="'whiteboard.toolbar.pickFillColor' | transloco: { color: c }"
+          (click)="fillColorChange.emit(c)"
+        ></button>
+      }
+    </div>
+  }
 </div>

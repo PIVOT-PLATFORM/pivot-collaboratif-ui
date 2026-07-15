@@ -512,3 +512,149 @@ describe('BoardCardComponent — LABEL (US08.6.2)', () => {
     expect(contrastRatio(defaultLabelColor, '#fafafa')).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+/**
+ * Tests for US08.6.3 (SHAPE card) rendered through the shared {@link BoardCardComponent}:
+ * rendering of the whitelisted shape kinds, the A11y contract (`role="img"` + a translated
+ * `aria-label` describing the shape's nature), resize handles hidden when locked, and visual
+ * distinction from TEXT/LABEL.
+ */
+
+function makeShapeCard(overrides: Partial<Card> = {}): Card {
+  return {
+    id: 'card-1',
+    boardId: 'board-1',
+    type: 'SHAPE',
+    content: 'rect|#A5B4FC|none|1|0',
+    meta: null,
+    posX: 0,
+    posY: 0,
+    width: 192,
+    height: 128,
+    color: '#FFEB3B',
+    groupId: null,
+    groupColor: null,
+    locked: false,
+    layer: 1,
+    fieldValues: [],
+    ...overrides,
+  };
+}
+
+describe('BoardCardComponent — SHAPE (US08.6.3)', () => {
+  let fixture: ComponentFixture<BoardCardComponent>;
+  let component: BoardCardComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        BoardCardComponent,
+        TranslocoTestingModule.forRoot({
+          langs: {
+            fr: {
+              whiteboard: {
+                card: {
+                  shape: {
+                    ariaLabel: 'Forme : {{kind}}',
+                    kind: {
+                      rect: 'rectangle',
+                      circle: 'ellipse',
+                      diamond: 'diamant',
+                      triangle: 'triangle',
+                      line: 'ligne',
+                      star: 'étoile',
+                    },
+                  },
+                },
+              },
+            },
+            en: {},
+          },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr', 'en'] },
+          preloadLangs: true,
+        }),
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(BoardCardComponent);
+    component = fixture.componentInstance;
+  });
+
+  function setCard(overrides: Partial<Card> = {}): void {
+    fixture.componentRef.setInput('card', makeShapeCard(overrides));
+    fixture.detectChanges();
+  }
+
+  // ── Rendering: whitelisted kinds ────────────────────────────────────────────────
+
+  it('renders a rect SHAPE as the default (@default) svg case', () => {
+    setCard({ content: 'rect|#112233|none|1|0' });
+    const rect = fixture.nativeElement.querySelector('.wb-card__svg rect');
+    expect(rect).not.toBeNull();
+    expect(rect.getAttribute('stroke')).toBe('#112233');
+  });
+
+  it('renders a circle SHAPE as an ellipse element', () => {
+    setCard({ content: 'circle|#445566|#778899|1|0' });
+    const ellipse = fixture.nativeElement.querySelector('.wb-card__svg ellipse');
+    expect(ellipse).not.toBeNull();
+    expect(ellipse.getAttribute('fill')).toBe('#778899');
+  });
+
+  it('renders "none" fill as SVG fill="none" (outline only)', () => {
+    setCard({ content: 'rect|#112233|none|1|0' });
+    const rect = fixture.nativeElement.querySelector('.wb-card__svg rect');
+    expect(rect.getAttribute('fill')).toBe('none');
+  });
+
+  // ── A11y: role="img" + translated aria-label describing the shape's nature ─────
+
+  it('the SHAPE svg carries role="img" and a translated aria-label naming the kind', () => {
+    setCard({ content: 'circle|#112233|none|1|0' });
+    const svg = fixture.nativeElement.querySelector('.wb-card__svg');
+    expect(svg.getAttribute('role')).toBe('img');
+    expect(svg.getAttribute('aria-label')).toBe('Forme : ellipse');
+  });
+
+  it('a rect SHAPE gets the "rectangle" aria-label', () => {
+    setCard({ content: 'rect|#112233|none|1|0' });
+    expect(component['shapeAriaLabel']()).toBe('Forme : rectangle');
+  });
+
+  it('a non-SHAPE card has no shapeAriaLabel', () => {
+    setCard({ type: 'TEXT', content: 'hello' });
+    expect(component['shapeAriaLabel']()).toBeNull();
+  });
+
+  // ── Resize handles hidden when locked ────────────────────────────────────────────
+
+  it('shows resize handles for a selected, unlocked SHAPE', () => {
+    fixture.componentRef.setInput('selected', true);
+    setCard({ locked: false });
+    expect(fixture.nativeElement.querySelectorAll('.wb-card__resize').length).toBeGreaterThan(0);
+  });
+
+  it('hides resize handles for a selected but locked SHAPE (A11y AC)', () => {
+    fixture.componentRef.setInput('selected', true);
+    setCard({ locked: true });
+    expect(fixture.nativeElement.querySelectorAll('.wb-card__resize').length).toBe(0);
+  });
+
+  // ── Visual distinction from TEXT/LABEL ──────────────────────────────────────────
+
+  it('a SHAPE card renders no textarea/text/label content, distinct from TEXT/LABEL', () => {
+    setCard();
+    expect(fixture.nativeElement.querySelector('.wb-card__text')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.wb-card__label')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.wb-card__svg')).not.toBeNull();
+  });
+
+  it('double-click on a SHAPE opens the detail modal, not inline edit (unlike TEXT/LABEL)', () => {
+    setCard();
+    let opened: string | undefined;
+    component.openDetail.subscribe((id) => (opened = id));
+    component['onDoubleClick']();
+    expect(opened).toBe('card-1');
+    expect(component['editing']()).toBe(false);
+  });
+});

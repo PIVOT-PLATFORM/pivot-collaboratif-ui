@@ -70,6 +70,8 @@ export class BoardPageComponent implements OnInit, OnDestroy {
 
   protected readonly tool = signal<ToolMode>('select');
   protected readonly color = signal<string>(DEFAULT_SHAPE_COLOR);
+  /** SHAPE fill colour (US08.6.3) — `null` means no fill (transparent), the SHAPE default. */
+  protected readonly fillColor = signal<string | null>(null);
   protected readonly showGroups = signal(false);
   protected readonly showActivities = signal(false);
   protected readonly showShare = signal(false);

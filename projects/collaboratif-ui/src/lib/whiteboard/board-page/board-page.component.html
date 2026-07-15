@@ -45,9 +45,11 @@
       <wb-floating-toolbar
         [tool]="tool()"
         [color]="color()"
+        [fillColor]="fillColor()"
         [disabled]="store.isReadonly()"
         (toolChange)="tool.set($event)"
         (colorChange)="color.set($event)"
+        (fillColorChange)="fillColor.set($event)"
       ></wb-floating-toolbar>
     </div>
 
@@ -56,6 +58,7 @@
       class="wb-page__canvas"
       [tool]="tool()"
       [color]="color()"
+      [fillColor]="fillColor()"
       (toolConsumed)="onToolConsumed()"
     ></wb-structured-canvas>
 
