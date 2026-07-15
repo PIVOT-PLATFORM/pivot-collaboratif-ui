@@ -507,10 +507,10 @@ describe('BoardCardComponent — LABEL (US08.6.2)', () => {
 
   // ── Contrast: default LABEL text colour vs the canvas background (WCAG AA ≥ 4.5:1) ──
 
-  it('the default LABEL text colour passes WCAG AA against the canvas background (#fafafa)', () => {
+  it('the default LABEL text colour passes WCAG AA against the canvas background (--wb-canvas-bg #fbfaff)', () => {
     setCard({ content: 'x' });
     const defaultLabelColor = component['labelFmt']().color;
-    expect(contrastRatio(defaultLabelColor, '#fafafa')).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(defaultLabelColor, '#fbfaff')).toBeGreaterThanOrEqual(4.5);
   });
 });
 
