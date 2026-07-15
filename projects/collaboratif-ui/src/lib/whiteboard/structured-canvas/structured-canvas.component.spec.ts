@@ -20,6 +20,9 @@ class NoopTransport extends BoardTransport {
   onReconnect(_handler: () => void): () => void {
     return () => {};
   }
+  getSessionId(): string {
+    return 'noop-transport-session';
+  }
 }
 
 const FR_TRANSLATIONS = {
