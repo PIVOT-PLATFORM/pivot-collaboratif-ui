@@ -52,6 +52,10 @@
 }
 
 .wb-page__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-width: 34px;
   height: 32px;
   padding: 0 var(--wb-space-2);
@@ -61,14 +65,61 @@
   color: var(--wb-ink);
   cursor: pointer;
   font-size: var(--wb-text-13);
+  transition:
+    background var(--wb-dur-fast, 120ms) ease,
+    border-color var(--wb-dur-fast, 120ms) ease,
+    color var(--wb-dur-fast, 120ms) ease;
 
   &:hover:not(:disabled) {
     background: var(--wb-surface-hover);
   }
 
+  // Icon-only trigger: square footprint, glyph carries the meaning (label via aria/tooltip).
+  &--icon {
+    padding: 0;
+    color: var(--wb-ink-muted);
+
+    &:hover:not(:disabled) {
+      color: var(--wb-ink);
+    }
+  }
+
   &--on {
     background: var(--wb-accent-weak);
     border-color: var(--wb-accent);
+    color: var(--wb-accent);
+  }
+
+  // Armed reset (double-click confirm window) - danger affordance on the trash icon.
+  &--danger {
+    background: var(--wb-danger-bg);
+    border-color: var(--wb-danger-border);
+    color: var(--wb-danger);
+
+    &:hover:not(:disabled) {
+      background: var(--wb-danger-bg);
+      color: var(--wb-danger);
+    }
+  }
+
+  // Primary call-to-action (activities drawer) - filled accent, icon + label.
+  &--primary {
+    padding: 0 var(--wb-space-3);
+    background: var(--wb-accent);
+    border-color: var(--wb-accent);
+    color: #fff;
+    font-weight: var(--wb-fw-semibold);
+
+    &:hover:not(:disabled) {
+      background: var(--wb-accent-hover);
+      color: #fff;
+    }
+
+    &.wb-page__btn--on {
+      background: var(--wb-accent-hover);
+      border-color: var(--wb-accent-hover);
+      color: #fff;
+    }
   }
 
   &:disabled {
@@ -80,6 +131,25 @@
     outline: 2px solid var(--wb-focus);
     outline-offset: 1px;
   }
+}
+
+.wb-page__icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  display: block;
+}
+
+.wb-page__btn-label {
+  line-height: 1;
+}
+
+.wb-page__sep {
+  align-self: center;
+  width: 1px;
+  height: 20px;
+  background: var(--wb-border);
+  flex: 0 0 auto;
 }
 
 .wb-page__reset-confirm {
