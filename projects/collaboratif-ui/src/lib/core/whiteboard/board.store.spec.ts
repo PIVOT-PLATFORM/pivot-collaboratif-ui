@@ -17,15 +17,24 @@ const BOARD_ID = 'board-1';
  * {@link FakeTransport.getSessionId} for the fix/EN08.4 sender-exclusion tests below.
  */
 class FakeTransport extends BoardTransport {
-  readonly emitted: { type: string; data: unknown }[] = [];
+  readonly emitted: { type: string; data: unknown; guaranteed?: boolean }[] = [];
   private sessionId = 'my-session-id';
+  private connected = true;
   private readonly handlers = new Map<string, Set<(data: unknown) => void>>();
 
   connect(): void {}
   disconnect(): void {}
 
-  emit(type: string, data: unknown): void {
-    this.emitted.push({ type, data });
+  emit(type: string, data: unknown, opts?: { guaranteed?: boolean }): void {
+    this.emitted.push({ type, data, guaranteed: opts?.guaranteed });
+  }
+
+  override isConnected(): boolean {
+    return this.connected;
+  }
+
+  setConnected(value: boolean): void {
+    this.connected = value;
   }
 
   on<T = unknown>(type: string, handler: (data: T) => void): () => void {
@@ -266,6 +275,81 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
       store.moveCard('card-1', 999, 888); // held by the throttle window
       store.commitDragCard(); // must flush the final position synchronously, not wait
       expect(moves().at(-1)!.data).toEqual({ id: 'card-1', boardId: BOARD_ID, posX: 999, posY: 888 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('coalesces a burst of resizeCardBox emits into one card:resize + one card:move per window (BUG J)', () => {
+    vi.useFakeTimers();
+    try {
+      const of = (t: string) => transport.emitted.filter((e) => e.type === t);
+      store.startResizeCard('card-1');
+      store.resizeCardBox('card-1', { posX: 0, posY: 0, width: 200, height: 150 });
+      store.resizeCardBox('card-1', { posX: 0, posY: 0, width: 260, height: 190 });
+      expect(of('card:resize')).toHaveLength(0); // nothing sent synchronously
+      vi.advanceTimersByTime(0); // first flush is scheduled with zero delay
+      expect(of('card:resize')).toHaveLength(1);
+      expect(of('card:move')).toHaveLength(1);
+      expect(of('card:resize').at(-1)!.data).toMatchObject({ id: 'card-1', width: 260, height: 190 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('flushes the final resize immediately on commit, unthrottled (BUG J)', () => {
+    vi.useFakeTimers();
+    try {
+      const resizes = () => transport.emitted.filter((e) => e.type === 'card:resize');
+      store.startResizeCard('card-1');
+      store.resizeCardBox('card-1', { posX: 0, posY: 0, width: 999, height: 888 }); // held by the window
+      store.commitResizeCard('card-1'); // must flush the final size synchronously, not wait
+      expect(resizes().at(-1)!.data).toMatchObject({ id: 'card-1', width: 999, height: 888 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('coalesces a frame drag (frame + captured cards) to one frame per entity per window (BUG J)', () => {
+    vi.useFakeTimers();
+    try {
+      store.frames.set([
+        { id: 'frame-1', boardId: BOARD_ID, title: 'F', posX: 0, posY: 0, width: 400, height: 300, color: '#fff', active: true, layer: 1 },
+      ]);
+      store.cards.set([baseCard({ id: 'card-1', posX: 10, posY: 10 })]);
+      const captured = [{ id: 'card-1', startX: 10, startY: 10, frameStartX: 0, frameStartY: 0 }];
+      store.startDragFrame('frame-1', ['card-1']);
+      store.moveFrame('frame-1', 30, 30, captured);
+      store.moveFrame('frame-1', 60, 60, captured);
+      expect(transport.emitted.filter((e) => e.type === 'frame:move')).toHaveLength(0); // nothing synchronous
+      vi.advanceTimersByTime(0);
+      const frameMoves = transport.emitted.filter((e) => e.type === 'frame:move');
+      const cardMoves = transport.emitted.filter((e) => e.type === 'card:move');
+      expect(frameMoves).toHaveLength(1); // one frame:move for the whole burst, not one per pointermove
+      expect(cardMoves).toHaveLength(1); // one card:move for the captured card, not one per pointermove
+      expect(frameMoves.at(-1)!.data).toMatchObject({ id: 'frame-1', posX: 60, posY: 60 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the final resize pending while disconnected, then delivers it guaranteed on commit (U3 regression)', () => {
+    vi.useFakeTimers();
+    try {
+      transport.setConnected(false);
+      const resizes = () => transport.emitted.filter((e) => e.type === 'card:resize');
+      store.startResizeCard('card-1');
+      store.resizeCardBox('card-1', { posX: 0, posY: 0, width: 300, height: 200 });
+      vi.advanceTimersByTime(50); // throttled intermediate flush fires while disconnected...
+      expect(resizes()).toHaveLength(0); // ...emits nothing and keeps the latest value pending
+      store.commitResizeCard('card-1'); // commit flush delivers the terminal value, guaranteed
+      const last = resizes().at(-1);
+      expect(last!.data).toMatchObject({ id: 'card-1', width: 300, height: 200 });
+      expect(last!.guaranteed).toBe(true);
     } finally {
       vi.clearAllTimers();
       vi.useRealTimers();

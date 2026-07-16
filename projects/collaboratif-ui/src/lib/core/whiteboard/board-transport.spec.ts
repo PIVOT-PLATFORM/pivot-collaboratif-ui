@@ -8,8 +8,13 @@ const BOARD_ID = 'board-abc';
 
 /** Minimal fake standing in for `@stomp/rx-stomp`'s `RxStomp`, capturing `publish()` calls. */
 class FakeRxStomp {
-  readonly publishCalls: { destination: string; body: string }[] = [];
-  publish(params: { destination: string; body: string }): void {
+  readonly publishCalls: { destination: string; body: string; retryIfDisconnected?: boolean }[] = [];
+  /** Mirrors `RxStomp.connected()`, read by emit()'s backpressure guard. Default: connected. */
+  isConnected = true;
+  connected(): boolean {
+    return this.isConnected;
+  }
+  publish(params: { destination: string; body: string; retryIfDisconnected?: boolean }): void {
     this.publishCalls.push(params);
   }
 }
@@ -95,5 +100,42 @@ describe('StompBoardTransport — sender tagging on card:move/card:resize (fix/E
     const body = fake.publishCalls[fake.publishCalls.length - 1].body;
     const parsed = JSON.parse(body) as { data: unknown };
     expect(parsed.data).toBe(BOARD_ID);
+  });
+
+  // ── Backpressure guard while disconnected ──────────────────────────────────
+  it('drops a high-frequency mutation frame while disconnected', () => {
+    fake.isConnected = false;
+    transport.emit('card:move', { id: 'card-1', boardId: BOARD_ID, posX: 10, posY: 20 });
+    expect(fake.publishCalls).toHaveLength(0);
+  });
+
+  it('still delivers a lifecycle frame while disconnected, with retryIfDisconnected set', () => {
+    fake.isConnected = false;
+    transport.emit('board:join', BOARD_ID);
+
+    expect(fake.publishCalls).toHaveLength(1);
+    expect(fake.publishCalls[0].retryIfDisconnected).toBe(true);
+  });
+
+  it('publishes a mutation frame normally while connected, with retryIfDisconnected false', () => {
+    transport.emit('card:move', { id: 'card-1', boardId: BOARD_ID, posX: 1, posY: 2 });
+
+    expect(fake.publishCalls).toHaveLength(1);
+    expect(fake.publishCalls[0].retryIfDisconnected).toBe(false);
+  });
+
+  it('delivers a guaranteed mutation frame while disconnected (authoritative commit value)', () => {
+    fake.isConnected = false;
+    transport.emit('card:move', { id: 'card-1', boardId: BOARD_ID, posX: 9, posY: 9 }, { guaranteed: true });
+
+    expect(fake.publishCalls).toHaveLength(1);
+    expect(fake.publishCalls[0].retryIfDisconnected).toBe(true);
+  });
+
+  it('isConnected() reflects the live rx-stomp connection state', () => {
+    fake.isConnected = true;
+    expect(transport.isConnected()).toBe(true);
+    fake.isConnected = false;
+    expect(transport.isConnected()).toBe(false);
   });
 });
