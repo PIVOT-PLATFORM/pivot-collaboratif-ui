@@ -308,3 +308,76 @@
 :host(:hover) .wb-card__connect {
   opacity: 1;
 }
+
+// ── US08.12.2 — per-card dot-vote control ──
+.wb-card__vote {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--wb-radius-pill, 999px);
+  background: #fff;
+  border: 1px solid var(--wb-border, #e6e4ef);
+  box-shadow: var(--wb-elev-2, 0 2px 8px rgba(20, 16, 41, 0.12));
+  font-family: var(--wb-font, inherit);
+
+  &--mine {
+    border-color: var(--wb-accent, #7c5cff);
+    background: var(--wb-accent-weak, #efe9ff);
+  }
+}
+
+.wb-card__vote-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 22px;
+  justify-content: center;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: var(--wb-fw-semibold, 600);
+  font-variant-numeric: tabular-nums;
+  color: var(--wb-ink, #201a3b);
+}
+
+.wb-card__vote-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--wb-accent, #7c5cff);
+}
+
+.wb-card__vote-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wb-ink-muted, #5b5470);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--wb-accent, #7c5cff);
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 1px;
+  }
+}

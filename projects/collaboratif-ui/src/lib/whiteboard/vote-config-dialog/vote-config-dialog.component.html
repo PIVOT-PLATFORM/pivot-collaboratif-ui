@@ -1,0 +1,78 @@
+<div class="wb-votecfg__backdrop" (click)="onClose()">
+  <div
+    class="wb-votecfg"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'whiteboard.vote.config.title' | transloco"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="wb-votecfg__header">
+      <h2 class="wb-votecfg__title">{{ 'whiteboard.vote.config.title' | transloco }}</h2>
+      <button
+        type="button"
+        class="wb-votecfg__close"
+        [attr.aria-label]="'whiteboard.vote.config.cancel' | transloco"
+        (click)="onClose()"
+      >
+        ×
+      </button>
+    </header>
+
+    <p class="wb-votecfg__hint">{{ 'whiteboard.vote.config.hint' | transloco }}</p>
+
+    <div class="wb-votecfg__row">
+      <span class="wb-votecfg__label" id="wb-votecfg-budget">{{ 'whiteboard.vote.config.budget' | transloco }}</span>
+      <div class="wb-votecfg__stepper" role="group" aria-labelledby="wb-votecfg-budget">
+        <button
+          type="button"
+          class="wb-votecfg__step"
+          [disabled]="votesPerPerson() <= 1"
+          [attr.aria-label]="'whiteboard.vote.config.decrease' | transloco"
+          (click)="decVotes()"
+        >
+          −
+        </button>
+        <span class="wb-votecfg__count" aria-live="polite">{{ votesPerPerson() }}</span>
+        <button
+          type="button"
+          class="wb-votecfg__step"
+          [disabled]="votesPerPerson() >= maxVotes"
+          [attr.aria-label]="'whiteboard.vote.config.increase' | transloco"
+          (click)="incVotes()"
+        >
+          +
+        </button>
+      </div>
+    </div>
+
+    <div class="wb-votecfg__row">
+      <label class="wb-votecfg__toggle">
+        <input type="checkbox" [checked]="withTimer()" (change)="onToggleTimer($event)" />
+        <span>{{ 'whiteboard.vote.config.withTimer' | transloco }}</span>
+      </label>
+      @if (withTimer()) {
+        <label class="wb-votecfg__field">
+          <input
+            type="number"
+            min="1"
+            max="60"
+            class="wb-votecfg__input"
+            [value]="timerMinutes()"
+            (input)="onTimerMinutesInput($event)"
+            [attr.aria-label]="'whiteboard.vote.config.timerMinutesLabel' | transloco"
+          />
+          <span class="wb-votecfg__unit">{{ 'whiteboard.vote.config.minUnit' | transloco }}</span>
+        </label>
+      }
+    </div>
+
+    <footer class="wb-votecfg__footer">
+      <button type="button" class="wb-votecfg__btn wb-votecfg__btn--ghost" (click)="onClose()">
+        {{ 'whiteboard.vote.config.cancel' | transloco }}
+      </button>
+      <button type="button" class="wb-votecfg__btn wb-votecfg__btn--primary" (click)="startVote()">
+        {{ 'whiteboard.vote.config.start' | transloco }}
+      </button>
+    </footer>
+  </div>
+</div>

@@ -220,3 +220,70 @@
   background: rgba(26, 18, 48, 0.4); // scrim encre violette (= --color-navy-900 @ 40%)
   padding: 0;
 }
+
+// ── US08.12.1 — running shared-timer pill (topbar) ──
+.wb-page__timer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 6px 0 10px;
+  border-radius: var(--wb-radius-pill, 999px);
+  background: var(--wb-accent-weak, #efe9ff);
+  color: var(--wb-accent, #7c5cff);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--wb-fw-semibold, 600);
+
+  &--ending {
+    background: var(--wb-danger-bg, #fdecee);
+    color: var(--wb-danger, #e5484d);
+    animation: wb-page__timer-pulse 1s var(--wb-ease-standard, ease) infinite;
+  }
+}
+
+.wb-page__timer-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.wb-page__timer-value {
+  font-size: 14px;
+  min-width: 38px;
+  text-align: center;
+}
+
+.wb-page__timer-stop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentcolor;
+    outline-offset: 1px;
+  }
+}
+
+@keyframes wb-page__timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-page__timer-pill--ending {
+    animation: none;
+  }
+}

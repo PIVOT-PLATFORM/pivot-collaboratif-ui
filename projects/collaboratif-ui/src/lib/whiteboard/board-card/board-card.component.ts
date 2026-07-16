@@ -85,6 +85,14 @@ export class BoardCardComponent {
   readonly readOnly = input<boolean>(false);
   /** One-shot: open in edit mode on mount (creator of a freshly-created card). */
   readonly autoEdit = input<boolean>(false);
+  /** US08.12.2 — a dot-vote session is active: show the per-card vote control. */
+  readonly voteActive = input<boolean>(false);
+  /** US08.12.2 — total dot-votes cast on this card by everyone. */
+  readonly voteCount = input<number>(0);
+  /** US08.12.2 — dot-votes the current user has cast on this card. */
+  readonly myVotes = input<number>(0);
+  /** US08.12.2 — the current user still has budget left to cast another vote. */
+  readonly canVoteMore = input<boolean>(false);
 
   /** Commits an edited `content` string for this card. */
   readonly contentCommit = output<string>();
@@ -101,6 +109,10 @@ export class BoardCardComponent {
    * text wraps and the height grows to fit.
    */
   readonly heightGrow = output<number>();
+  /** US08.12.2 — the current user casts one dot-vote on this card. */
+  readonly castVote = output<void>();
+  /** US08.12.2 — the current user removes one of their dot-votes from this card. */
+  readonly uncastVote = output<void>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly transloco = inject(TranslocoService);

@@ -229,3 +229,39 @@
   <span class="wb-card__connect wb-card__connect--s" data-connect="S" [attr.data-card-id]="card().id"></span>
   <span class="wb-card__connect wb-card__connect--w" data-connect="W" [attr.data-card-id]="card().id"></span>
 }
+
+@if (voteActive()) {
+  <!-- US08.12.2 — dot-vote control. `pointerdown` is stopped so tapping it never starts a
+       card drag (the canvas reads pointerdown on the host to begin moving). -->
+  <div
+    class="wb-card__vote"
+    [class.wb-card__vote--mine]="myVotes() > 0"
+    (pointerdown)="$event.stopPropagation()"
+  >
+    @if (myVotes() > 0) {
+      <button
+        type="button"
+        class="wb-card__vote-btn"
+        (click)="uncastVote.emit()"
+        [attr.aria-label]="'whiteboard.vote.card.uncast' | transloco"
+        [title]="'whiteboard.vote.card.uncast' | transloco"
+      >
+        −
+      </button>
+    }
+    <span class="wb-card__vote-count" [attr.aria-label]="'whiteboard.vote.card.count' | transloco: { count: voteCount() }">
+      <span class="wb-card__vote-dot" aria-hidden="true"></span>
+      {{ voteCount() }}
+    </span>
+    <button
+      type="button"
+      class="wb-card__vote-btn wb-card__vote-btn--add"
+      [disabled]="!canVoteMore()"
+      (click)="castVote.emit()"
+      [attr.aria-label]="'whiteboard.vote.card.cast' | transloco"
+      [title]="'whiteboard.vote.card.cast' | transloco"
+    >
+      +
+    </button>
+  </div>
+}

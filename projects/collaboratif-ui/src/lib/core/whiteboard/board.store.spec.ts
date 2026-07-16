@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BoardStore } from './board.store';
 import { BoardTransport } from './board-transport';
 import { COLLABORATIF_API_URL, COLLABORATIF_CURRENT_USER } from './config/tokens';
-import type { Card, Connection } from '../../whiteboard/model/board.types';
+import type { BoardVote, Card, Connection, VoteSession } from '../../whiteboard/model/board.types';
 
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 const BOARD_ID = 'board-1';
@@ -971,5 +971,83 @@ describe('BoardStore — F3 presence join payload', () => {
     const leave = transport.emitted.find((e) => e.type === 'board:leave');
     expect(leave).toBeDefined();
     expect(leave!.data).toBe(BOARD_ID);
+  });
+});
+
+describe('BoardStore — dot-vote tallies and budget (US08.12.2)', () => {
+  let store: BoardStore;
+  let transport: FakeTransport;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        BoardStore,
+        { provide: BoardTransport, useClass: FakeTransport },
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: Router, useValue: { navigateByUrl: vi.fn().mockResolvedValue(true) } },
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+      ],
+    });
+    store = TestBed.inject(BoardStore);
+    transport = TestBed.inject(BoardTransport) as unknown as FakeTransport;
+  });
+
+  function session(votes: Array<{ cardId: string; userId: string }>, votesPerPerson = 3): VoteSession {
+    return {
+      id: 'sess-1',
+      boardId: 'b',
+      status: 'ACTIVE',
+      votesPerPerson,
+      timerSeconds: null,
+      timerEndsAt: null,
+      voterIds: [],
+      votes: votes.map(
+        (v, i): BoardVote => ({ id: `v${i}`, sessionId: 'sess-1', cardId: v.cardId, userId: v.userId, createdAt: '' }),
+      ),
+      createdAt: '',
+      closedAt: null,
+    };
+  }
+
+  it('tallies total and own votes per card and derives the remaining budget', () => {
+    store.selfUserId.set('me');
+    store.activeVoteSession.set(
+      session([
+        { cardId: 'c1', userId: 'me' },
+        { cardId: 'c1', userId: 'other' },
+        { cardId: 'c2', userId: 'me' },
+      ]),
+    );
+    expect(store.voteTallyByCard().get('c1')).toBe(2);
+    expect(store.voteTallyByCard().get('c2')).toBe(1);
+    expect(store.myVoteTallyByCard().get('c1')).toBe(1);
+    expect(store.myVotesUsed()).toBe(2);
+    expect(store.voteBudgetRemaining()).toBe(1);
+  });
+
+  it('does not emit a cast once the per-person budget is spent', () => {
+    store.selfUserId.set('me');
+    store.activeVoteSession.set(session([{ cardId: 'c1', userId: 'me' }, { cardId: 'c2', userId: 'me' }], 2));
+    store.castVote('c3');
+    expect(transport.emitted.filter((e) => e.type === 'vote:cast')).toHaveLength(0);
+  });
+
+  it('emits a cast while budget remains', () => {
+    store.selfUserId.set('me');
+    store.activeVoteSession.set(session([{ cardId: 'c1', userId: 'me' }], 3));
+    store.castVote('c2');
+    const cast = transport.emitted.find((e) => e.type === 'vote:cast');
+    expect(cast).toBeDefined();
+    expect((cast!.data as { cardId: string }).cardId).toBe('c2');
+  });
+
+  it('only un-casts a card the current user has actually voted for', () => {
+    store.selfUserId.set('me');
+    store.activeVoteSession.set(session([{ cardId: 'c1', userId: 'me' }], 3));
+    store.uncastVote('c2');
+    expect(transport.emitted.filter((e) => e.type === 'vote:uncast')).toHaveLength(0);
+    store.uncastVote('c1');
+    expect(transport.emitted.filter((e) => e.type === 'vote:uncast')).toHaveLength(1);
   });
 });

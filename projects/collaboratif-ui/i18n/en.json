@@ -395,7 +395,24 @@
       "waiting": "Waiting for what's next…",
       "actionLabel": "Action",
       "clickToClose": "Click to close",
-      "dismiss": "Dismiss timer"
+      "dismiss": "Dismiss timer",
+      "config": {
+        "title": "Start a timer",
+        "hint": "Time-box your workshop — the timer is shared with the whole team.",
+        "presetsLabel": "Preset durations",
+        "minutes": "{{count}} min",
+        "custom": "Custom duration",
+        "minutesLabel": "Minutes",
+        "secondsLabel": "Seconds",
+        "minUnit": "min",
+        "secUnit": "s",
+        "start": "Start",
+        "cancel": "Cancel"
+      },
+      "running": {
+        "stop": "Stop timer",
+        "aria": "Shared timer: {{time}} remaining"
+      }
     },
     "vote": {
       "dialogLabel": "The vote has ended",
@@ -404,7 +421,24 @@
       "resultsReady": "The results are ready",
       "displayIn": "Showing in",
       "countdown": "{{count}}s · Click to view",
-      "showResults": "Show results"
+      "showResults": "Show results",
+      "config": {
+        "title": "Start a vote",
+        "hint": "Each participant spreads their points across the board's cards.",
+        "budget": "Points per person",
+        "decrease": "Remove a point",
+        "increase": "Add a point",
+        "withTimer": "Time-limit the vote",
+        "timerMinutesLabel": "Duration in minutes",
+        "minUnit": "min",
+        "start": "Start vote",
+        "cancel": "Cancel"
+      },
+      "card": {
+        "cast": "Vote for this card",
+        "uncast": "Remove my vote",
+        "count": "{{count}} vote(s)"
+      }
     },
     "groups": {
       "title": "Groups",

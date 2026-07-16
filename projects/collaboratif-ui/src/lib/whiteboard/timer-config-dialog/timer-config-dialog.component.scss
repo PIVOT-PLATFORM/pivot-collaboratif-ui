@@ -1,0 +1,214 @@
+.wb-timercfg__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 16, 41, 0.42);
+  animation: wb-timercfg-fade var(--wb-dur-fast, 100ms) var(--wb-ease-out, ease-out);
+}
+
+.wb-timercfg {
+  width: min(92vw, 400px);
+  padding: 20px;
+  background: #fff;
+  border-radius: var(--wb-radius-panel, 14px);
+  box-shadow: var(--wb-elev-3, 0 8px 24px rgba(20, 16, 41, 0.16));
+  font-family: var(--wb-font, inherit);
+  color: var(--wb-ink, #201a3b);
+  animation: wb-timercfg-pop var(--wb-dur-base, 160ms) var(--wb-ease-out, ease-out);
+}
+
+.wb-timercfg__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.wb-timercfg__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: var(--wb-fw-semibold, 600);
+}
+
+.wb-timercfg__close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--wb-ink-muted, #5b5470);
+  cursor: pointer;
+  border-radius: var(--wb-radius-control, 10px);
+  width: 32px;
+  height: 32px;
+
+  &:hover {
+    background: var(--wb-accent-weak, #efe9ff);
+    color: var(--wb-accent, #7c5cff);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 2px;
+  }
+}
+
+.wb-timercfg__hint {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--wb-ink-muted, #5b5470);
+}
+
+.wb-timercfg__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.wb-timercfg__preset {
+  flex: 1 1 auto;
+  min-width: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--wb-border, #e6e4ef);
+  border-radius: var(--wb-radius-control, 10px);
+  background: #fff;
+  font-size: 14px;
+  font-weight: var(--wb-fw-medium, 500);
+  color: var(--wb-ink, #201a3b);
+  cursor: pointer;
+  transition:
+    background var(--wb-dur-fast, 100ms) var(--wb-ease-standard, ease),
+    border-color var(--wb-dur-fast, 100ms) var(--wb-ease-standard, ease);
+
+  &:hover {
+    background: var(--wb-accent-weak, #efe9ff);
+    border-color: var(--wb-accent, #7c5cff);
+    color: var(--wb-accent, #7c5cff);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 2px;
+  }
+}
+
+.wb-timercfg__custom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.wb-timercfg__custom-label {
+  font-size: 13px;
+  font-weight: var(--wb-fw-medium, 500);
+  color: var(--wb-ink-muted, #5b5470);
+}
+
+.wb-timercfg__custom-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.wb-timercfg__field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.wb-timercfg__input {
+  width: 60px;
+  padding: 8px 10px;
+  border: 1px solid var(--wb-border, #e6e4ef);
+  border-radius: var(--wb-radius-control, 10px);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--wb-ink, #201a3b);
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 1px;
+    border-color: var(--wb-accent, #7c5cff);
+  }
+}
+
+.wb-timercfg__unit {
+  font-size: 12px;
+  color: var(--wb-ink-muted, #5b5470);
+}
+
+.wb-timercfg__colon {
+  font-size: 18px;
+  color: var(--wb-ink-muted, #5b5470);
+  padding-bottom: 8px;
+}
+
+.wb-timercfg__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.wb-timercfg__btn {
+  padding: 9px 16px;
+  border-radius: var(--wb-radius-control, 10px);
+  font-size: 14px;
+  font-weight: var(--wb-fw-medium, 500);
+  cursor: pointer;
+  border: 1px solid transparent;
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 2px;
+  }
+
+  &--ghost {
+    background: transparent;
+    border-color: var(--wb-border, #e6e4ef);
+    color: var(--wb-ink, #201a3b);
+
+    &:hover {
+      background: var(--wb-surface-muted, #f6f5fb);
+    }
+  }
+
+  &--primary {
+    background: var(--wb-accent, #7c5cff);
+    color: #fff;
+
+    &:hover {
+      background: var(--wb-accent-hover, #6a49f2);
+    }
+  }
+}
+
+@keyframes wb-timercfg-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes wb-timercfg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-timercfg__backdrop,
+  .wb-timercfg {
+    animation: none;
+  }
+}
