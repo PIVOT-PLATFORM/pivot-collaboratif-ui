@@ -479,6 +479,14 @@
       "confirmDelete": "Confirmer la suppression de {{name}}",
       "deleteWarning": "Supprimer ce champ efface toutes ses valeurs sur les cartes."
     },
+    "fieldValue": {
+      "title": "Valeurs des champs",
+      "close": "Fermer le panneau des valeurs",
+      "empty": "Aucun champ défini sur ce tableau.",
+      "none": "— aucune —",
+      "valueFor": "Valeur du champ {{name}}",
+      "clear": "Effacer la valeur du champ {{name}}"
+    },
     "voteResults": {
       "title": "Résultats du vote",
       "summary": "{{votes}} votes · {{voters}} participants",
