@@ -693,15 +693,23 @@ describe('StructuredCanvasComponent — double-click creates a post-it (ITEM D)'
 
   it('creates a centred TEXT card at the double-click point on the empty surface', async () => {
     const surfaceEl = await create('select');
-    component['onDoubleClick']({ target: surfaceEl, clientX: 300, clientY: 200 } as unknown as MouseEvent);
+    // onDoubleClick hit-tests via document.elementFromPoint (jsdom lacks it) — resolve the
+    // empty surface (no [data-card-id] ancestor) so the guard lets the creation through.
+    const efpOriginal = (document as unknown as Record<string, unknown>)['elementFromPoint'];
+    (document as unknown as Record<string, unknown>)['elementFromPoint'] = vi.fn().mockReturnValue(surfaceEl);
+    try {
+      component['onDoubleClick']({ target: surfaceEl, clientX: 300, clientY: 200 } as unknown as MouseEvent);
 
-    expect(addCard).toHaveBeenCalledTimes(1);
-    // Default card is 180×140 → centred: (300-90, 200-70).
-    const [px, py, type, content] = addCard.mock.calls[0];
-    expect(px).toBe(210);
-    expect(py).toBe(130);
-    expect(type).toBe('TEXT');
-    expect(content).toBe('');
+      expect(addCard).toHaveBeenCalledTimes(1);
+      // Default card is 180×140 → centred: (300-90, 200-70).
+      const [px, py, type, content] = addCard.mock.calls[0];
+      expect(px).toBe(210);
+      expect(py).toBe(130);
+      expect(type).toBe('TEXT');
+      expect(content).toBe('');
+    } finally {
+      (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
+    }
   });
 
   it('does NOT create a card when the double-click lands on a card (card handles its own edit)', async () => {
@@ -710,8 +718,16 @@ describe('StructuredCanvasComponent — double-click creates a post-it (ITEM D)'
     cardEl.setAttribute('data-card-id', 'X');
     const inner = document.createElement('span');
     cardEl.appendChild(inner);
-    component['onDoubleClick']({ target: inner, clientX: 300, clientY: 200 } as unknown as MouseEvent);
-    expect(addCard).not.toHaveBeenCalled();
+    // The pointer is over the card: elementFromPoint resolves the real hit (inner → [data-card-id]),
+    // which the guard must detect regardless of the synthetic event's `target`.
+    const efpOriginal = (document as unknown as Record<string, unknown>)['elementFromPoint'];
+    (document as unknown as Record<string, unknown>)['elementFromPoint'] = vi.fn().mockReturnValue(inner);
+    try {
+      component['onDoubleClick']({ target: inner, clientX: 300, clientY: 200 } as unknown as MouseEvent);
+      expect(addCard).not.toHaveBeenCalled();
+    } finally {
+      (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
+    }
   });
 
   it('does nothing outside the select tool', async () => {

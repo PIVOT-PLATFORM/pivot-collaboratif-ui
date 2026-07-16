@@ -216,11 +216,56 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
       store.startDragCard('card-1');
       store.moveCard('card-1', 300, 400);
       store.commitDragCard();
-      vi.advanceTimersByTime(600);
+      // Past LOCAL_CONTROL_GRACE_MS (2000 ms, sized to outlast a rate-limit reconnect — BUG J).
+      vi.advanceTimersByTime(2100);
       transport.dispatch('card:moved', { ...baseCard(), posX: 12, posY: 34 });
 
       expect(store.cards()[0].posX).toBe(12);
       expect(store.cards()[0].posY).toBe(34);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('throttles a burst of card:move emits and sends only the latest position (BUG J)', () => {
+    vi.useFakeTimers();
+    try {
+      const moves = () => transport.emitted.filter((e) => e.type === 'card:move');
+      store.startDragCard('card-1');
+      // A burst of rapid moves inside one throttle window — must coalesce, not flood the wire
+      // (a per-frame emit here would exceed the backend's 30 SEND/s cap and force-close).
+      store.moveCard('card-1', 10, 10);
+      store.moveCard('card-1', 20, 20);
+      store.moveCard('card-1', 30, 30);
+      expect(moves()).toHaveLength(0); // nothing sent synchronously
+      vi.advanceTimersByTime(0); // first emit is scheduled with zero delay
+      expect(moves()).toHaveLength(1);
+      expect(moves().at(-1)!.data).toEqual({ id: 'card-1', boardId: BOARD_ID, posX: 30, posY: 30 });
+
+      // A second burst within the window is held until the throttle interval elapses.
+      store.moveCard('card-1', 40, 40);
+      store.moveCard('card-1', 50, 50);
+      expect(moves()).toHaveLength(1);
+      vi.advanceTimersByTime(50);
+      expect(moves()).toHaveLength(2);
+      expect(moves().at(-1)!.data).toEqual({ id: 'card-1', boardId: BOARD_ID, posX: 50, posY: 50 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('flushes the final drop position immediately on commit, unthrottled (BUG J)', () => {
+    vi.useFakeTimers();
+    try {
+      const moves = () => transport.emitted.filter((e) => e.type === 'card:move');
+      store.startDragCard('card-1');
+      store.moveCard('card-1', 10, 10);
+      vi.advanceTimersByTime(0); // let the throttled intermediate emit go out
+      store.moveCard('card-1', 999, 888); // held by the throttle window
+      store.commitDragCard(); // must flush the final position synchronously, not wait
+      expect(moves().at(-1)!.data).toEqual({ id: 'card-1', boardId: BOARD_ID, posX: 999, posY: 888 });
     } finally {
       vi.clearAllTimers();
       vi.useRealTimers();

@@ -59,15 +59,32 @@ const LOAD_BOARD_TIMEOUT_MS = 8_000;
 const OPTIMISTIC_CARD_TIMEOUT_MS = 10_000;
 
 /**
- * Grace window (BUG 4) during which a card just released from a local drag/resize keeps its
- * optimistic geometry authoritative: inbound `card:moved`/`card:resized` echoes and room-wide
+ * Grace window (BUG 4 / BUG J) during which a card just released from a local drag/resize keeps
+ * its optimistic geometry authoritative: inbound `card:moved`/`card:resized` echoes and room-wide
  * `board:state` snapshots for that card are ignored until it elapses. Covers the "snaps back
  * after drop" symptom — a late, stale echo of an earlier throttled position (or a `board:state`
  * broadcast a joining participant triggers) arriving just after the pointer is released must not
- * overwrite the final position the user let go at. Kept short: only long enough to outlast one
- * network round trip of the final emitted position.
+ * overwrite the final position the user let go at.
+ *
+ * Sized to outlast a full rate-limit recovery cycle (BUG J): a fast drag that momentarily
+ * exceeds the backend's 30 SEND/s cap can force-close the session (250 ms close grace), which the
+ * client rejoins after a {@code reconnectDelay} of 1000 ms; the ensuing room-wide `board:state`
+ * then carries the server's last *stored* (stale, throttled) position and would snap the card
+ * back. 2000 ms comfortably covers 250 ms + 1000 ms + the rejoin/broadcast round trip so the
+ * front position the user released at always wins. The {@link MOVE_EMIT_THROTTLE_MS} cap makes
+ * that force-close unlikely in the first place; this window is the belt-and-suspenders guarantee.
  */
-const LOCAL_CONTROL_GRACE_MS = 500;
+const LOCAL_CONTROL_GRACE_MS = 2000;
+
+/**
+ * Minimum interval between `card:move` broadcasts during a drag (BUG J). The optimistic position
+ * is applied to the local `cards` signal on every pointer move (smooth for the dragger); only the
+ * *network* emit is throttled. Previously a per-frame `requestAnimationFrame` flush emitted ~60
+ * SEND/s — on its own above the backend's 30 SEND/s cap, so a sustained fast drag tripped the
+ * three-consecutive-violation force-close. 50 ms caps it at ~20/s, under the limit. The final drop
+ * position is never throttled — {@link BoardStore.commitDragCard} flushes it immediately.
+ */
+const MOVE_EMIT_THROTTLE_MS = 50;
 
 /**
  * Structured whiteboard state machine — the Angular port of the PouetPouet `useBoard`
@@ -134,7 +151,7 @@ export class BoardStore {
   private readonly pendingGroupHistory: Array<(groupId: string) => void> = [];
 
   private cardDragStart: Map<string, { posX: number; posY: number }> | null = null;
-  private readonly moveEmit = { raf: null as number | null, pending: new Map<string, { posX: number; posY: number }>() };
+  private readonly moveEmit = { timer: null as ReturnType<typeof setTimeout> | null, lastTs: 0, pending: new Map<string, { posX: number; posY: number }>() };
   private cardResizeStart: { id: string; posX: number; posY: number; width: number; height: number } | null = null;
   private selectionResizeStart: Map<string, CardBox> | null = null;
   private selResizeEmitTs = 0;
@@ -189,9 +206,9 @@ export class BoardStore {
 
   /** Leaves the room and tears down subscriptions. Call from the container's ngOnDestroy. */
   destroy(): void {
-    if (this.moveEmit.raf != null) {
-      cancelAnimationFrame(this.moveEmit.raf);
-      this.moveEmit.raf = null;
+    if (this.moveEmit.timer != null) {
+      clearTimeout(this.moveEmit.timer);
+      this.moveEmit.timer = null;
     }
     this.optimisticCardTimers.forEach((t) => clearTimeout(t));
     this.optimisticCardTimers.clear();
@@ -763,7 +780,8 @@ export class BoardStore {
   }
 
   private flushMoveEmits(): void {
-    this.moveEmit.raf = null;
+    this.moveEmit.timer = null;
+    this.moveEmit.lastTs = Date.now();
     const pending = this.moveEmit.pending;
     if (pending.size === 0) {
       return;
@@ -772,10 +790,11 @@ export class BoardStore {
     pending.clear();
   }
   private scheduleMoveFlush(): void {
-    if (this.moveEmit.raf != null) {
+    if (this.moveEmit.timer != null) {
       return;
     }
-    this.moveEmit.raf = requestAnimationFrame(() => this.flushMoveEmits());
+    const delay = Math.max(0, MOVE_EMIT_THROTTLE_MS - (Date.now() - this.moveEmit.lastTs));
+    this.moveEmit.timer = setTimeout(() => this.flushMoveEmits(), delay);
   }
 
   moveCard(id: string, posX: number, posY: number): void {
@@ -866,9 +885,9 @@ export class BoardStore {
   }
 
   commitDragCard(): void {
-    if (this.moveEmit.raf != null) {
-      cancelAnimationFrame(this.moveEmit.raf);
-      this.moveEmit.raf = null;
+    if (this.moveEmit.timer != null) {
+      clearTimeout(this.moveEmit.timer);
+      this.moveEmit.timer = null;
     }
     this.flushMoveEmits();
 
