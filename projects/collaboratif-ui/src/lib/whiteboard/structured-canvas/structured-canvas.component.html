@@ -5,6 +5,8 @@
   role="application"
   [attr.aria-label]="'whiteboard.canvas.ariaLabel' | transloco"
   [class.wb-surface--pan]="tool() === 'pan'"
+  [style.background-size]="gridSize()"
+  [style.background-position]="gridPosition()"
   (pointerdown)="onPointerDown($event)"
   (pointermove)="onPointerMove($event)"
   (pointerup)="onPointerUp($event)"

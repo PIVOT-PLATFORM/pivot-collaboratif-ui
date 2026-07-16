@@ -47,6 +47,7 @@ import {
   SHAPE_MIN,
   MIN_ZOOM,
   MAX_ZOOM,
+  DOT_SPACING,
   DEFAULT_CARD_W,
   DEFAULT_CARD_H,
   LINK_CARD_W,
@@ -129,6 +130,22 @@ export class StructuredCanvasComponent {
   protected readonly layerTransform = computed(() => {
     const v = this.viewport();
     return `translate(${v.x}px, ${v.y}px) scale(${v.zoom})`;
+  });
+
+  /**
+   * Dotted-grid metrics for the viewport-covering surface (ITEM 1). The dot spacing scales with
+   * zoom and the pattern origin follows the pan offset, so the grid stays crisp and moves/scales
+   * with the canvas — mirroring PouetPouet's `backgroundSize`/`backgroundPosition` on the board
+   * container (`board-canvas.tsx`), where `d = DOT_SPACING * zoom` and the origin is `vp.{x,y} % d`.
+   */
+  protected readonly gridSize = computed(() => {
+    const d = DOT_SPACING * this.viewport().zoom;
+    return `${d}px ${d}px`;
+  });
+  protected readonly gridPosition = computed(() => {
+    const v = this.viewport();
+    const d = DOT_SPACING * v.zoom;
+    return `${v.x % d}px ${v.y % d}px`;
   });
 
   /** Connections with resolved endpoint rects (drops any whose endpoint card is gone). */
@@ -458,8 +475,13 @@ export class StructuredCanvasComponent {
     if (g.kind !== 'connect') {
       return;
     }
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-card-id]');
-    const toId = target?.getAttribute('data-card-id');
+    // The surface holds the pointer capture for the whole gesture, so `event.target` resolves to
+    // the surface — never the card under the pointer. Hit-test the real drop point instead (parity
+    // with PouetPouet's `document.elementFromPoint` in `board-canvas.tsx`) so the target card is
+    // detected and the connector is actually created (BUG 6).
+    const dropEl = document.elementFromPoint(event.clientX, event.clientY);
+    const target = dropEl instanceof Element ? dropEl.closest<HTMLElement>('[data-card-id]') : null;
+    const toId = target?.getAttribute('data-card-id') ?? null;
     if (toId && toId !== g.fromId) {
       this.store.addConnection(g.fromId, toId);
     }

@@ -469,3 +469,134 @@ describe('StructuredCanvasComponent — image insertion (US08.6.4)', () => {
     expect((transport.emitted[0].data as Record<string, unknown>)['type']).toBe('IMAGE');
   });
 });
+
+
+/**
+ * BUG 6 — dragging from a card's connect handle and dropping on another card must create the
+ * connector. The surface holds the pointer capture for the whole gesture, so the pointerup's
+ * `event.target` is the surface, not the drop-target card; `finishConnect` must hit-test the drop
+ * point via `document.elementFromPoint` (parity with PouetPouet's `board-canvas.tsx`).
+ */
+describe('StructuredCanvasComponent — connect gesture (BUG 6)', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let addConnection: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    addConnection = vi.fn();
+    const storeStub = {
+      addConnection,
+      isReadonly: () => false,
+      frames: () => [],
+      cards: () => [
+        { id: 'A', posX: 0, posY: 0, width: 100, height: 100 },
+        { id: 'B', posX: 400, posY: 0, width: 100, height: 100 },
+      ],
+      connections: () => [],
+      fields: () => [],
+      selectedIds: () => new Set<string>(),
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      emitCursor: vi.fn(),
+      selectCards: vi.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: storeStub }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  it('creates a connector when a connect-handle drag is dropped over another card', () => {
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    surfaceEl.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof surfaceEl.getBoundingClientRect;
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+    (surfaceEl as unknown as { releasePointerCapture: (id: number) => void }).releasePointerCapture = vi.fn();
+
+    // pointerdown starts on card A's connect handle.
+    const handle = document.createElement('span');
+    handle.setAttribute('data-connect', 'E');
+    handle.setAttribute('data-card-id', 'A');
+    component['onPointerDown']({
+      button: 0,
+      target: handle,
+      currentTarget: surfaceEl,
+      clientX: 90,
+      clientY: 50,
+      pointerId: 1,
+      shiftKey: false,
+    } as unknown as PointerEvent);
+
+    // Under pointer capture, the pointerup target is the surface; the real drop target (card B) is
+    // resolved through document.elementFromPoint.
+    const targetCard = document.createElement('div');
+    targetCard.setAttribute('data-card-id', 'B');
+    const inner = document.createElement('div');
+    targetCard.appendChild(inner);
+    const efpOriginal = (document as unknown as Record<string, unknown>)['elementFromPoint'];
+    (document as unknown as Record<string, unknown>)['elementFromPoint'] = vi.fn().mockReturnValue(inner);
+
+    component['onPointerUp']({
+      target: surfaceEl,
+      currentTarget: surfaceEl,
+      clientX: 450,
+      clientY: 50,
+      pointerId: 1,
+    } as unknown as PointerEvent);
+
+    (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
+    expect(addConnection).toHaveBeenCalledTimes(1);
+    expect(addConnection).toHaveBeenCalledWith('A', 'B');
+  });
+
+  it('does not create a self-connector when dropped back on the source card', () => {
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    surfaceEl.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof surfaceEl.getBoundingClientRect;
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+    (surfaceEl as unknown as { releasePointerCapture: (id: number) => void }).releasePointerCapture = vi.fn();
+
+    const handle = document.createElement('span');
+    handle.setAttribute('data-connect', 'E');
+    handle.setAttribute('data-card-id', 'A');
+    component['onPointerDown']({
+      button: 0,
+      target: handle,
+      currentTarget: surfaceEl,
+      clientX: 90,
+      clientY: 50,
+      pointerId: 1,
+      shiftKey: false,
+    } as unknown as PointerEvent);
+
+    const sourceCard = document.createElement('div');
+    sourceCard.setAttribute('data-card-id', 'A');
+    const efpOriginal = (document as unknown as Record<string, unknown>)['elementFromPoint'];
+    (document as unknown as Record<string, unknown>)['elementFromPoint'] = vi.fn().mockReturnValue(sourceCard);
+
+    component['onPointerUp']({
+      target: surfaceEl,
+      currentTarget: surfaceEl,
+      clientX: 95,
+      clientY: 55,
+      pointerId: 1,
+    } as unknown as PointerEvent);
+
+    (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
+    expect(addConnection).not.toHaveBeenCalled();
+  });
+});

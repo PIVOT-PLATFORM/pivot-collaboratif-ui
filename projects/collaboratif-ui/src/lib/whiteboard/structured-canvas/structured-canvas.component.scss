@@ -9,7 +9,11 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--wb-canvas-bg);
+  background-color: var(--wb-canvas-bg);
+  // Dotted grid on the viewport-covering surface (ITEM 1). The pattern's size and origin follow
+  // pan/zoom via inline [style.background-size]/[style.background-position] bindings so it stays
+  // aligned with the transformed content layer.
+  background-image: radial-gradient(circle, var(--wb-grid-dot) 1px, transparent 1px);
   cursor: default;
   outline: none;
   touch-action: none;
@@ -24,9 +28,6 @@
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  // Dotted grid — scales with the layer transform (zoom).
-  background-image: radial-gradient(circle, var(--wb-grid-dot) 1px, transparent 1px);
-  background-size: 24px 24px;
   width: 1px;
   height: 1px;
   overflow: visible;
