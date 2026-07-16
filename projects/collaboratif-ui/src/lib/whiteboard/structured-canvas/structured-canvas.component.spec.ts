@@ -988,3 +988,97 @@ describe('StructuredCanvasComponent — ITEM I: auto-grow relay', () => {
     expect(resizeCard).toHaveBeenCalledWith('A', 192, 260);
   });
 });
+
+/**
+ * Free-draw tool behaviour:
+ *  - the stroke is shown live (`drawPreview`) while the pointer moves, not only on release;
+ *  - a committed stroke creates a DRAW card but the tool STAYS active (no `toolConsumed`), so the
+ *    user can keep drawing without re-selecting the pencil — unlike placement tools.
+ */
+describe('StructuredCanvasComponent — free-draw tool', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let addCard: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    addCard = vi.fn();
+    const storeStub = {
+      addCard,
+      isReadonly: () => false,
+      frames: () => [],
+      cards: () => [],
+      connections: () => [],
+      fields: () => [],
+      selectedIds: () => new Set<string>(),
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      emitCursor: vi.fn(),
+      selectCards: vi.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: storeStub }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    fixture.componentRef.setInput('tool', 'draw');
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  function surface(): HTMLElement {
+    const el = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    el.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof el.getBoundingClientRect;
+    (el as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+    (el as unknown as { releasePointerCapture: (id: number) => void }).releasePointerCapture = vi.fn();
+    return el;
+  }
+
+  it('renders the stroke live as the pointer moves, before release', () => {
+    const el = surface();
+    component['onPointerDown']({ button: 0, target: el, currentTarget: el, clientX: 10, clientY: 20, pointerId: 1, shiftKey: false } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: 40, clientY: 60, pointerId: 1 } as unknown as PointerEvent);
+
+    // The preview path exists mid-gesture (nothing committed yet).
+    const d = component['drawPreview']();
+    expect(d).toBe('M10.0,20.0 L40.0,60.0');
+    expect(addCard).not.toHaveBeenCalled();
+
+    fixture.detectChanges();
+    const path = fixture.nativeElement.querySelector('.wb-draw-preview') as SVGPathElement | null;
+    expect(path).not.toBeNull();
+    expect(path?.getAttribute('d')).toBe('M10.0,20.0 L40.0,60.0');
+  });
+
+  it('commits a DRAW card and keeps the draw tool active (no toolConsumed), clearing the preview', () => {
+    const consumed = vi.fn();
+    component.toolConsumed.subscribe(consumed);
+    const el = surface();
+
+    component['onPointerDown']({ button: 0, target: el, currentTarget: el, clientX: 10, clientY: 20, pointerId: 1, shiftKey: false } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: 40, clientY: 60, pointerId: 1 } as unknown as PointerEvent);
+    component['onPointerUp']({ target: el, currentTarget: el, clientX: 40, clientY: 60, pointerId: 1 } as unknown as PointerEvent);
+
+    // Stroke committed as a DRAW card, path stored relative to its top-left corner (10,20).
+    expect(addCard).toHaveBeenCalledTimes(1);
+    const [minX, minY, type, d] = addCard.mock.calls[0];
+    expect([minX, minY, type]).toEqual([10, 20, 'DRAW']);
+    expect(d).toBe('M0.0,0.0 L30.0,40.0');
+
+    // The pencil stays selected (placement tools would emit here) and the preview is cleared.
+    expect(consumed).not.toHaveBeenCalled();
+    expect(component['drawPreview']()).toBeNull();
+  });
+});

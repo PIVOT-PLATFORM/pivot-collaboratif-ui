@@ -30,6 +30,18 @@
           (select)="onConnectionSelect($event)"
         ></svg:g>
       }
+      <!-- Live free-draw stroke (US free-draw): renders in real time while the pointer is down -->
+      @if (drawPreview(); as d) {
+        <svg:path
+          class="wb-draw-preview"
+          [attr.d]="d"
+          [attr.stroke]="color()"
+          fill="none"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        ></svg:path>
+      }
       @if (connectGhost(); as g) {
         <svg:line
           class="wb-connect-ghost"
