@@ -57,6 +57,7 @@
         }
       },
       "untitled": "Tableau sans titre",
+      "backToList": "Retour à la liste des tableaux",
       "reset": "Réinitialiser le tableau",
       "favorite": {
         "add": "Ajouter {{title}} aux favoris",
