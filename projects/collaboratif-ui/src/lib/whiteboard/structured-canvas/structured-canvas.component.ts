@@ -33,11 +33,15 @@ import { decideTablePaste } from '../model/table-clipboard';
 import type { ToolMode } from '../model/tools';
 import { SHAPE_TOOLS } from '../model/tools';
 import {
+  CARDINAL_SIDES,
   cardRect,
+  edgeAnchorPoint,
   frameRect,
+  nearestEdgeSide,
   pointInRect,
   rectsIntersect,
   screenToCanvas,
+  type EdgeSide,
   type Rect,
   type Viewport,
 } from '../model/board-geometry';
@@ -62,8 +66,22 @@ type Gesture =
   | { kind: 'resize-card'; id: string; dir: string; start: Rect; startX: number; startY: number }
   | { kind: 'drag-frame'; id: string; startX: number; startY: number; startPos: { x: number; y: number }; captured: string[] }
   | { kind: 'resize-frame'; id: string; dir: string; start: Rect; startX: number; startY: number }
-  | { kind: 'connect'; fromId: string; x: number; y: number }
+  | { kind: 'connect'; fromId: string; fromSide: EdgeSide | null; x: number; y: number }
   | { kind: 'draw'; points: [number, number][] };
+
+/** A single edge-anchor pastille shown on a hovered target card while linking (ITEM B). */
+interface AnchorPastille {
+  side: EdgeSide;
+  x: number;
+  y: number;
+}
+
+/** The hovered target card's anchor pastilles + the one nearest the cursor, during a connect drag. */
+interface HoverAnchors {
+  cardId: string;
+  points: AnchorPastille[];
+  nearest: EdgeSide;
+}
 
 /** A connection with its resolved endpoint rects, ready to render. */
 interface RenderConnection {
@@ -126,6 +144,8 @@ export class StructuredCanvasComponent {
   protected readonly viewport = signal<Viewport>({ x: 0, y: 0, zoom: 1 });
   protected readonly marquee = signal<Rect | null>(null);
   protected readonly connectGhost = signal<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
+  /** Anchor pastilles shown on the card currently hovered during a connect drag (ITEM B). */
+  protected readonly hoverAnchors = signal<HoverAnchors | null>(null);
 
   protected readonly layerTransform = computed(() => {
     const v = this.viewport();
@@ -255,7 +275,10 @@ export class StructuredCanvasComponent {
 
     if (!readOnly && connectEl) {
       const fromId = connectEl.getAttribute('data-card-id') ?? '';
-      this.gesture = { kind: 'connect', fromId, x: pt.x, y: pt.y };
+      // The grabbed handle's side (`data-connect="N|E|S|W"`) seeds the ghost's start point so the
+      // line leaves the exact anchor the user dragged from, not always the card centre.
+      const fromSide = this.parseSide(connectEl.getAttribute('data-connect'));
+      this.gesture = { kind: 'connect', fromId, fromSide, x: pt.x, y: pt.y };
       return;
     }
     if (!readOnly && resizeEl) {
@@ -366,7 +389,8 @@ export class StructuredCanvasComponent {
         break;
       case 'connect':
         this.gesture = { ...g, x: pt.x, y: pt.y };
-        this.updateConnectGhost(g.fromId, pt.x, pt.y);
+        this.updateConnectHover(event, g.fromId, pt.x, pt.y);
+        this.updateConnectGhost(g, pt.x, pt.y);
         break;
       case 'marquee':
         this.marquee.set(this.normRect(g.startX, g.startY, pt.x, pt.y));
@@ -409,6 +433,33 @@ export class StructuredCanvasComponent {
         break;
     }
     this.gesture = { kind: 'none' };
+  }
+
+  /**
+   * ITEM D — double-clicking empty canvas creates a post-it centred on that point (PouetPouet
+   * parity, `board-canvas.tsx` `handleCanvasDoubleClick`). Fires only in the default `select`
+   * tool and only over the empty surface: a double-click on a card, frame or connector is left
+   * to that element (a card opens its inline editor via board-card), so the guard skips any
+   * `data-card-id` / `data-frame-*` / connector target that the event bubbled up from.
+   */
+  protected onDoubleClick(event: MouseEvent): void {
+    if (this.store.isReadonly() || this.tool() !== 'select') {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-card-id], [data-frame-id], [data-frame-drag], [wbConnectionLine]')) {
+      return;
+    }
+    const pt = this.toCanvas(event.clientX, event.clientY);
+    this.store.addCard(
+      pt.x - DEFAULT_CARD_W / 2,
+      pt.y - DEFAULT_CARD_H / 2,
+      'TEXT',
+      '',
+      DEFAULT_CARD_COLOR,
+      DEFAULT_CARD_W,
+      DEFAULT_CARD_H,
+    );
   }
 
   // ── Gesture application ───────────────────────────────────────────────────
@@ -461,16 +512,53 @@ export class StructuredCanvasComponent {
     this.store.selectCards(new Set(hit));
   }
 
-  private updateConnectGhost(fromId: string, x: number, y: number): void {
-    const from = this.store.cards().find((c) => c.id === fromId);
+  /** Parses a `data-connect` attribute into a validated {@link EdgeSide}, or null when absent/invalid. */
+  private parseSide(raw: string | null): EdgeSide | null {
+    return raw === 'N' || raw === 'E' || raw === 'S' || raw === 'W' ? raw : null;
+  }
+
+  /**
+   * ITEM B — while dragging a connector, shows the anchor pastilles of the card under the cursor
+   * and highlights the one nearest the pointer (the side the connector would attach to). The
+   * surface owns the pointer capture, so `event.target` is always the surface; the real hovered
+   * card is resolved via `document.elementFromPoint` (parity with {@link finishConnect}).
+   */
+  private updateConnectHover(event: PointerEvent, fromId: string, x: number, y: number): void {
+    const dropEl = document.elementFromPoint(event.clientX, event.clientY);
+    const cardEl = dropEl instanceof Element ? dropEl.closest<HTMLElement>('[data-card-id]') : null;
+    const targetId = cardEl?.getAttribute('data-card-id') ?? null;
+    if (!targetId || targetId === fromId) {
+      this.hoverAnchors.set(null);
+      return;
+    }
+    const card = this.store.cards().find((c) => c.id === targetId);
+    if (!card) {
+      this.hoverAnchors.set(null);
+      return;
+    }
+    const rect = cardRect(card);
+    const points = CARDINAL_SIDES.map((side) => ({ side, ...edgeAnchorPoint(rect, side) }));
+    this.hoverAnchors.set({ cardId: targetId, points, nearest: nearestEdgeSide(rect, { x, y }) });
+  }
+
+  private updateConnectGhost(g: Extract<Gesture, { kind: 'connect' }>, x: number, y: number): void {
+    const from = this.store.cards().find((c) => c.id === g.fromId);
     if (!from) {
       return;
     }
-    this.connectGhost.set({ from: { x: from.posX + from.width / 2, y: from.posY + from.height / 2 }, to: { x, y } });
+    const rect = cardRect(from);
+    // Start from the grabbed handle's edge midpoint when known, else the card centre.
+    const start = g.fromSide ? edgeAnchorPoint(rect, g.fromSide) : { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    // End snaps to the highlighted anchor of the hovered target, else follows the raw cursor.
+    const hover = this.hoverAnchors();
+    const target = hover ? this.store.cards().find((c) => c.id === hover.cardId) : undefined;
+    const end = hover && target ? edgeAnchorPoint(cardRect(target), hover.nearest) : { x, y };
+    this.connectGhost.set({ from: start, to: end });
   }
 
   private finishConnect(event: PointerEvent): void {
     this.connectGhost.set(null);
+    this.hoverAnchors.set(null);
     const g = this.gesture;
     if (g.kind !== 'connect') {
       return;

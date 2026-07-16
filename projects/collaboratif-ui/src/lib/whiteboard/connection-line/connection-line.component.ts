@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
-import type { Connection, ConnShape } from '../model/board.types';
-import { type EdgeSide, type Rect, edgeAnchor } from '../model/board-geometry';
+import type { ConnAnchor, Connection, ConnShape } from '../model/board.types';
+import { type EdgeSide, type Rect, edgeAnchor, edgeAnchorPoint } from '../model/board-geometry';
 
 /** Neutral gray applied when {@link Connection.color} is null. */
 const DEFAULT_COLOR = '#9ca3af';
@@ -35,6 +35,10 @@ const EDGE_NORMAL: Record<EdgeSide, Point> = {
 interface RoutedPath {
   /** SVG `d` attribute for the visible line and hit-area. */
   d: string;
+  /** Resolved start anchor point (on the `from` card edge). */
+  a: Point;
+  /** Resolved end anchor point (on the `to` card edge). */
+  b: Point;
   /** Unit tangent at the start anchor, pointing into the `from` card. */
   tStart: Point;
   /** Unit tangent at the end anchor, pointing into the `to` card. */
@@ -57,7 +61,7 @@ function buildPath(shape: ConnShape, a: Point, sa: EdgeSide, b: Point, sb: EdgeS
   const mid: Point = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 
   if (shape === 'straight') {
-    return { d: `M${a.x},${a.y} L${b.x},${b.y}`, tStart, tEnd, mid };
+    return { d: `M${a.x},${a.y} L${b.x},${b.y}`, a, b, tStart, tEnd, mid };
   }
 
   if (shape === 'orthogonal') {
@@ -68,6 +72,8 @@ function buildPath(shape: ConnShape, a: Point, sa: EdgeSide, b: Point, sb: EdgeS
     const corner: Point = horizA ? { x: b1.x, y: a1.y } : { x: a1.x, y: b1.y };
     return {
       d: `M${a.x},${a.y} L${a1.x},${a1.y} L${corner.x},${corner.y} L${b1.x},${b1.y} L${b.x},${b.y}`,
+      a,
+      b,
       tStart,
       tEnd,
       mid: corner,
@@ -78,7 +84,23 @@ function buildPath(shape: ConnShape, a: Point, sa: EdgeSide, b: Point, sb: EdgeS
   const dist = Math.max(40, Math.hypot(b.x - a.x, b.y - a.y) * 0.4);
   const c1: Point = { x: a.x + oa.x * dist, y: a.y + oa.y * dist };
   const c2: Point = { x: b.x + ob.x * dist, y: b.y + ob.y * dist };
-  return { d: `M${a.x},${a.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${b.x},${b.y}`, tStart, tEnd, mid };
+  return { d: `M${a.x},${a.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${b.x},${b.y}`, a, b, tStart, tEnd, mid };
+}
+
+/**
+ * Resolves the endpoint anchor for `self` (facing `other`): honours an explicit pinned
+ * {@link ConnAnchor} `override` when present, otherwise falls back to the side of `self` facing
+ * `other`'s centre ({@link edgeAnchor}). Keeps the `{ x, y, side }` shape consumed by {@link buildPath}.
+ */
+function resolveAnchor(
+  self: Rect,
+  other: Rect,
+  override: ConnAnchor | null | undefined,
+): { x: number; y: number; side: EdgeSide } {
+  if (override) {
+    return { ...edgeAnchorPoint(self, override), side: override };
+  }
+  return edgeAnchor(self, other);
 }
 
 /**
@@ -132,11 +154,12 @@ export class ConnectionLineComponent {
 
   /** The two edge anchors and the routed path derived from the current rects/shape. */
   private readonly routed = computed<RoutedPath>(() => {
+    const conn = this.connection();
     const from = this.fromRect();
     const to = this.toRect();
-    const a = edgeAnchor(from, to);
-    const b = edgeAnchor(to, from);
-    return buildPath(this.connection().shape, a, a.side, b, b.side);
+    const a = resolveAnchor(from, to, conn.fromAnchor);
+    const b = resolveAnchor(to, from, conn.toAnchor);
+    return buildPath(conn.shape, a, a.side, b, b.side);
   });
 
   /** SVG `d` attribute shared by the halo, hit-area and visible line. */
@@ -178,8 +201,7 @@ export class ConnectionLineComponent {
       return null;
     }
     const routed = this.routed();
-    const b = edgeAnchor(this.toRect(), this.fromRect());
-    return arrowPolygon(b, routed.tEnd, this.headSize());
+    return arrowPolygon(routed.b, routed.tEnd, this.headSize());
   });
 
   /** Arrowhead polygon at the start anchor, or null when there is no start arrow. */
@@ -189,8 +211,7 @@ export class ConnectionLineComponent {
       return null;
     }
     const routed = this.routed();
-    const a = edgeAnchor(this.fromRect(), this.toRect());
-    return arrowPolygon(a, routed.tStart, this.headSize());
+    return arrowPolygon(routed.a, routed.tStart, this.headSize());
   });
 
   /** Label text (null when the connection has no label). */

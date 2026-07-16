@@ -55,6 +55,9 @@ export interface Card {
 export type ConnShape = 'straight' | 'curved' | 'orthogonal';
 export type ConnArrow = 'none' | 'end' | 'start' | 'both';
 
+/** Card edge a connector endpoint is pinned to (N/E/S/W midpoint). */
+export type ConnAnchor = 'N' | 'E' | 'S' | 'W';
+
 /** A directed link between two cards. */
 export interface Connection {
   id: string;
@@ -67,6 +70,14 @@ export interface Connection {
   arrow: ConnArrow;
   dashed: boolean;
   width: number;
+  /**
+   * Optional pinned edge for each endpoint. When set, the connector attaches to that exact side
+   * of the card; when absent (the default for every connector created today — the backend
+   * `connection:create` payload carries no anchor), routing falls back to the side facing the
+   * other card's centre. Kept optional for backward compatibility with persisted connections.
+   */
+  fromAnchor?: ConnAnchor | null;
+  toAnchor?: ConnAnchor | null;
 }
 
 export type ConnectionPatch = Partial<
