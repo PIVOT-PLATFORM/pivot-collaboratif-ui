@@ -61,8 +61,8 @@
         "error": "Unable to delete the board",
         "confirm": {
           "title": "Delete «{{title}}»?",
-          "message": "This action is irreversible. All board content will be permanently lost.",
-          "confirm": "Delete permanently",
+          "message": "The board will be moved to the trash. You can restore it from the Trash tab.",
+          "confirm": "Move to trash",
           "cancel": "Cancel"
         }
       },
