@@ -291,6 +291,7 @@
       "star": "Étoile",
       "draw": "Dessin libre",
       "table": "Tableau",
+      "frame": "Cadre",
       "link": "Relier des cartes",
       "colorGroup": "Couleurs",
       "pickColor": "Couleur {{color}}",
