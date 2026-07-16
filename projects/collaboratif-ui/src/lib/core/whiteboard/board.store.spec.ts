@@ -272,6 +272,56 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
     }
   });
 
+  // ── Copy / paste / duplicate ────────────────────────────────────────────────
+  it('copySelected copies the selected cards to the clipboard', () => {
+    localStorage.clear();
+    store.cards.set([baseCard({ id: 'card-1' }), baseCard({ id: 'card-2', posX: 300 })]);
+    store.selectCards(new Set(['card-1']));
+
+    expect(store.copySelected()).toBe(1);
+    expect(store.canPaste()).toBe(true);
+    expect(store.clipboard()).toHaveLength(1);
+    expect(store.clipboard()[0]).toMatchObject({ type: 'TEXT', posX: 0, width: 192 });
+  });
+
+  it('copySelected returns 0 and does not arm paste when nothing is selected', () => {
+    localStorage.clear();
+    store.clipboard.set([]);
+    store.selectCards(new Set());
+
+    expect(store.copySelected()).toBe(0);
+    expect(store.canPaste()).toBe(false);
+  });
+
+  it('pasteFromClipboard emits a card:create for each clipboard card', () => {
+    store.selectCards(new Set(['card-1']));
+    store.copySelected();
+    const before = transport.emitted.filter((e) => e.type === 'card:create').length;
+
+    store.pasteFromClipboard();
+
+    expect(transport.emitted.filter((e) => e.type === 'card:create').length).toBe(before + 1);
+  });
+
+  it('pasteFromClipboard is a no-op when the clipboard and its mirror are empty', () => {
+    localStorage.clear();
+    store.clipboard.set([]);
+    const before = transport.emitted.filter((e) => e.type === 'card:create').length;
+
+    store.pasteFromClipboard();
+
+    expect(transport.emitted.filter((e) => e.type === 'card:create').length).toBe(before);
+  });
+
+  it('duplicateSelected copies then pastes the selection (one card:create)', () => {
+    store.selectCards(new Set(['card-1']));
+    const before = transport.emitted.filter((e) => e.type === 'card:create').length;
+
+    store.duplicateSelected();
+
+    expect(transport.emitted.filter((e) => e.type === 'card:create').length).toBe(before + 1);
+  });
+
   it('board:state keeps the local position of a card being actively dragged', () => {
     store.startDragCard('card-1');
     store.moveCard('card-1', 300, 400);

@@ -25,6 +25,7 @@ import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component'
 import { SharePanelComponent } from '../share-panel/share-panel.component';
 import { ActivitiesPanelComponent } from '../activities-panel/activities-panel.component';
 import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
+import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import type { Board } from '../../core/whiteboard/board.model';
 import type { Connection, ConnectionPatch } from '../model/board.types';
 import type { ToolMode } from '../model/tools';
@@ -61,6 +62,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     SharePanelComponent,
     ActivitiesPanelComponent,
     BoardSettingsModalComponent,
+    SelectionToolbarComponent,
   ],
   providers: [BoardStore, { provide: BoardTransport, useClass: StompBoardTransport }],
   templateUrl: './board-page.component.html',
@@ -89,6 +91,18 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly highlightedGroup = signal<string | null>(null);
 
   protected readonly isOwner = computed(() => this.store.userRole() === 'OWNER');
+
+  /** Count of selected items (cards + connections) — drives the floating selection toolbar. */
+  protected readonly selectionCount = computed(() => this.store.selectedIds().size);
+  /** True when every selected *card* is locked — flips the toolbar's lock toggle to "unlock". */
+  protected readonly allSelectedLocked = computed(() => {
+    const ids = this.store.selectedIds();
+    if (ids.size === 0) {
+      return false;
+    }
+    const selectedCards = this.store.cards().filter((c) => ids.has(c.id));
+    return selectedCards.length > 0 && selectedCards.every((c) => c.locked);
+  });
 
   /**
    * The single selected connector, or `null` when the selection is empty, holds more than one
@@ -272,6 +286,19 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     } else if (mod && event.key.toLowerCase() === 'a') {
       event.preventDefault();
       this.store.selectCards(new Set(this.store.cards().map((c) => c.id)));
+    } else if (mod && event.key.toLowerCase() === 'c') {
+      if (this.store.selectedIds().size > 0) {
+        event.preventDefault();
+        this.store.copySelected();
+      }
+    } else if (mod && event.key.toLowerCase() === 'v') {
+      event.preventDefault();
+      this.store.pasteFromClipboard();
+    } else if (mod && event.key.toLowerCase() === 'd') {
+      if (this.store.selectedIds().size > 0) {
+        event.preventDefault();
+        this.store.duplicateSelected();
+      }
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
       if (this.store.selectedIds().size > 0) {
         event.preventDefault();

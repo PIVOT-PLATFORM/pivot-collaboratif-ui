@@ -159,6 +159,20 @@
     }
   </div>
 
+  @if (selectionCount() > 0) {
+    <wb-selection-toolbar
+      [count]="selectionCount()"
+      [canPaste]="store.canPaste()"
+      [allLocked]="allSelectedLocked()"
+      [readOnly]="store.isReadonly()"
+      (copy)="store.copySelected()"
+      (paste)="store.pasteFromClipboard()"
+      (duplicate)="store.duplicateSelected()"
+      (toggleLock)="store.lockSelected($event)"
+      (remove)="store.deleteSelected()"
+    ></wb-selection-toolbar>
+  }
+
   @if (timerExpired()) {
     <wb-timer-overlay (dismiss)="dismissTimer()"></wb-timer-overlay>
   }

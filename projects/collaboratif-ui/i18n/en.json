@@ -4,6 +4,17 @@
     "devHarnessNotice": "Development harness — implemented features are available via their routes (e.g. /whiteboard)."
   },
   "whiteboard": {
+    "selection": {
+      "actions": "Selection actions",
+      "count": "{{count}} selected",
+      "countPlural": "{{count}} selected",
+      "copy": "Copy (Ctrl+C)",
+      "paste": "Paste (Ctrl+V)",
+      "duplicate": "Duplicate (Ctrl+D)",
+      "lock": "Lock",
+      "unlock": "Unlock",
+      "delete": "Delete (Del)"
+    },
     "guard": {
       "accessDenied": "You don't have access to this board"
     },

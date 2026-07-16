@@ -86,6 +86,12 @@ const LOCAL_CONTROL_GRACE_MS = 2000;
  */
 const MOVE_EMIT_THROTTLE_MS = 50;
 
+/** localStorage key mirroring the in-memory clipboard so copy/paste survives a board switch/reload. */
+const CLIPBOARD_STORAGE_KEY = 'pivot-wb-clipboard';
+
+/** Canvas-units offset added per successive paste so cards cascade (don't stack exactly). */
+const PASTE_OFFSET_STEP = 24;
+
 /**
  * Structured whiteboard state machine — the Angular port of the PouetPouet `useBoard`
  * hook (`apps/web/src/hooks/useBoard.ts`). Owns all board domain state (cards,
@@ -128,6 +134,13 @@ export class BoardStore {
   readonly lastVoteSession = signal<VoteSession | null>(null);
 
   readonly isReadonly = computed(() => this.userRole() === 'VIEWER');
+
+  /** Cards copied via {@link copySelected}, portable across boards (also mirrored to localStorage). */
+  readonly clipboard = signal<ClipboardCard[]>([]);
+  /** True when the clipboard holds at least one card — gates the paste affordance. */
+  readonly canPaste = computed(() => this.clipboard().length > 0);
+  /** Incremental offset so repeated pastes of the same clipboard cascade instead of stacking. */
+  private pasteOffset = 0;
 
   private readonly historyVersion = signal(0);
   readonly canUndo = computed(() => (this.historyVersion(), this.undoStack.length > 0));
@@ -1878,6 +1891,80 @@ export class BoardStore {
           }),
       });
     });
+  }
+
+  /**
+   * Copies the currently selected cards to the clipboard (in-memory + localStorage mirror).
+   * Connections and frames are ignored — only cards are portable. Returns the number of cards
+   * copied (0 when the selection holds no card), so callers can surface a toast/label.
+   */
+  copySelected(): number {
+    const selected = this.selectedIds();
+    if (selected.size === 0) {
+      return 0;
+    }
+    const clip: ClipboardCard[] = this.cards()
+      .filter((c) => selected.has(c.id))
+      .map((c) => ({
+        type: c.type,
+        content: c.content,
+        color: c.color,
+        posX: c.posX,
+        posY: c.posY,
+        width: c.width,
+        height: c.height,
+        layer: c.layer ?? 1,
+        groupId: c.groupId,
+        groupColor: c.groupColor,
+      }));
+    if (clip.length === 0) {
+      return 0;
+    }
+    this.clipboard.set(clip);
+    this.pasteOffset = 0;
+    try {
+      localStorage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify(clip));
+    } catch {
+      // Quota exceeded or storage denied (private mode) — the in-memory clipboard still works.
+    }
+    return clip.length;
+  }
+
+  /**
+   * Pastes the clipboard cards onto the board, cascading each successive paste by
+   * {@link PASTE_OFFSET_STEP} so they don't stack exactly. Falls back to the localStorage mirror
+   * when the in-memory clipboard is empty (e.g. after a board switch). No-op when both are empty.
+   */
+  pasteFromClipboard(): void {
+    let clip = this.clipboard();
+    if (clip.length === 0) {
+      try {
+        const raw = localStorage.getItem(CLIPBOARD_STORAGE_KEY);
+        if (raw) {
+          clip = JSON.parse(raw) as ClipboardCard[];
+          this.clipboard.set(clip);
+        }
+      } catch {
+        // Malformed/absent mirror — nothing to paste.
+      }
+    }
+    if (clip.length === 0) {
+      return;
+    }
+    const minX = Math.min(...clip.map((c) => c.posX));
+    const minY = Math.min(...clip.map((c) => c.posY));
+    const maxX = Math.max(...clip.map((c) => c.posX + c.width));
+    const maxY = Math.max(...clip.map((c) => c.posY + c.height));
+    this.pasteOffset += PASTE_OFFSET_STEP;
+    this.pasteCards(clip, (minX + maxX) / 2 + this.pasteOffset, (minY + maxY) / 2 + this.pasteOffset);
+  }
+
+  /** Copies the current selection and immediately pastes it, offset — the Ctrl+D convenience path. */
+  duplicateSelected(): void {
+    if (this.copySelected() === 0) {
+      return;
+    }
+    this.pasteFromClipboard();
   }
 
   // ── Cursor ─────────────────────────────────────────────────────────────────

@@ -4,6 +4,17 @@
     "devHarnessNotice": "Harnais de développement — les features implémentées sont accessibles via leurs routes (ex. /whiteboard)."
   },
   "whiteboard": {
+    "selection": {
+      "actions": "Actions de sélection",
+      "count": "{{count}} sélectionné",
+      "countPlural": "{{count}} sélectionnés",
+      "copy": "Copier (Ctrl+C)",
+      "paste": "Coller (Ctrl+V)",
+      "duplicate": "Dupliquer (Ctrl+D)",
+      "lock": "Verrouiller",
+      "unlock": "Déverrouiller",
+      "delete": "Supprimer (Suppr)"
+    },
     "guard": {
       "accessDenied": "Vous n'avez pas accès à ce tableau"
     },
