@@ -232,6 +232,16 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected onRecolorGroup(e: { groupId: string; color: string }): void {
     this.store.recolorGroup(e.groupId, e.color);
   }
+
+  /**
+   * Colour picked in the toolbar: recolour the current selection (post-it / shape / etc.) if any,
+   * and keep it as the default colour for the next created card. Without the `recolorSelected`
+   * call, picking a colour only affected future cards — an existing card could never be recoloured.
+   */
+  protected onColorChange(color: string): void {
+    this.color.set(color);
+    this.store.recolorSelected(color);
+  }
   protected onDissolveGroup(groupId: string): void {
     this.store.ungroupById(groupId);
   }

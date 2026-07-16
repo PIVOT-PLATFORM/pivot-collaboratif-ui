@@ -99,7 +99,7 @@
         [fillColor]="fillColor()"
         [disabled]="store.isReadonly()"
         (toolChange)="tool.set($event)"
-        (colorChange)="color.set($event)"
+        (colorChange)="onColorChange($event)"
         (fillColorChange)="fillColor.set($event)"
         (insertImage)="onInsertImage($event)"
       ></wb-floating-toolbar>
