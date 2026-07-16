@@ -467,7 +467,18 @@ export class StructuredCanvasComponent {
     // (same technique as the connector drop), so a double-click on a card/frame/connector is left
     // to that element (a card opens its inline editor) and never spawns a stray post-it.
     const hit = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
-    if (hit?.closest('[data-card-id], [data-frame-id], [data-frame-drag], [wbConnectionLine]')) {
+    const cardEl = hit?.closest('[data-card-id]') as HTMLElement | null;
+    if (cardEl) {
+      // The card's own (dblclick)="startEdit()" never fires here — setPointerCapture on the
+      // surface swallowed the event — so open its inline editor from the canvas instead, using
+      // the card id under the pointer. Never spawns a stray post-it.
+      const cardId = cardEl.getAttribute('data-card-id');
+      if (cardId) {
+        this.store.requestEdit(cardId);
+      }
+      return;
+    }
+    if (hit?.closest('[data-frame-id], [data-frame-drag], [wbConnectionLine]')) {
       return;
     }
     const pt = this.toCanvas(event.clientX, event.clientY);

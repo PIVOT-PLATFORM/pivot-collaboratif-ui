@@ -649,10 +649,12 @@ describe('StructuredCanvasComponent — double-click creates a post-it (ITEM D)'
   let fixture: ComponentFixture<StructuredCanvasComponent>;
   let component: StructuredCanvasComponent;
   let addCard: ReturnType<typeof vi.fn>;
+  let requestEdit: ReturnType<typeof vi.fn>;
 
   function makeStore(readonly: boolean) {
     return {
       addCard,
+      requestEdit,
       isReadonly: () => readonly,
       frames: () => [],
       cards: () => [],
@@ -668,6 +670,7 @@ describe('StructuredCanvasComponent — double-click creates a post-it (ITEM D)'
 
   async function create(tool: string, readonly = false) {
     addCard = vi.fn();
+    requestEdit = vi.fn();
     await TestBed.configureTestingModule({
       imports: [
         StructuredCanvasComponent,
@@ -725,6 +728,9 @@ describe('StructuredCanvasComponent — double-click creates a post-it (ITEM D)'
     try {
       component['onDoubleClick']({ target: inner, clientX: 300, clientY: 200 } as unknown as MouseEvent);
       expect(addCard).not.toHaveBeenCalled();
+      // Instead of spawning a card, it opens the double-clicked card's inline editor — the
+      // card's own (dblclick) never fires because the surface captured the pointer.
+      expect(requestEdit).toHaveBeenCalledWith('X');
     } finally {
       (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
     }

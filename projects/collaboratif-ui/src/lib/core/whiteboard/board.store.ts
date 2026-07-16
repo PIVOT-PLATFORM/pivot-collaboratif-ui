@@ -620,6 +620,16 @@ export class BoardStore {
     }
     return false;
   }
+  /**
+   * Requests inline edit mode for an existing card by id. Reuses the auto-edit flag the card's
+   * effect reacts to (→ `startEdit`); the flag is reset to null by `consumeAutoEdit` as soon as
+   * editing begins, so it re-arms for a subsequent double-click. This is the double-click path
+   * when the DOM `dblclick` never reaches the card because the surface captured the pointer
+   * (see `StructuredCanvasComponent.onDoubleClick`).
+   */
+  requestEdit(cardId: string): void {
+    this.autoEditCardId.set(cardId);
+  }
   notifyEditing(cardId: string, editing: boolean): void {
     this.transport.emit('card:editing', { boardId: this.boardId, cardId, editing });
   }
