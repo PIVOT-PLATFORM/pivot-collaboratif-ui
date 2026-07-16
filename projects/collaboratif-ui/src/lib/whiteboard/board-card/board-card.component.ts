@@ -92,6 +92,15 @@ export class BoardCardComponent {
   readonly editingChange = output<boolean>();
   /** Requests the card-detail modal for this card. */
   readonly openDetail = output<string>();
+  /**
+   * Requests the card be grown to (at least) this height in px so its committed text fits without
+   * clipping in display mode — emitted on commit of a TEXT/LABEL edit whose content now needs more
+   * vertical room than the card's stored height. The parent persists it via the existing
+   * `card:resize` contract (see `StructuredCanvasComponent.onCardHeightGrow`), mirroring
+   * PouetPouet's auto-growing note. Only ever grows (never shrinks); width is left untouched so the
+   * text wraps and the height grows to fit.
+   */
+  readonly heightGrow = output<number>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly transloco = inject(TranslocoService);
@@ -215,6 +224,11 @@ export class BoardCardComponent {
     if (!this.editing()) {
       return;
     }
+    // Measure the content height while the (autosized, format-matched) textarea is still mounted —
+    // it must be read before `editing` flips back to display mode and the textarea leaves the DOM.
+    const editArea = this.editArea()?.nativeElement;
+    const neededHeight = editArea ? this.autosizeEditArea(editArea) : 0;
+
     this.editing.set(false);
     this.editingChange.emit(false);
     const t = this.card().type;
@@ -224,6 +238,12 @@ export class BoardCardComponent {
         : serializeTextFmt({ ...parseTextFmt(this.card().content), text: this.editValue() });
     if (next !== this.card().content) {
       this.contentCommit.emit(next);
+    }
+    // Auto-grow: persist a taller card when the committed text no longer fits its stored height, so
+    // it renders un-clipped in display mode and after a reload (PouetPouet parity). Never shrinks —
+    // a shorter note keeps its current height (the user can still resize it down by hand).
+    if (neededHeight > this.card().height) {
+      this.heightGrow.emit(Math.ceil(neededHeight));
     }
   }
 
@@ -269,9 +289,11 @@ export class BoardCardComponent {
    * stored height. Resetting to `'auto'` first is required for `scrollHeight` to shrink back
    * down when text is deleted, not just grow.
    */
-  private autosizeEditArea(el: HTMLTextAreaElement): void {
+  private autosizeEditArea(el: HTMLTextAreaElement): number {
     el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    const contentHeight = el.scrollHeight;
+    el.style.height = `${contentHeight}px`;
+    return contentHeight;
   }
 
   protected onDoubleClick(): void {

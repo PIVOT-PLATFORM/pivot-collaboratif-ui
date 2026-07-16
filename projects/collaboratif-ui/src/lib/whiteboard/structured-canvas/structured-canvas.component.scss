@@ -54,7 +54,8 @@
 }
 
 // Anchor pastilles shown on a hovered target card during a connect drag (ITEM B).
-// The nearest-to-cursor anchor is filled with the accent colour to signal the attach point.
+// The routing-resolved attach anchor (where the connector actually lands) is filled with the
+// accent colour and enlarged — WYSIWYG, not merely the pastille nearest the cursor.
 .wb-anchor {
   fill: var(--wb-surface);
   stroke: var(--wb-accent);

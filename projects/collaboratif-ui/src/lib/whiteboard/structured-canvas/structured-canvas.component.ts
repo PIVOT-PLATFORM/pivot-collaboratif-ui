@@ -35,9 +35,9 @@ import { SHAPE_TOOLS } from '../model/tools';
 import {
   CARDINAL_SIDES,
   cardRect,
+  edgeAnchor,
   edgeAnchorPoint,
   frameRect,
-  nearestEdgeSide,
   pointInRect,
   rectsIntersect,
   screenToCanvas,
@@ -76,11 +76,16 @@ interface AnchorPastille {
   y: number;
 }
 
-/** The hovered target card's anchor pastilles + the one nearest the cursor, during a connect drag. */
+/**
+ * The hovered target card's anchor pastilles + the side the connector will actually attach to,
+ * during a connect drag. `attach` is the routing-resolved anchor (the side of the target facing the
+ * source card's centre — see {@link edgeAnchor}), NOT the pastille nearest the cursor: the
+ * highlighted dot must be where the line really lands ("what you see is what you get").
+ */
 interface HoverAnchors {
   cardId: string;
   points: AnchorPastille[];
-  nearest: EdgeSide;
+  attach: EdgeSide;
 }
 
 /** A connection with its resolved endpoint rects, ready to render. */
@@ -399,7 +404,7 @@ export class StructuredCanvasComponent {
         break;
       case 'connect':
         this.gesture = { ...g, x: pt.x, y: pt.y };
-        this.updateConnectHover(event, g.fromId, pt.x, pt.y);
+        this.updateConnectHover(event, g.fromId);
         this.updateConnectGhost(g, pt.x, pt.y);
         break;
       case 'marquee':
@@ -533,12 +538,15 @@ export class StructuredCanvasComponent {
   }
 
   /**
-   * ITEM B — while dragging a connector, shows the anchor pastilles of the card under the cursor
-   * and highlights the one nearest the pointer (the side the connector would attach to). The
-   * surface owns the pointer capture, so `event.target` is always the surface; the real hovered
+   * ITEM B — while dragging a connector, shows the anchor pastilles of the card under the cursor and
+   * highlights the one the connector will *actually* attach to. That anchor is the routing-resolved
+   * side of the target facing the source card's centre ({@link edgeAnchor}), the same computation
+   * {@link ConnectionLineComponent} uses for the connector's end anchor — NOT the pastille nearest
+   * the cursor, which the previous behaviour highlighted (misleading: the line rarely lands there).
+   * The surface owns the pointer capture, so `event.target` is always the surface; the real hovered
    * card is resolved via `document.elementFromPoint` (parity with {@link finishConnect}).
    */
-  private updateConnectHover(event: PointerEvent, fromId: string, x: number, y: number): void {
+  private updateConnectHover(event: PointerEvent, fromId: string): void {
     const dropEl = document.elementFromPoint(event.clientX, event.clientY);
     const cardEl = dropEl instanceof Element ? dropEl.closest<HTMLElement>('[data-card-id]') : null;
     const targetId = cardEl?.getAttribute('data-card-id') ?? null;
@@ -547,13 +555,16 @@ export class StructuredCanvasComponent {
       return;
     }
     const card = this.store.cards().find((c) => c.id === targetId);
-    if (!card) {
+    const from = this.store.cards().find((c) => c.id === fromId);
+    if (!card || !from) {
       this.hoverAnchors.set(null);
       return;
     }
     const rect = cardRect(card);
     const points = CARDINAL_SIDES.map((side) => ({ side, ...edgeAnchorPoint(rect, side) }));
-    this.hoverAnchors.set({ cardId: targetId, points, nearest: nearestEdgeSide(rect, { x, y }) });
+    // Same anchor the connector routes to: the target's edge facing the source card's centre.
+    const attach = edgeAnchor(rect, cardRect(from)).side;
+    this.hoverAnchors.set({ cardId: targetId, points, attach });
   }
 
   private updateConnectGhost(g: Extract<Gesture, { kind: 'connect' }>, x: number, y: number): void {
@@ -567,7 +578,7 @@ export class StructuredCanvasComponent {
     // End snaps to the highlighted anchor of the hovered target, else follows the raw cursor.
     const hover = this.hoverAnchors();
     const target = hover ? this.store.cards().find((c) => c.id === hover.cardId) : undefined;
-    const end = hover && target ? edgeAnchorPoint(cardRect(target), hover.nearest) : { x, y };
+    const end = hover && target ? edgeAnchorPoint(cardRect(target), hover.attach) : { x, y };
     this.connectGhost.set({ from: start, to: end });
   }
 
@@ -823,6 +834,14 @@ export class StructuredCanvasComponent {
   // ── Card event relays ─────────────────────────────────────────────────────
   protected onCardContent(card: Card, content: string): void {
     this.store.updateCard(card.id, content);
+  }
+  /**
+   * Auto-grow (ITEM I): a TEXT/LABEL card whose committed text no longer fits its stored height asks
+   * to be grown. Persist it through the existing `card:resize` contract — width is kept, only the
+   * height grows — so the taller card survives display mode and a reload (PouetPouet parity).
+   */
+  protected onCardHeightGrow(card: Card, height: number): void {
+    this.store.resizeCard(card.id, card.width, height);
   }
   protected onCardEditing(card: Card, editing: boolean): void {
     // BUG F — auto-edit is one-shot: the moment a card actually enters inline edit, consume the
