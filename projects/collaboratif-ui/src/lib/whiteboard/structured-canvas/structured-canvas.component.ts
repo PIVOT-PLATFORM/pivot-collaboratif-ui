@@ -259,6 +259,16 @@ export class StructuredCanvasComponent {
 
   // ── Pointer state machine ─────────────────────────────────────────────────
   protected onPointerDown(event: PointerEvent): void {
+    // ITEM H — the middle mouse button (wheel click) pans the canvas exactly like space+drag or
+    // the pan tool, whatever the active tool is. Routed first, before any card/placement/marquee
+    // logic, and `preventDefault`-ed to suppress the browser's default middle-click autoscroll.
+    if (event.button === 1) {
+      event.preventDefault();
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      const v = this.viewport();
+      this.gesture = { kind: 'pan', startX: event.clientX, startY: event.clientY, vpX: v.x, vpY: v.y };
+      return;
+    }
     if (event.button !== 0) {
       return;
     }
@@ -796,13 +806,27 @@ export class StructuredCanvasComponent {
     return { x: Math.min(x1, x2), y: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) };
   }
 
-  protected trackCard = (_: number, c: Card): string => c.id;
+  /**
+   * BUG A — track cards by their stable {@link Card.key} (the `clientTag`) when present, falling
+   * back to `id`. A card created optimistically keeps the same key when its `id` is swapped from
+   * the temporary clientTag to the server uuid on `card:created`, so `@for` reconciles the
+   * board-card in place instead of destroying and re-mounting it mid-edit (which lost the typed,
+   * uncommitted text). Server-originated cards have no key and use their already-stable id.
+   */
+  protected trackCard = (_: number, c: Card): string => c.key ?? c.id;
 
   // ── Card event relays ─────────────────────────────────────────────────────
   protected onCardContent(card: Card, content: string): void {
     this.store.updateCard(card.id, content);
   }
   protected onCardEditing(card: Card, editing: boolean): void {
+    // BUG F — auto-edit is one-shot: the moment a card actually enters inline edit, consume the
+    // `autoEditCardId` flag. Otherwise it stays pinned to the last-created card, which then
+    // "monopolises" edit mode (it re-opens on every re-render/re-mount and blocks other cards
+    // from taking over). Only the enter transition consumes it — leaving edit must not.
+    if (editing) {
+      this.store.consumeAutoEdit(card.id);
+    }
     this.store.notifyEditing(card.id, editing);
   }
   protected onFrameTitle(id: string, title: string): void {

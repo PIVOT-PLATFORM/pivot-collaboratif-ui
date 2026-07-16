@@ -421,7 +421,10 @@ export class BoardStore {
           const idx = prev.findIndex((c) => c.id === clientTag);
           if (idx !== -1) {
             const next = [...prev];
-            next[idx] = card;
+            // BUG A — carry the provisional card's stable `key` (the clientTag) onto the server
+            // card, whose payload has none, so the canvas trackBy sees no identity change and the
+            // board-card is reconciled in place rather than re-mounted (preserves a live edit).
+            next[idx] = { ...card, key: prev[idx].key ?? clientTag };
             return next;
           }
         }
@@ -642,6 +645,11 @@ export class BoardStore {
     // reaped by the safety timeout below so no ghost card lingers.
     const provisional: Card = {
       id: clientTag,
+      // BUG A — stable identity for the canvas `@for` trackBy. Preserved verbatim when the
+      // authoritative `card:created` echo swaps `id` from this clientTag to the server uuid, so
+      // the board-card is never destroyed and re-mounted mid-edit (which would drop the in-flight
+      // textarea content and re-trigger auto-edit).
+      key: clientTag,
       boardId: this.boardId,
       type: emitParams.type,
       content: emitParams.content,

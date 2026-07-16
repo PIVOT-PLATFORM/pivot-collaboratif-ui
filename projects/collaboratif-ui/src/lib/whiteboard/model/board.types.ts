@@ -36,6 +36,16 @@ export type CardType = 'TEXT' | 'LABEL' | 'IMAGE' | 'DRAW' | 'TABLE' | 'SHAPE' |
 /** A single board object. `content` encoding depends on `type` (see file header). */
 export interface Card {
   id: string;
+  /**
+   * Stable client-side identity that survives the optimistic→server reconciliation (BUG A).
+   * Set to the `clientTag` on the provisional card and **preserved** on the authoritative
+   * `card:created` echo, whose `id` swaps from the temporary `clientTag` to the server uuid.
+   * The canvas `@for` tracks by `card.key ?? card.id`, so a card mid-edit is never destroyed
+   * and re-mounted when its id changes — the in-flight textarea content is kept. Absent for
+   * cards that originate server-side (board:state, imports, other participants), which fall
+   * back to their already-stable `id`.
+   */
+  key?: string;
   boardId: string;
   type: CardType | string;
   content: string;
