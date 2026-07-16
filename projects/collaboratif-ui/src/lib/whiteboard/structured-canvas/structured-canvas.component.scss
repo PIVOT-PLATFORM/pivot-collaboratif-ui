@@ -53,6 +53,12 @@
   stroke-dasharray: 4 4;
 }
 
+// Live free-draw stroke traced while the pointer is down (stroke colour set inline from the
+// active drawing colour). Never interactive — it must not intercept the ongoing pointer gesture.
+.wb-draw-preview {
+  pointer-events: none;
+}
+
 // Anchor pastilles shown on a hovered target card during a connect drag (ITEM B).
 // The routing-resolved attach anchor (where the connector actually lands) is filled with the
 // accent colour and enlarged — WYSIWYG, not merely the pastille nearest the cursor.

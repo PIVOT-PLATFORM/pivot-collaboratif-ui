@@ -151,6 +151,13 @@ export class StructuredCanvasComponent {
   protected readonly connectGhost = signal<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
   /** Anchor pastilles shown on the card currently hovered during a connect drag (ITEM B). */
   protected readonly hoverAnchors = signal<HoverAnchors | null>(null);
+  /**
+   * Live SVG `d` path of the free-draw stroke currently being traced, in canvas coordinates, or
+   * `null` when not drawing. Rendered in the overlay so the user sees the stroke grow in real time
+   * (each `pointermove` updates it) instead of only on release when {@link finishDraw} commits the
+   * DRAW card. The `gesture.points` array alone is not reactive, so it cannot drive rendering.
+   */
+  protected readonly drawPreview = signal<string | null>(null);
 
   protected readonly layerTransform = computed(() => {
     const v = this.viewport();
@@ -367,6 +374,7 @@ export class StructuredCanvasComponent {
     }
     if (this.tool() === 'draw' && !readOnly) {
       this.gesture = { kind: 'draw', points: [[pt.x, pt.y]] };
+      this.drawPreview.set(this.drawPath([[pt.x, pt.y]]));
       return;
     }
     if (this.tool() === 'pan' || this.spaceHeld) {
@@ -413,6 +421,9 @@ export class StructuredCanvasComponent {
         break;
       case 'draw':
         g.points.push([pt.x, pt.y]);
+        // Reflect the growing stroke live so the user sees what they draw as they draw it, not
+        // only once the pointer is released (the raw `g.points` array is not reactive).
+        this.drawPreview.set(this.drawPath(g.points));
         break;
       default:
         break;
@@ -439,6 +450,8 @@ export class StructuredCanvasComponent {
         this.finishConnect(event);
         break;
       case 'draw':
+        // Clear the live preview: from here the committed DRAW card renders the stroke.
+        this.drawPreview.set(null);
         this.finishDraw(g.points);
         break;
       case 'marquee':
@@ -612,6 +625,15 @@ export class StructuredCanvasComponent {
     }
   }
 
+  /**
+   * Builds the SVG `d` attribute for a freehand stroke. `offsetX`/`offsetY` shift the points into a
+   * local coordinate space (the DRAW card's top-left corner in {@link finishDraw}); left at 0 the
+   * path stays in absolute canvas coordinates, as the live {@link drawPreview} overlay needs.
+   */
+  private drawPath(points: [number, number][], offsetX = 0, offsetY = 0): string {
+    return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${(p[0] - offsetX).toFixed(1)},${(p[1] - offsetY).toFixed(1)}`).join(' ');
+  }
+
   private finishDraw(points: [number, number][]): void {
     if (points.length < 2) {
       return;
@@ -622,9 +644,10 @@ export class StructuredCanvasComponent {
     const minY = Math.min(...ys);
     const width = Math.max(1, Math.max(...xs) - minX);
     const height = Math.max(1, Math.max(...ys) - minY);
-    const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${(p[0] - minX).toFixed(1)},${(p[1] - minY).toFixed(1)}`).join(' ');
+    const d = this.drawPath(points, minX, minY);
     this.store.addCard(minX, minY, 'DRAW', d, this.color(), width, height);
-    this.toolConsumed.emit();
+    // The free-draw tool stays active after a stroke so the user can keep drawing without
+    // re-selecting it; unlike placement tools it deliberately does NOT emit `toolConsumed`.
   }
 
   /** Id of the single selected TABLE card, or `null` when 0 or >1 cards are selected. */
