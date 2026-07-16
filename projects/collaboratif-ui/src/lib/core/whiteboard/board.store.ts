@@ -1661,6 +1661,36 @@ export class BoardStore {
     return updated;
   }
 
+  /**
+   * Syncs the loaded board detail with metadata saved through the settings modal (US08.2.4).
+   *
+   * <p>The modal persists via {@code BoardService.updateBoardSettings} directly rather than
+   * through {@link #updateBoardInfo}, so the store never learns about the change on its own —
+   * without this call the header title and a reopened settings modal keep showing the stale
+   * pre-save values until a full page reload. Maps the list-shaped {@code title} back onto the
+   * board detail's {@code name}.
+   */
+  applySavedMetadata(meta: {
+    title: string;
+    description: string | null;
+    coverImage: string | null;
+    maxParticipants: number | null;
+    enabledActivities: string[];
+  }): void {
+    this.board.update((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: meta.title,
+            description: meta.description,
+            coverImage: meta.coverImage,
+            maxParticipants: meta.maxParticipants,
+            enabledActivities: meta.enabledActivities,
+          }
+        : prev,
+    );
+  }
+
   // ── Layers ─────────────────────────────────────────────────────────────────
   setCardLayer(id: string, layer: number): void {
     const oldLayer = this.cards().find((c) => c.id === id)?.layer ?? 1;

@@ -391,7 +391,10 @@ export class BoardListComponent implements OnDestroy {
   }
 
   protected roleLabel(role: Board['role']): string {
-    return this.transloco.translate(`whiteboard.board.list.role.${role}`);
+    // Board roles arrive upper-cased from the backend (OWNER/EDITOR/VIEWER) while the
+    // i18n keys are lower-cased (role.owner/editor/viewer) — normalise before lookup so
+    // the label resolves instead of leaking the raw translation key onto the card.
+    return this.transloco.translate(`whiteboard.board.list.role.${role.toLowerCase()}`);
   }
 
   protected cardAriaLabel(board: Board, formattedDate: string): string {

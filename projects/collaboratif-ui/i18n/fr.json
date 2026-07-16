@@ -61,8 +61,8 @@
         "error": "Impossible de supprimer le tableau",
         "confirm": {
           "title": "Supprimer « {{title}} » ?",
-          "message": "Cette action est irréversible. Tous les éléments du tableau seront perdus.",
-          "confirm": "Supprimer définitivement",
+          "message": "Le tableau sera déplacé dans la corbeille. Vous pourrez le restaurer depuis l'onglet Corbeille.",
+          "confirm": "Mettre à la corbeille",
           "cancel": "Annuler"
         }
       },

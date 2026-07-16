@@ -85,7 +85,7 @@ test.describe('US08.1.7 — Trash (soft-delete) + restore', () => {
     await card.getByRole('button', { name: `Actions pour ${title}` }).click();
     await page.getByRole('menuitem', { name: 'Supprimer' }).click();
     await expect(page.getByRole('heading', { name: `Supprimer « ${title} » ?` })).toBeVisible();
-    await page.getByRole('button', { name: 'Supprimer' }).click();
+    await page.getByRole('button', { name: 'Mettre à la corbeille' }).click();
 
     // Disappears from the active list.
     await expect(activeCard(page, title)).toHaveCount(0);
@@ -115,7 +115,7 @@ test.describe('US08.1.7 — Trash (soft-delete) + restore', () => {
     const card = activeCard(page, title);
     await card.getByRole('button', { name: `Actions pour ${title}` }).click();
     await page.getByRole('menuitem', { name: 'Supprimer' }).click();
-    await page.getByRole('button', { name: 'Supprimer' }).click();
+    await page.getByRole('button', { name: 'Mettre à la corbeille' }).click();
     await expect(activeCard(page, title)).toHaveCount(0);
 
     await page.getByRole('tab', { name: 'Corbeille' }).click();
