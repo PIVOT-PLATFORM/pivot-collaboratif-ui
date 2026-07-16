@@ -12,9 +12,11 @@ const FR_TRANSLATIONS = {
         title: 'Style du connecteur',
         shapeLabel: 'Forme',
         shape: { straight: 'Droit', curved: 'Courbe', orthogonal: 'Orthogonal' },
-        arrowLabel: 'Flèche',
-        arrow: { none: 'Aucune', start: 'Début', end: 'Fin', both: 'Deux extrémités' },
-        dashedLabel: 'Pointillé',
+        lineStyleLabel: 'Style de trait',
+        lineStyle: { solid: 'Plein', dashed: 'Tirets', dotted: 'Pointillé' },
+        startCapLabel: 'Tête (départ)',
+        endCapLabel: 'Queue (arrivée)',
+        cap: { none: 'Aucune', arrow: 'Flèche', triangle: 'Triangle', circle: 'Cercle', diamond: 'Losange' },
         widthLabel: 'Épaisseur',
         colorLabel: 'Couleur',
         labelFieldLabel: 'Étiquette',
@@ -35,6 +37,9 @@ function makeConnection(overrides: Partial<Connection> = {}): Connection {
     shape: 'curved',
     arrow: 'none',
     dashed: false,
+    lineStyle: 'solid',
+    startCap: 'none',
+    endCap: 'none',
     width: 2,
     ...overrides,
   };
@@ -78,11 +83,14 @@ describe('ConnectorStylePanelComponent (US08.7.2)', () => {
   function shapeSelect(): HTMLSelectElement {
     return fixture.nativeElement.querySelector('#wbConnStyleShape') as HTMLSelectElement;
   }
-  function arrowSelect(): HTMLSelectElement {
-    return fixture.nativeElement.querySelector('#wbConnStyleArrow') as HTMLSelectElement;
+  function lineStyleSelect(): HTMLSelectElement {
+    return fixture.nativeElement.querySelector('#wbConnStyleLineStyle') as HTMLSelectElement;
   }
-  function dashedCheckbox(): HTMLInputElement {
-    return fixture.nativeElement.querySelector('#wbConnStyleDashed') as HTMLInputElement;
+  function startCapSelect(): HTMLSelectElement {
+    return fixture.nativeElement.querySelector('#wbConnStyleStartCap') as HTMLSelectElement;
+  }
+  function endCapSelect(): HTMLSelectElement {
+    return fixture.nativeElement.querySelector('#wbConnStyleEndCap') as HTMLSelectElement;
   }
   function widthInput(): HTMLInputElement {
     return fixture.nativeElement.querySelector('#wbConnStyleWidth') as HTMLInputElement;
@@ -102,8 +110,9 @@ describe('ConnectorStylePanelComponent (US08.7.2)', () => {
     expect(forIds).toEqual(
       expect.arrayContaining([
         'wbConnStyleShape',
-        'wbConnStyleArrow',
-        'wbConnStyleDashed',
+        'wbConnStyleLineStyle',
+        'wbConnStyleStartCap',
+        'wbConnStyleEndCap',
         'wbConnStyleWidth',
         'wbConnStyleColor',
         'wbConnStyleLabel',
@@ -113,20 +122,24 @@ describe('ConnectorStylePanelComponent (US08.7.2)', () => {
 
   it('uses native <select>/<input> controls (Tab/keyboard operable, no custom widget)', () => {
     expect(shapeSelect().tagName).toBe('SELECT');
-    expect(arrowSelect().tagName).toBe('SELECT');
-    expect(dashedCheckbox().getAttribute('type')).toBe('checkbox');
+    expect(lineStyleSelect().tagName).toBe('SELECT');
+    expect(startCapSelect().tagName).toBe('SELECT');
+    expect(endCapSelect().tagName).toBe('SELECT');
     expect(widthInput().getAttribute('type')).toBe('number');
     expect(colorInput().getAttribute('type')).toBe('color');
     expect(labelInput().getAttribute('type')).toBe('text');
   });
 
   it('reflects the current connection values in each control', () => {
-    host.connection.set(makeConnection({ shape: 'orthogonal', arrow: 'both', dashed: true, width: 6, label: 'hello' }));
+    host.connection.set(
+      makeConnection({ shape: 'orthogonal', lineStyle: 'dotted', startCap: 'arrow', endCap: 'diamond', width: 6, label: 'hello' }),
+    );
     fixture.detectChanges();
 
     expect(shapeSelect().value).toBe('orthogonal');
-    expect(arrowSelect().value).toBe('both');
-    expect(dashedCheckbox().checked).toBe(true);
+    expect(lineStyleSelect().value).toBe('dotted');
+    expect(startCapSelect().value).toBe('arrow');
+    expect(endCapSelect().value).toBe('diamond');
     expect(widthInput().value).toBe('6');
     expect(labelInput().value).toBe('hello');
   });
@@ -140,18 +153,25 @@ describe('ConnectorStylePanelComponent (US08.7.2)', () => {
     expect(host.patches).toEqual([{ shape: 'straight' }]);
   });
 
-  it('emits only {arrow} when the arrow select changes', () => {
-    arrowSelect().value = 'end';
-    arrowSelect().dispatchEvent(new Event('change'));
+  it('emits only {lineStyle} when the line-style select changes', () => {
+    lineStyleSelect().value = 'dashed';
+    lineStyleSelect().dispatchEvent(new Event('change'));
 
-    expect(host.patches).toEqual([{ arrow: 'end' }]);
+    expect(host.patches).toEqual([{ lineStyle: 'dashed' }]);
   });
 
-  it('emits only {dashed} when the dashed checkbox is toggled', () => {
-    dashedCheckbox().checked = true;
-    dashedCheckbox().dispatchEvent(new Event('change'));
+  it('emits only {startCap} when the start-cap select changes', () => {
+    startCapSelect().value = 'triangle';
+    startCapSelect().dispatchEvent(new Event('change'));
 
-    expect(host.patches).toEqual([{ dashed: true }]);
+    expect(host.patches).toEqual([{ startCap: 'triangle' }]);
+  });
+
+  it('emits only {endCap} when the end-cap select changes', () => {
+    endCapSelect().value = 'circle';
+    endCapSelect().dispatchEvent(new Event('change'));
+
+    expect(host.patches).toEqual([{ endCap: 'circle' }]);
   });
 
   it('emits only {width} when the width input changes', () => {

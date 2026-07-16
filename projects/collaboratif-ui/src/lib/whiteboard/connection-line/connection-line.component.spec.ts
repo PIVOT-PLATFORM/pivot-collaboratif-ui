@@ -13,11 +13,14 @@ const FR_TRANSLATIONS = {
       ariaLabel: {
         solid: 'Connecteur {{shape}} de {{from}} vers {{to}}',
         dashed: 'Connecteur {{shape}} en pointillés de {{from}} vers {{to}}',
+        dotted: 'Connecteur {{shape}} en pointillé fin de {{from}} vers {{to}}',
+        caps: ' (départ : {{start}}, arrivée : {{end}})',
       },
     },
     connector: {
       style: {
         shape: { straight: 'droit', curved: 'courbe', orthogonal: 'orthogonal' },
+        cap: { none: 'aucun', arrow: 'flèche', triangle: 'triangle', circle: 'cercle', diamond: 'losange' },
       },
     },
   },
@@ -34,6 +37,9 @@ function makeConnection(overrides: Partial<Connection> = {}): Connection {
     shape: 'curved',
     arrow: 'none',
     dashed: false,
+    lineStyle: 'solid',
+    startCap: 'none',
+    endCap: 'none',
     width: 2,
     ...overrides,
   };
@@ -110,11 +116,11 @@ describe('ConnectionLineComponent (US08.7.1)', () => {
     expect(linePath().getAttribute('d')).toContain('C');
   });
 
-  it('renders no arrowhead polygon for arrow="none"', () => {
-    expect(fixture.nativeElement.querySelector('.wb-connection__arrow')).toBeNull();
+  it('renders no cap marker when both caps are "none"', () => {
+    expect(fixture.nativeElement.querySelector('.wb-connection__cap')).toBeNull();
   });
 
-  it('renders a solid line (no stroke-dasharray) for dashed=false', () => {
+  it('renders a solid line (no stroke-dasharray) for lineStyle="solid"', () => {
     expect(linePath().getAttribute('stroke-dasharray')).toBeNull();
   });
 
@@ -130,14 +136,14 @@ describe('ConnectionLineComponent (US08.7.1)', () => {
     expect(linePath().getAttribute('stroke')).toBe('#9ca3af');
   });
 
-  it('renders an arrowhead polygon when arrow="end"', () => {
-    host.connection.set(makeConnection({ arrow: 'end' }));
+  it('renders an arrow cap polygon when endCap="arrow"', () => {
+    host.connection.set(makeConnection({ endCap: 'arrow' }));
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.wb-connection__arrow')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.wb-connection__cap')).not.toBeNull();
   });
 
-  it('renders a dashed stroke when dashed=true', () => {
-    host.connection.set(makeConnection({ dashed: true }));
+  it('renders a dashed stroke (stroke-dasharray) when lineStyle="dashed"', () => {
+    host.connection.set(makeConnection({ lineStyle: 'dashed' }));
     fixture.detectChanges();
     expect(linePath().getAttribute('stroke-dasharray')).not.toBeNull();
   });
@@ -161,16 +167,56 @@ describe('ConnectionLineComponent (US08.7.1)', () => {
     expect(d.match(/L/g)?.length).toBe(4);
   });
 
-  it('renders both start and end arrowhead polygons for arrow="both"', () => {
-    host.connection.set(makeConnection({ arrow: 'both' }));
+  it('renders both a start and an end cap marker when both caps are set', () => {
+    host.connection.set(makeConnection({ startCap: 'arrow', endCap: 'triangle' }));
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('.wb-connection__arrow').length).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('.wb-connection__cap').length).toBe(2);
   });
 
-  it('renders a single start arrowhead polygon for arrow="start"', () => {
-    host.connection.set(makeConnection({ arrow: 'start' }));
+  it('renders a single start cap marker when only startCap is set', () => {
+    host.connection.set(makeConnection({ startCap: 'arrow' }));
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('.wb-connection__arrow').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('.wb-connection__cap').length).toBe(1);
+  });
+
+  // ── Extended line styles (US08.7.2 — solid/dashed/dotted) ──────────────────
+
+  it('renders a distinct dotted dash-array (finer than dashed) for lineStyle="dotted"', () => {
+    host.connection.set(makeConnection({ lineStyle: 'dotted', width: 2 }));
+    fixture.detectChanges();
+    const dotted = linePath().getAttribute('stroke-dasharray');
+    host.connection.set(makeConnection({ lineStyle: 'dashed', width: 2 }));
+    fixture.detectChanges();
+    const dashed = linePath().getAttribute('stroke-dasharray');
+    expect(dotted).not.toBeNull();
+    expect(dashed).not.toBeNull();
+    expect(dotted).not.toBe(dashed);
+  });
+
+  // ── Extended endpoint caps (US08.7.2 — arrow/triangle/circle/diamond, each end) ──
+
+  it('renders a polygon cap for arrow/triangle/diamond and a circle cap for circle, at the end', () => {
+    for (const cap of ['arrow', 'triangle', 'diamond'] as const) {
+      host.connection.set(makeConnection({ endCap: cap }));
+      fixture.detectChanges();
+      const poly = fixture.nativeElement.querySelector('polygon.wb-connection__cap');
+      expect(poly, `endCap=${cap} should render a polygon`).not.toBeNull();
+    }
+    host.connection.set(makeConnection({ endCap: 'circle' }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('circle.wb-connection__cap')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('polygon.wb-connection__cap')).toBeNull();
+  });
+
+  it('renders the correct cap primitive independently at the start end', () => {
+    host.connection.set(makeConnection({ startCap: 'circle' }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('circle.wb-connection__cap')).not.toBeNull();
+
+    host.connection.set(makeConnection({ startCap: 'triangle' }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('polygon.wb-connection__cap')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('circle.wb-connection__cap')).toBeNull();
   });
 
   it('renders a custom stroke width', () => {
@@ -200,19 +246,33 @@ describe('ConnectionLineComponent (US08.7.1)', () => {
     expect(hit.getAttribute('tabindex')).toBe('0');
   });
 
-  it('describes shape and direction in the aria-label for a solid connector', () => {
-    host.connection.set(makeConnection({ shape: 'curved', dashed: false }));
+  it('describes shape and direction in the aria-label for a solid connector (no caps)', () => {
+    host.connection.set(makeConnection({ shape: 'curved', lineStyle: 'solid' }));
     fixture.detectChanges();
     expect(hitPath().getAttribute('aria-label')).toBe('Connecteur courbe de Idée 1 vers Idée 2');
   });
 
   it('mentions "pointillés" (dashed) in the aria-label for a dashed connector', () => {
-    host.connection.set(makeConnection({ shape: 'straight', dashed: true }));
+    host.connection.set(makeConnection({ shape: 'straight', lineStyle: 'dashed' }));
     fixture.detectChanges();
     const label = hitPath().getAttribute('aria-label') ?? '';
     expect(label).toContain('pointillés');
     expect(label).toContain('Idée 1');
     expect(label).toContain('Idée 2');
+  });
+
+  it('spells out the start and end caps in the aria-label when a cap is set', () => {
+    host.connection.set(makeConnection({ shape: 'curved', lineStyle: 'solid', startCap: 'arrow', endCap: 'diamond' }));
+    fixture.detectChanges();
+    const label = hitPath().getAttribute('aria-label') ?? '';
+    expect(label).toContain('départ : flèche');
+    expect(label).toContain('arrivée : losange');
+  });
+
+  it('omits the cap suffix from the aria-label when both caps are "none"', () => {
+    host.connection.set(makeConnection({ startCap: 'none', endCap: 'none' }));
+    fixture.detectChanges();
+    expect(hitPath().getAttribute('aria-label')).not.toContain('départ');
   });
 
   it('falls back to the generic untitled-card label when an endpoint has no display name', () => {

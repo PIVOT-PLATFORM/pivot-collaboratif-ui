@@ -386,7 +386,9 @@
       "untitledCard": "untitled card",
       "ariaLabel": {
         "solid": "Connector {{shape}} from {{from}} to {{to}}",
-        "dashed": "Connector {{shape}}, dashed, from {{from}} to {{to}}"
+        "dashed": "Connector {{shape}}, dashed, from {{from}} to {{to}}",
+        "dotted": "Connector {{shape}}, dotted, from {{from}} to {{to}}",
+        "caps": " (start: {{start}}, end: {{end}})"
       }
     },
     "connector": {
@@ -398,14 +400,21 @@
           "curved": "Curved",
           "orthogonal": "Orthogonal"
         },
-        "arrowLabel": "Arrow",
-        "arrow": {
-          "none": "None",
-          "start": "Start",
-          "end": "End",
-          "both": "Both ends"
+        "lineStyleLabel": "Line style",
+        "lineStyle": {
+          "solid": "Solid",
+          "dashed": "Dashed",
+          "dotted": "Dotted"
         },
-        "dashedLabel": "Dashed",
+        "startCapLabel": "Head (start)",
+        "endCapLabel": "Tail (end)",
+        "cap": {
+          "none": "None",
+          "arrow": "Arrow",
+          "triangle": "Triangle",
+          "circle": "Circle",
+          "diamond": "Diamond"
+        },
         "widthLabel": "Width",
         "colorLabel": "Colour",
         "labelFieldLabel": "Label",

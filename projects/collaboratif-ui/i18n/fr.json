@@ -386,7 +386,9 @@
       "untitledCard": "carte sans titre",
       "ariaLabel": {
         "solid": "Connecteur {{shape}} de {{from}} vers {{to}}",
-        "dashed": "Connecteur {{shape}} en pointillés de {{from}} vers {{to}}"
+        "dashed": "Connecteur {{shape}} en pointillés de {{from}} vers {{to}}",
+        "dotted": "Connecteur {{shape}} en pointillé fin de {{from}} vers {{to}}",
+        "caps": " (départ : {{start}}, arrivée : {{end}})"
       }
     },
     "connector": {
@@ -398,14 +400,21 @@
           "curved": "Courbe",
           "orthogonal": "Orthogonal"
         },
-        "arrowLabel": "Flèche",
-        "arrow": {
-          "none": "Aucune",
-          "start": "Début",
-          "end": "Fin",
-          "both": "Deux extrémités"
+        "lineStyleLabel": "Style de trait",
+        "lineStyle": {
+          "solid": "Plein",
+          "dashed": "Tirets",
+          "dotted": "Pointillé"
         },
-        "dashedLabel": "Pointillé",
+        "startCapLabel": "Tête (départ)",
+        "endCapLabel": "Queue (arrivée)",
+        "cap": {
+          "none": "Aucune",
+          "arrow": "Flèche",
+          "triangle": "Triangle",
+          "circle": "Cercle",
+          "diamond": "Losange"
+        },
         "widthLabel": "Épaisseur",
         "colorLabel": "Couleur",
         "labelFieldLabel": "Étiquette",

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
-import type { ConnAnchor, Connection, ConnShape } from '../model/board.types';
+import type { ConnAnchor, ConnCap, ConnLineStyle, Connection, ConnShape } from '../model/board.types';
 import { type EdgeSide, type Rect, edgeAnchor, edgeAnchorPoint } from '../model/board-geometry';
 
 /** Neutral gray applied when {@link Connection.color} is null. */
@@ -16,6 +16,25 @@ const SHAPE_KEYS: Record<ConnShape, string> = {
   curved: 'whiteboard.connector.style.shape.curved',
   orthogonal: 'whiteboard.connector.style.shape.orthogonal',
 };
+
+/** i18n key per {@link ConnLineStyle}, feeding the descriptive `aria-label` (US08.7.2 A11y AC). */
+const LINE_STYLE_KEYS: Record<ConnLineStyle, string> = {
+  solid: 'whiteboard.connection.ariaLabel.solid',
+  dashed: 'whiteboard.connection.ariaLabel.dashed',
+  dotted: 'whiteboard.connection.ariaLabel.dotted',
+};
+
+/** i18n key per {@link ConnCap}, used to spell out each endpoint marker in the `aria-label`. */
+const CAP_KEYS: Record<ConnCap, string> = {
+  none: 'whiteboard.connector.style.cap.none',
+  arrow: 'whiteboard.connector.style.cap.arrow',
+  triangle: 'whiteboard.connector.style.cap.triangle',
+  circle: 'whiteboard.connector.style.cap.circle',
+  diamond: 'whiteboard.connector.style.cap.diamond',
+};
+
+/** A rendered endpoint cap: either an SVG polygon (arrow/triangle/diamond) or a circle. */
+type CapMarker = { kind: 'polygon'; points: string } | { kind: 'circle'; cx: number; cy: number; r: number };
 
 /** A 2D point in board (canvas) coordinates. */
 interface Point {
@@ -117,6 +136,53 @@ function arrowPolygon(tip: Point, dir: Point, size: number): string {
 }
 
 /**
+ * Filled triangle marker — like {@link arrowPolygon} but with a wider base, so it reads as a
+ * solid "triangle" cap distinct from the slimmer "arrow". Tip at `tip`, oriented along `dir`.
+ */
+function trianglePolygon(tip: Point, dir: Point, size: number): string {
+  const baseCenter: Point = { x: tip.x - dir.x * size, y: tip.y - dir.y * size };
+  const perp: Point = { x: -dir.y, y: dir.x };
+  const half = size * 0.72;
+  const p1: Point = { x: baseCenter.x + perp.x * half, y: baseCenter.y + perp.y * half };
+  const p2: Point = { x: baseCenter.x - perp.x * half, y: baseCenter.y - perp.y * half };
+  return `${tip.x},${tip.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`;
+}
+
+/**
+ * Diamond (rhombus) marker centred just inside the tip, oriented along `dir`: forward vertex at
+ * `tip`, back vertex `size` behind it, and two side vertices at the midpoint offset by `size/2`.
+ */
+function diamondPolygon(tip: Point, dir: Point, size: number): string {
+  const perp: Point = { x: -dir.y, y: dir.x };
+  const back: Point = { x: tip.x - dir.x * size, y: tip.y - dir.y * size };
+  const mid: Point = { x: tip.x - dir.x * (size / 2), y: tip.y - dir.y * (size / 2) };
+  const half = size / 2;
+  const left: Point = { x: mid.x + perp.x * half, y: mid.y + perp.y * half };
+  const right: Point = { x: mid.x - perp.x * half, y: mid.y - perp.y * half };
+  return `${tip.x},${tip.y} ${left.x},${left.y} ${back.x},${back.y} ${right.x},${right.y}`;
+}
+
+/**
+ * Resolves the {@link CapMarker} rendered for a given {@link ConnCap} at endpoint `tip`, oriented
+ * along the end tangent `dir`. `none` yields null (no marker). Arrow/triangle/diamond are filled
+ * polygons oriented along the tangent; circle is a dot centred on the endpoint.
+ */
+function capMarker(cap: ConnCap, tip: Point, dir: Point, size: number): CapMarker | null {
+  switch (cap) {
+    case 'none':
+      return null;
+    case 'arrow':
+      return { kind: 'polygon', points: arrowPolygon(tip, dir, size) };
+    case 'triangle':
+      return { kind: 'polygon', points: trianglePolygon(tip, dir, size) };
+    case 'diamond':
+      return { kind: 'polygon', points: diamondPolygon(tip, dir, size) };
+    case 'circle':
+      return { kind: 'circle', cx: tip.x, cy: tip.y, r: size / 2 };
+  }
+}
+
+/**
  * Renders a single connection (line/arrow) between two cards inside the shared whiteboard
  * SVG layer. The host is the `<g wbConnectionLine>` group created by the parent canvas, so
  * every rendered element is namespaced with the `svg:` prefix to compose into that SVG.
@@ -176,42 +242,42 @@ export class ConnectionLineComponent {
   /** Wide transparent hit stroke width (captures pointer/keyboard interaction). */
   protected readonly hitWidth = computed<number>(() => Math.max(16, this.strokeWidth() + 12));
 
-  /** Line cap: butt when arrows are present so no round cap bleeds past an arrow tip. */
+  /** Line cap: butt when a marker is present at either end so no round cap bleeds past it. */
   protected readonly lineCap = computed<'butt' | 'round'>(() => {
-    const arrow = this.connection().arrow;
-    return arrow === 'none' ? 'round' : 'butt';
+    const conn = this.connection();
+    return conn.startCap === 'none' && conn.endCap === 'none' ? 'round' : 'butt';
   });
 
-  /** `stroke-dasharray` when the connection is dashed, otherwise null (solid). */
+  /**
+   * `stroke-dasharray` derived from {@link Connection.lineStyle} (US08.7.2 extended):
+   * `solid` → null (continuous), `dashed` → long dashes ≈ "6 4", `dotted` → fine dots ≈ "2 4",
+   * both scaled with the stroke width so the pattern stays proportional at any thickness.
+   */
   protected readonly dashArray = computed<string | null>(() => {
-    if (!this.connection().dashed) {
-      return null;
-    }
     const w = this.strokeWidth();
-    return `${Math.max(6, w * 3)} ${Math.max(4, w * 2)}`;
+    switch (this.connection().lineStyle) {
+      case 'solid':
+        return null;
+      case 'dashed':
+        return `${Math.max(6, w * 3)} ${Math.max(4, w * 2)}`;
+      case 'dotted':
+        return `${Math.max(2, w)} ${Math.max(4, w * 2)}`;
+    }
   });
 
   /** Halo stroke width shown behind the line while selected. */
   protected readonly haloWidth = computed<number>(() => this.strokeWidth() + 8);
 
-  /** Arrowhead polygon at the end anchor, or null when there is no end arrow. */
-  protected readonly endArrow = computed<string | null>(() => {
-    const arrow = this.connection().arrow;
-    if (arrow !== 'end' && arrow !== 'both') {
-      return null;
-    }
+  /** Endpoint marker at the `to` anchor for {@link Connection.endCap}, or null when `none`. */
+  protected readonly endCap = computed<CapMarker | null>(() => {
     const routed = this.routed();
-    return arrowPolygon(routed.b, routed.tEnd, this.headSize());
+    return capMarker(this.connection().endCap, routed.b, routed.tEnd, this.headSize());
   });
 
-  /** Arrowhead polygon at the start anchor, or null when there is no start arrow. */
-  protected readonly startArrow = computed<string | null>(() => {
-    const arrow = this.connection().arrow;
-    if (arrow !== 'start' && arrow !== 'both') {
-      return null;
-    }
+  /** Endpoint marker at the `from` anchor for {@link Connection.startCap}, or null when `none`. */
+  protected readonly startCap = computed<CapMarker | null>(() => {
     const routed = this.routed();
-    return arrowPolygon(routed.a, routed.tStart, this.headSize());
+    return capMarker(this.connection().startCap, routed.a, routed.tStart, this.headSize());
   });
 
   /** Label text (null when the connection has no label). */
@@ -240,19 +306,26 @@ export class ConnectionLineComponent {
 
   /**
    * Descriptive `aria-label` for the focusable hit-area (US08.7.2 A11y AC) — states the
-   * connector's shape, whether it is dashed, and its direction (e.g. "Connecteur courbe en
-   * pointillés, de Idée 1 vers Idée 2"), so a screen-reader user can tell connectors apart
-   * without relying on colour/shape alone. Falls back to a generic placeholder for either
-   * endpoint when {@link fromLabel}/{@link toLabel} is empty (endpoint card with no readable
-   * text, e.g. an IMAGE/DRAW/SHAPE card — see `StructuredCanvasComponent`).
+   * connector's shape, its line style (solid/dashed/dotted), its direction and its endpoint
+   * markers (e.g. "Connecteur courbe en pointillés de Idée 1 vers Idée 2 (départ : flèche,
+   * arrivée : losange)"), so a screen-reader user can tell connectors apart without relying on
+   * colour/shape alone. Falls back to a generic placeholder for either endpoint when
+   * {@link fromLabel}/{@link toLabel} is empty (endpoint card with no readable text, e.g. an
+   * IMAGE/DRAW/SHAPE card — see `StructuredCanvasComponent`). The cap suffix is omitted entirely
+   * when both ends are `none`.
    */
   protected readonly ariaLabel = computed<string>(() => {
     const conn = this.connection();
     const shape = this.transloco.translate(SHAPE_KEYS[conn.shape]);
     const from = this.fromLabel() || this.transloco.translate('whiteboard.connection.untitledCard');
     const to = this.toLabel() || this.transloco.translate('whiteboard.connection.untitledCard');
-    const key = conn.dashed ? 'whiteboard.connection.ariaLabel.dashed' : 'whiteboard.connection.ariaLabel.solid';
-    return this.transloco.translate(key, { shape, from, to });
+    const base = this.transloco.translate(LINE_STYLE_KEYS[conn.lineStyle], { shape, from, to });
+    if (conn.startCap === 'none' && conn.endCap === 'none') {
+      return base;
+    }
+    const start = this.transloco.translate(CAP_KEYS[conn.startCap]);
+    const end = this.transloco.translate(CAP_KEYS[conn.endCap]);
+    return base + this.transloco.translate('whiteboard.connection.ariaLabel.caps', { start, end });
   });
 
   /** Emits {@link select} with the connection id. */

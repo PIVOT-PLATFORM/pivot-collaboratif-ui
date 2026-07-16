@@ -18,32 +18,51 @@
   </div>
 
   <div class="wb-connector-style__field">
-    <label class="wb-connector-style__label" for="wbConnStyleArrow">
-      {{ 'whiteboard.connector.style.arrowLabel' | transloco }}
+    <label class="wb-connector-style__label" for="wbConnStyleLineStyle">
+      {{ 'whiteboard.connector.style.lineStyleLabel' | transloco }}
     </label>
     <select
-      id="wbConnStyleArrow"
+      id="wbConnStyleLineStyle"
       class="wb-connector-style__control"
-      [value]="connection().arrow"
-      (change)="onArrowChange($event)"
+      [value]="connection().lineStyle"
+      (change)="onLineStyleChange($event)"
     >
-      @for (arrow of arrows; track arrow) {
-        <option [value]="arrow">{{ 'whiteboard.connector.style.arrow.' + arrow | transloco }}</option>
+      @for (lineStyle of lineStyles; track lineStyle) {
+        <option [value]="lineStyle">{{ 'whiteboard.connector.style.lineStyle.' + lineStyle | transloco }}</option>
       }
     </select>
   </div>
 
-  <div class="wb-connector-style__field wb-connector-style__field--inline">
-    <input
-      type="checkbox"
-      id="wbConnStyleDashed"
-      class="wb-connector-style__checkbox"
-      [checked]="connection().dashed"
-      (change)="onDashedChange($event)"
-    />
-    <label class="wb-connector-style__label" for="wbConnStyleDashed">
-      {{ 'whiteboard.connector.style.dashedLabel' | transloco }}
+  <div class="wb-connector-style__field">
+    <label class="wb-connector-style__label" for="wbConnStyleStartCap">
+      {{ 'whiteboard.connector.style.startCapLabel' | transloco }}
     </label>
+    <select
+      id="wbConnStyleStartCap"
+      class="wb-connector-style__control"
+      [value]="connection().startCap"
+      (change)="onStartCapChange($event)"
+    >
+      @for (cap of caps; track cap) {
+        <option [value]="cap">{{ 'whiteboard.connector.style.cap.' + cap | transloco }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="wb-connector-style__field">
+    <label class="wb-connector-style__label" for="wbConnStyleEndCap">
+      {{ 'whiteboard.connector.style.endCapLabel' | transloco }}
+    </label>
+    <select
+      id="wbConnStyleEndCap"
+      class="wb-connector-style__control"
+      [value]="connection().endCap"
+      (change)="onEndCapChange($event)"
+    >
+      @for (cap of caps; track cap) {
+        <option [value]="cap">{{ 'whiteboard.connector.style.cap.' + cap | transloco }}</option>
+      }
+    </select>
   </div>
 
   <div class="wb-connector-style__field">

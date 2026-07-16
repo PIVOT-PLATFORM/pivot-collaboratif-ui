@@ -65,6 +65,20 @@ export interface Card {
 export type ConnShape = 'straight' | 'curved' | 'orthogonal';
 export type ConnArrow = 'none' | 'end' | 'start' | 'both';
 
+/**
+ * Stroke pattern of a connector line (US08.7.2 extended styling) — supersedes the legacy
+ * boolean {@link Connection.dashed}. `solid` = continuous, `dashed` = long dashes,
+ * `dotted` = fine dots. Matches the backend `ConnLineStyle` contract.
+ */
+export type ConnLineStyle = 'solid' | 'dashed' | 'dotted';
+
+/**
+ * Endpoint marker (cap) drawn at a connector's start/end (US08.7.2 extended styling) —
+ * supersedes the legacy {@link Connection.arrow} enum by making each end independently
+ * shapeable. Matches the backend `ConnCap` contract.
+ */
+export type ConnCap = 'none' | 'arrow' | 'triangle' | 'circle' | 'diamond';
+
 /** Card edge a connector endpoint is pinned to (N/E/S/W midpoint). */
 export type ConnAnchor = 'N' | 'E' | 'S' | 'W';
 
@@ -77,8 +91,16 @@ export interface Connection {
   label: string | null;
   color: string | null;
   shape: ConnShape;
+  /** @deprecated Legacy single-enum arrow — kept for back-compat mapping; use {@link startCap}/{@link endCap}. */
   arrow: ConnArrow;
+  /** @deprecated Legacy boolean dash — kept for back-compat mapping; use {@link lineStyle}. */
   dashed: boolean;
+  /** Stroke pattern (US08.7.2 extended styling). Supersedes {@link dashed}. */
+  lineStyle: ConnLineStyle;
+  /** Marker drawn at the `from` endpoint (US08.7.2 extended styling). Supersedes {@link arrow}. */
+  startCap: ConnCap;
+  /** Marker drawn at the `to` endpoint (US08.7.2 extended styling). Supersedes {@link arrow}. */
+  endCap: ConnCap;
   width: number;
   /**
    * Optional pinned edge for each endpoint. When set, the connector attaches to that exact side
@@ -91,7 +113,10 @@ export interface Connection {
 }
 
 export type ConnectionPatch = Partial<
-  Pick<Connection, 'label' | 'color' | 'shape' | 'arrow' | 'dashed' | 'width'>
+  Pick<
+    Connection,
+    'label' | 'color' | 'shape' | 'arrow' | 'dashed' | 'lineStyle' | 'startCap' | 'endCap' | 'width'
+  >
 >;
 
 /**
