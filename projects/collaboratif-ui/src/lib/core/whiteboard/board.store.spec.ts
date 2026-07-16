@@ -272,6 +272,62 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
     }
   });
 
+  it('coalesces a burst of resizeCardBox emits into one card:resize + one card:move per window (BUG J)', () => {
+    vi.useFakeTimers();
+    try {
+      const of = (t: string) => transport.emitted.filter((e) => e.type === t);
+      store.startResizeCard('card-1');
+      store.resizeCardBox('card-1', { posX: 0, posY: 0, width: 200, height: 150 });
+      store.resizeCardBox('card-1', { posX: 0, posY: 0, width: 260, height: 190 });
+      expect(of('card:resize')).toHaveLength(0); // nothing sent synchronously
+      vi.advanceTimersByTime(0); // first flush is scheduled with zero delay
+      expect(of('card:resize')).toHaveLength(1);
+      expect(of('card:move')).toHaveLength(1);
+      expect(of('card:resize').at(-1)!.data).toMatchObject({ id: 'card-1', width: 260, height: 190 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('flushes the final resize immediately on commit, unthrottled (BUG J)', () => {
+    vi.useFakeTimers();
+    try {
+      const resizes = () => transport.emitted.filter((e) => e.type === 'card:resize');
+      store.startResizeCard('card-1');
+      store.resizeCardBox('card-1', { posX: 0, posY: 0, width: 999, height: 888 }); // held by the window
+      store.commitResizeCard('card-1'); // must flush the final size synchronously, not wait
+      expect(resizes().at(-1)!.data).toMatchObject({ id: 'card-1', width: 999, height: 888 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('coalesces a frame drag (frame + captured cards) to one frame per entity per window (BUG J)', () => {
+    vi.useFakeTimers();
+    try {
+      store.frames.set([
+        { id: 'frame-1', boardId: BOARD_ID, title: 'F', posX: 0, posY: 0, width: 400, height: 300, color: '#fff', active: true, layer: 1 },
+      ]);
+      store.cards.set([baseCard({ id: 'card-1', posX: 10, posY: 10 })]);
+      const captured = [{ id: 'card-1', startX: 10, startY: 10, frameStartX: 0, frameStartY: 0 }];
+      store.startDragFrame('frame-1', ['card-1']);
+      store.moveFrame('frame-1', 30, 30, captured);
+      store.moveFrame('frame-1', 60, 60, captured);
+      expect(transport.emitted.filter((e) => e.type === 'frame:move')).toHaveLength(0); // nothing synchronous
+      vi.advanceTimersByTime(0);
+      const frameMoves = transport.emitted.filter((e) => e.type === 'frame:move');
+      const cardMoves = transport.emitted.filter((e) => e.type === 'card:move');
+      expect(frameMoves).toHaveLength(1); // one frame:move for the whole burst, not one per pointermove
+      expect(cardMoves).toHaveLength(1); // one card:move for the captured card, not one per pointermove
+      expect(frameMoves.at(-1)!.data).toMatchObject({ id: 'frame-1', posX: 60, posY: 60 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
   // ── Copy / paste / duplicate ────────────────────────────────────────────────
   it('copySelected copies the selected cards to the clipboard', () => {
     localStorage.clear();

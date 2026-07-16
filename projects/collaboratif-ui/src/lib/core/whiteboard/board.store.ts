@@ -165,6 +165,20 @@ export class BoardStore {
 
   private cardDragStart: Map<string, { posX: number; posY: number }> | null = null;
   private readonly moveEmit = { timer: null as ReturnType<typeof setTimeout> | null, lastTs: 0, pending: new Map<string, { posX: number; posY: number }>() };
+  /**
+   * Coalesces the resize and frame-drag emit paths the way {@link moveEmit} already coalesces
+   * card drags: keeps only the latest payload per `(channel, id)` and flushes them all on a
+   * {@link MOVE_EMIT_THROTTLE_MS} timer — one WS frame per entity per channel per tick instead of
+   * one per `pointermove` (a frame drag over N cards previously emitted `1 + N` frames per move).
+   * Local signal updates stay immediate (visual smoothness); only the network emits are throttled.
+   * The matching `commit*` handlers flush this buffer before their authoritative final emit, so no
+   * stale intermediate can be broadcast after the commit.
+   */
+  private readonly emitCoalescer = {
+    timer: null as ReturnType<typeof setTimeout> | null,
+    lastTs: 0,
+    pending: new Map<string, { channel: 'card:move' | 'card:resize' | 'frame:move' | 'frame:resize'; payload: Record<string, unknown> }>(),
+  };
   private cardResizeStart: { id: string; posX: number; posY: number; width: number; height: number } | null = null;
   private selectionResizeStart: Map<string, CardBox> | null = null;
   private selResizeEmitTs = 0;
@@ -223,6 +237,11 @@ export class BoardStore {
       clearTimeout(this.moveEmit.timer);
       this.moveEmit.timer = null;
     }
+    if (this.emitCoalescer.timer != null) {
+      clearTimeout(this.emitCoalescer.timer);
+      this.emitCoalescer.timer = null;
+    }
+    this.emitCoalescer.pending.clear();
     this.optimisticCardTimers.forEach((t) => clearTimeout(t));
     this.optimisticCardTimers.clear();
     this.localControlGraceTimers.forEach((t) => clearTimeout(t));
@@ -820,6 +839,39 @@ export class BoardStore {
     this.moveEmit.timer = setTimeout(() => this.flushMoveEmits(), delay);
   }
 
+  /** Buffers the latest emit for a `(channel, id)` and schedules a throttled flush (see {@link emitCoalescer}). */
+  private queueEmit(
+    channel: 'card:move' | 'card:resize' | 'frame:move' | 'frame:resize',
+    id: string,
+    payload: Record<string, number>,
+  ): void {
+    this.emitCoalescer.pending.set(`${channel}|${id}`, { channel, payload: { id, boardId: this.boardId, ...payload } });
+    if (this.emitCoalescer.timer != null) {
+      return;
+    }
+    const delay = Math.max(0, MOVE_EMIT_THROTTLE_MS - (Date.now() - this.emitCoalescer.lastTs));
+    this.emitCoalescer.timer = setTimeout(() => this.flushCoalescedEmits(), delay);
+  }
+
+  private flushCoalescedEmits(): void {
+    this.emitCoalescer.timer = null;
+    this.emitCoalescer.lastTs = Date.now();
+    if (this.emitCoalescer.pending.size === 0) {
+      return;
+    }
+    this.emitCoalescer.pending.forEach(({ channel, payload }) => this.transport.emit(channel, payload));
+    this.emitCoalescer.pending.clear();
+  }
+
+  /** Cancels any pending timer and flushes immediately — call before emitting an authoritative commit value. */
+  private flushCoalescedEmitsNow(): void {
+    if (this.emitCoalescer.timer != null) {
+      clearTimeout(this.emitCoalescer.timer);
+      this.emitCoalescer.timer = null;
+    }
+    this.flushCoalescedEmits();
+  }
+
   moveCard(id: string, posX: number, posY: number): void {
     const cards = this.cards();
     const card = cards.find((c) => c.id === id);
@@ -954,8 +1006,8 @@ export class BoardStore {
 
   resizeCardBox(id: string, box: CardBox): void {
     this.cards.update((prev) => prev.map((c) => (c.id === id ? { ...c, ...box } : c)));
-    this.transport.emit('card:resize', { id, boardId: this.boardId, width: box.width, height: box.height });
-    this.transport.emit('card:move', { id, boardId: this.boardId, posX: box.posX, posY: box.posY });
+    this.queueEmit('card:resize', id, { width: box.width, height: box.height });
+    this.queueEmit('card:move', id, { posX: box.posX, posY: box.posY });
   }
 
   startResizeCard(id: string): void {
@@ -968,6 +1020,7 @@ export class BoardStore {
   }
 
   commitResizeCard(id: string): void {
+    this.flushCoalescedEmitsNow();
     const start = this.cardResizeStart;
     this.cardResizeStart = null;
     if (!start || start.id !== id) {
@@ -1358,7 +1411,7 @@ export class BoardStore {
     capturedCards: { id: string; startX: number; startY: number; frameStartX: number; frameStartY: number }[],
   ): void {
     this.frames.update((prev) => prev.map((f) => (f.id === id ? { ...f, posX, posY } : f)));
-    this.transport.emit('frame:move', { id, boardId: this.boardId, posX, posY });
+    this.queueEmit('frame:move', id, { posX, posY });
 
     if (capturedCards.length === 0) {
       return;
@@ -1374,7 +1427,7 @@ export class BoardStore {
         }
         const newX = cap.startX + dx;
         const newY = cap.startY + dy;
-        this.transport.emit('card:move', { id: c.id, boardId: this.boardId, posX: newX, posY: newY });
+        this.queueEmit('card:move', c.id, { posX: newX, posY: newY });
         return { ...c, posX: newX, posY: newY };
       }),
     );
@@ -1399,6 +1452,7 @@ export class BoardStore {
   }
 
   commitDragFrame(id: string): void {
+    this.flushCoalescedEmitsNow();
     const start = this.frameDragStart;
     this.frameDragStart = null;
     if (!start || start.frameId !== id) {
@@ -1437,8 +1491,8 @@ export class BoardStore {
 
   resizeFrameBox(id: string, posX: number, posY: number, width: number, height: number): void {
     this.frames.update((prev) => prev.map((f) => (f.id === id ? { ...f, posX, posY, width, height } : f)));
-    this.transport.emit('frame:move', { id, boardId: this.boardId, posX, posY });
-    this.transport.emit('frame:resize', { id, boardId: this.boardId, width, height });
+    this.queueEmit('frame:move', id, { posX, posY });
+    this.queueEmit('frame:resize', id, { width, height });
   }
 
   startResizeFrame(id: string): void {
@@ -1450,6 +1504,7 @@ export class BoardStore {
   }
 
   commitResizeFrame(id: string): void {
+    this.flushCoalescedEmitsNow();
     const start = this.frameResizeStart;
     this.frameResizeStart = null;
     if (!start || start.id !== id) {
