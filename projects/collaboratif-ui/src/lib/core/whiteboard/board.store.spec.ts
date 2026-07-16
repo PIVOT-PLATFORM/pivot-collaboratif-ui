@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BoardStore } from './board.store';
 import { BoardTransport } from './board-transport';
 import { COLLABORATIF_API_URL, COLLABORATIF_CURRENT_USER } from './config/tokens';
-import type { BoardVote, Card, Connection, Frame, VoteSession } from '../../whiteboard/model/board.types';
+import type { BoardField, BoardVote, Card, Connection, Frame, VoteSession } from '../../whiteboard/model/board.types';
 
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 const BOARD_ID = 'board-1';
@@ -156,6 +156,25 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
 
     expect(store.cards()[0].posX).toBe(10);
     expect(store.cards()[0].posY).toBe(20);
+  });
+
+  it('renders a boardfield:created field once when its emitter-included echo replays (US08.10.1)', () => {
+    const field: BoardField = {
+      id: 'field-1',
+      boardId: BOARD_ID,
+      name: 'Priority',
+      emoji: null,
+      type: 'SELECT',
+      options: ['Low', 'High'],
+      order: 0,
+    };
+    // The `boardfield:created` broadcast is emitter-included, so the creating client receives its
+    // own echo; a reconnect can replay it too. The handler must be idempotent — dispatching twice
+    // must not duplicate the field (regression: a blind append rendered it twice).
+    transport.dispatch('boardfield:created', field);
+    transport.dispatch('boardfield:created', field);
+
+    expect(store.fields().filter((f) => f.id === 'field-1')).toHaveLength(1);
   });
 
   it('never leaks senderSessionId into the stored card state', () => {

@@ -684,7 +684,13 @@ export class BoardStore {
     );
     this.on<string>('frame:deleted', (id) => this.frames.update((prev) => prev.filter((f) => f.id !== id)));
 
-    this.on<BoardField>('boardfield:created', (field) => this.fields.update((prev) => [...prev, field]));
+    // Idempotent append: the `boardfield:created` broadcast is emitter-included, so the creator
+    // also receives its own echo — and a reconnect can replay it after `board:state` already
+    // carried the field. Dedup by id (same convention as the `board:imported` merge) so a field
+    // is never rendered twice; a blind append duplicated it on the creating client (US08.10.1).
+    this.on<BoardField>('boardfield:created', (field) =>
+      this.fields.update((prev) => (prev.some((f) => f.id === field.id) ? prev : [...prev, field])),
+    );
     this.on<BoardField>('boardfield:updated', (field) =>
       this.fields.update((prev) => prev.map((f) => (f.id === field.id ? { ...f, ...field } : f))),
     );
