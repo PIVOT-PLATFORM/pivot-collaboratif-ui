@@ -227,6 +227,19 @@ describe('BoardListComponent', () => {
     expect(el.textContent).toContain('Beta');
   });
 
+  // US08.1.6 recette — the backend returns roles upper-cased (OWNER/EDITOR/VIEWER) while the
+  // i18n keys are lower-cased; roleLabel must normalise the case, otherwise the raw key
+  // (e.g. "whiteboard.board.list.role.OWNER") leaks onto the card badge.
+  it('resolves the role badge label for the backend-shaped upper-case role', () => {
+    const board = makeBoard({ id: '1', title: 'Alpha', role: 'OWNER' as Board['role'] });
+    httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([board]));
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.board-list__badge') as HTMLElement;
+    expect(badge.textContent?.trim()).toBe('Propriétaire');
+    expect(fixture.nativeElement.textContent).not.toContain('role.OWNER');
+  });
+
   // ── Empty state ──
   it('renders empty state when no boards returned', () => {
     httpMock.expectOne(r => r.url === BASE).flush(makePageResponse([]));
