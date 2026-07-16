@@ -12,6 +12,30 @@
     <h1 class="wb-page__title">{{ store.board()?.name || ('whiteboard.board.untitled' | transloco) }}</h1>
 
     <div class="wb-page__actions">
+      @if (timerRunning() && !timerExpired()) {
+        <div
+          class="wb-page__timer-pill"
+          [class.wb-page__timer-pill--ending]="(timerRemaining() ?? 99) <= 10"
+          role="status"
+          [attr.aria-label]="'whiteboard.timer.running.aria' | transloco: { time: timerRemainingLabel() }"
+        >
+          <svg class="wb-page__timer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="9" stroke-width="1.8" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 7v5l3.5 3.5" />
+          </svg>
+          <span class="wb-page__timer-value">{{ timerRemainingLabel() }}</span>
+          <button
+            type="button"
+            class="wb-page__timer-stop"
+            (click)="store.stopTimer()"
+            [attr.aria-label]="'whiteboard.timer.running.stop' | transloco"
+            [title]="'whiteboard.timer.running.stop' | transloco"
+          >
+            ×
+          </button>
+        </div>
+      }
+
       <button type="button" class="wb-page__btn wb-page__btn--icon" [class.wb-page__btn--on]="showGroups()"
         (click)="showGroups.set(!showGroups())" [attr.aria-pressed]="showGroups()"
         [attr.aria-label]="'whiteboard.groups.title' | transloco" [title]="'whiteboard.groups.title' | transloco">
@@ -174,6 +198,13 @@
 
   @if (timerExpired()) {
     <wb-timer-overlay (dismiss)="dismissTimer()"></wb-timer-overlay>
+  }
+
+  @if (showTimerConfig()) {
+    <wb-timer-config-dialog
+      (start)="onStartTimer($event)"
+      (close)="showTimerConfig.set(false)"
+    ></wb-timer-config-dialog>
   }
 
   @if (showShare()) {

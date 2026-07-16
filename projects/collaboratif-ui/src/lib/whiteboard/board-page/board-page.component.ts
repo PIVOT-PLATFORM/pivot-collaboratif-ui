@@ -24,6 +24,7 @@ import { VoteResultsPanelComponent } from '../vote-results-panel/vote-results-pa
 import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component';
 import { SharePanelComponent } from '../share-panel/share-panel.component';
 import { ActivitiesPanelComponent } from '../activities-panel/activities-panel.component';
+import { TimerConfigDialogComponent } from '../timer-config-dialog/timer-config-dialog.component';
 import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
 import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import type { Board } from '../../core/whiteboard/board.model';
@@ -43,9 +44,9 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
  * tool/colour, board-level keyboard shortcuts, and composes the toolbar, canvas, panels,
  * overlays and the (previously orphaned) share panel.
  *
- * ⚠️ WIP: several affordances (timer/vote start, fields panel, import/export, settings)
- * depend on backend actions not yet implemented in `pivot-collaboratif-core`; they are wired
- * to the store but have no server to answer them yet — see the port EPIC.
+ * The shared timer and dot-vote (US08.12.1/2) are wired end-to-end to the store's STOMP
+ * actions. ⚠️ WIP: the fields panel and Klaxoon import/export still depend on backend actions
+ * not yet implemented in `pivot-collaboratif-core` — see the port EPIC.
  */
 @Component({
   selector: 'wb-board-page',
@@ -61,6 +62,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     TimerOverlayComponent,
     SharePanelComponent,
     ActivitiesPanelComponent,
+    TimerConfigDialogComponent,
     BoardSettingsModalComponent,
     SelectionToolbarComponent,
   ],
@@ -87,6 +89,8 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly showActivities = signal(false);
   protected readonly showShare = signal(false);
   protected readonly showVoteResults = signal(false);
+  /** US08.12.1 — timer duration picker visibility (opened from the activities panel). */
+  protected readonly showTimerConfig = signal(false);
   protected readonly showSettings = signal(false);
   protected readonly highlightedGroup = signal<string | null>(null);
 
@@ -163,6 +167,24 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     return ends !== null && this.now() >= ends;
   });
   protected readonly timerRunning = computed(() => this.store.timerEndsAt() !== null);
+  /** Whole seconds remaining on the shared timer, or `null` when no timer runs (US08.12.1). */
+  protected readonly timerRemaining = computed<number | null>(() => {
+    const ends = this.store.timerEndsAt();
+    if (ends === null) {
+      return null;
+    }
+    return Math.max(0, Math.ceil((ends - this.now()) / 1000));
+  });
+  /** `m:ss` label for the running-timer pill. */
+  protected readonly timerRemainingLabel = computed(() => {
+    const total = this.timerRemaining();
+    if (total === null) {
+      return '';
+    }
+    const min = Math.floor(total / 60);
+    const sec = total % 60;
+    return `${min}:${String(sec).padStart(2, '0')}`;
+  });
   private tick?: ReturnType<typeof setInterval>;
 
   ngOnInit(): void {
@@ -247,12 +269,21 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Placeholder handler for the activities picker: launching a facilitation activity on the board
-   * depends on `pivot-collaboratif-core` support not yet implemented (same WIP posture as
-   * timer/vote start). For now, selecting an activity simply closes the panel.
+   * Handler for the activities picker. The shared timer (US08.12.1) is wired to the store, so
+   * selecting it opens the duration picker; the remaining activities have no backend action yet
+   * and simply close the panel.
    */
-  protected onLaunchActivity(_activityId: string): void {
+  protected onLaunchActivity(activityId: string): void {
     this.showActivities.set(false);
+    if (activityId === 'timer') {
+      this.showTimerConfig.set(true);
+    }
+  }
+
+  /** Starts the shared timer for the chosen duration (US08.12.1), closing the picker. */
+  protected onStartTimer(seconds: number): void {
+    this.store.startTimer(seconds);
+    this.showTimerConfig.set(false);
   }
 
   protected dismissTimer(): void {

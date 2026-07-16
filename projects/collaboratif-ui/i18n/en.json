@@ -395,7 +395,24 @@
       "waiting": "Waiting for what's next…",
       "actionLabel": "Action",
       "clickToClose": "Click to close",
-      "dismiss": "Dismiss timer"
+      "dismiss": "Dismiss timer",
+      "config": {
+        "title": "Start a timer",
+        "hint": "Time-box your workshop — the timer is shared with the whole team.",
+        "presetsLabel": "Preset durations",
+        "minutes": "{{count}} min",
+        "custom": "Custom duration",
+        "minutesLabel": "Minutes",
+        "secondsLabel": "Seconds",
+        "minUnit": "min",
+        "secUnit": "s",
+        "start": "Start",
+        "cancel": "Cancel"
+      },
+      "running": {
+        "stop": "Stop timer",
+        "aria": "Shared timer: {{time}} remaining"
+      }
     },
     "vote": {
       "dialogLabel": "The vote has ended",

@@ -1,0 +1,76 @@
+<div class="wb-timercfg__backdrop" (click)="onClose()">
+  <div
+    class="wb-timercfg"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'whiteboard.timer.config.title' | transloco"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="wb-timercfg__header">
+      <h2 class="wb-timercfg__title">{{ 'whiteboard.timer.config.title' | transloco }}</h2>
+      <button
+        type="button"
+        class="wb-timercfg__close"
+        [attr.aria-label]="'whiteboard.timer.config.cancel' | transloco"
+        (click)="onClose()"
+      >
+        ×
+      </button>
+    </header>
+
+    <p class="wb-timercfg__hint">{{ 'whiteboard.timer.config.hint' | transloco }}</p>
+
+    <div class="wb-timercfg__presets" role="group" [attr.aria-label]="'whiteboard.timer.config.presetsLabel' | transloco">
+      @for (min of presets; track min; let first = $first) {
+        <button
+          type="button"
+          class="wb-timercfg__preset"
+          [attr.autofocus]="first ? '' : null"
+          (click)="startPreset(min)"
+        >
+          {{ 'whiteboard.timer.config.minutes' | transloco: { count: min } }}
+        </button>
+      }
+    </div>
+
+    <div class="wb-timercfg__custom">
+      <span class="wb-timercfg__custom-label">{{ 'whiteboard.timer.config.custom' | transloco }}</span>
+      <div class="wb-timercfg__custom-fields">
+        <label class="wb-timercfg__field">
+          <input
+            type="number"
+            min="0"
+            max="60"
+            class="wb-timercfg__input"
+            [value]="customMin()"
+            (input)="onCustomMinInput($event)"
+            [attr.aria-label]="'whiteboard.timer.config.minutesLabel' | transloco"
+          />
+          <span class="wb-timercfg__unit">{{ 'whiteboard.timer.config.minUnit' | transloco }}</span>
+        </label>
+        <span class="wb-timercfg__colon" aria-hidden="true">:</span>
+        <label class="wb-timercfg__field">
+          <input
+            type="number"
+            min="0"
+            max="59"
+            class="wb-timercfg__input"
+            [value]="customSec()"
+            (input)="onCustomSecInput($event)"
+            [attr.aria-label]="'whiteboard.timer.config.secondsLabel' | transloco"
+          />
+          <span class="wb-timercfg__unit">{{ 'whiteboard.timer.config.secUnit' | transloco }}</span>
+        </label>
+      </div>
+    </div>
+
+    <footer class="wb-timercfg__footer">
+      <button type="button" class="wb-timercfg__btn wb-timercfg__btn--ghost" (click)="onClose()">
+        {{ 'whiteboard.timer.config.cancel' | transloco }}
+      </button>
+      <button type="button" class="wb-timercfg__btn wb-timercfg__btn--primary" (click)="startCustom()">
+        {{ 'whiteboard.timer.config.start' | transloco }}
+      </button>
+    </footer>
+  </div>
+</div>

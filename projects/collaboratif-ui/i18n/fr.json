@@ -395,7 +395,24 @@
       "waiting": "En attente de la suite…",
       "actionLabel": "Action",
       "clickToClose": "Cliquez pour fermer",
-      "dismiss": "Fermer le minuteur"
+      "dismiss": "Fermer le minuteur",
+      "config": {
+        "title": "Démarrer un minuteur",
+        "hint": "Cadrez votre atelier en temps limité — le minuteur est partagé avec toute l'équipe.",
+        "presetsLabel": "Durées prédéfinies",
+        "minutes": "{{count}} min",
+        "custom": "Durée personnalisée",
+        "minutesLabel": "Minutes",
+        "secondsLabel": "Secondes",
+        "minUnit": "min",
+        "secUnit": "s",
+        "start": "Démarrer",
+        "cancel": "Annuler"
+      },
+      "running": {
+        "stop": "Arrêter le minuteur",
+        "aria": "Minuteur partagé : {{time}} restant"
+      }
     },
     "vote": {
       "dialogLabel": "Le vote est terminé",
