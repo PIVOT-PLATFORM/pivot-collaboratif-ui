@@ -1,0 +1,164 @@
+:host {
+  --selbar-size: 34px;
+
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none; // let the pill itself catch events, not its transparent hit-box
+}
+
+.wb-selbar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid var(--wb-border, #e6e4ef);
+  border-radius: var(--wb-radius-pill, 999px);
+  box-shadow: var(--wb-elev-3, 0 8px 24px rgba(20, 16, 41, 0.16));
+  font-family: var(--wb-font, inherit);
+  animation: wb-selbar-in var(--wb-dur-base, 160ms) var(--wb-ease-out, ease-out);
+}
+
+.wb-selbar__count {
+  padding: 0 8px 0 4px;
+  font-size: 13px;
+  font-weight: var(--wb-fw-medium, 500);
+  color: var(--wb-ink, #201a3b);
+  white-space: nowrap;
+}
+
+.wb-selbar__sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: var(--wb-border, #e6e4ef);
+}
+
+.wb-selbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--selbar-size);
+  height: var(--selbar-size);
+  padding: 0;
+  border: none;
+  border-radius: var(--wb-radius-control, 10px);
+  background: transparent;
+  color: var(--wb-ink-muted, #5b5470);
+  cursor: pointer;
+  transition:
+    background var(--wb-dur-fast, 100ms) var(--wb-ease-standard, ease),
+    color var(--wb-dur-fast, 100ms) var(--wb-ease-standard, ease);
+
+  &:hover:not(:disabled) {
+    background: var(--wb-accent-weak, #efe9ff);
+    color: var(--wb-accent, #7c5cff);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &--on {
+    background: var(--wb-accent, #7c5cff);
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: var(--wb-accent-hover, #6a49f2);
+      color: #fff;
+    }
+  }
+
+  &--danger {
+    color: var(--wb-danger, #e5484d);
+
+    &:hover:not(:disabled) {
+      background: var(--wb-danger-bg, #fdecee);
+      color: var(--wb-danger, #e5484d);
+    }
+  }
+}
+
+.wb-selbar__icon {
+  width: 18px;
+  height: 18px;
+}
+
+.wb-selbar__color-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.wb-selbar__swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(20, 16, 41, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.wb-selbar__palette {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--wb-border, #e6e4ef);
+  border-radius: var(--wb-radius-panel, 14px);
+  box-shadow: var(--wb-elev-3, 0 8px 24px rgba(20, 16, 41, 0.16));
+  animation: wb-selbar-in var(--wb-dur-fast, 100ms) var(--wb-ease-out, ease-out);
+}
+
+.wb-selbar__palette-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(20, 16, 41, 0.14);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform var(--wb-dur-fast, 100ms) var(--wb-ease-standard, ease);
+
+  &:hover {
+    transform: scale(1.15);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 2px;
+  }
+
+  &--on {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--wb-accent, #7c5cff);
+  }
+}
+
+@keyframes wb-selbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-selbar {
+    animation: none;
+  }
+}

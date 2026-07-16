@@ -4,7 +4,7 @@
 }
 
 .wb-connection__halo {
-  stroke: #6366f1;
+  stroke: var(--wb-accent);
   stroke-opacity: 0.25;
   stroke-linecap: round;
   pointer-events: none;
@@ -17,7 +17,7 @@
 
   &:focus-visible {
     outline: none;
-    stroke: #6366f1;
+    stroke: var(--wb-accent);
     stroke-opacity: 0.35;
   }
 }
@@ -35,13 +35,14 @@
 }
 
 .wb-connection__label-box {
-  fill: #ffffff;
+  fill: var(--wb-surface);
+  stroke: var(--wb-border);
 }
 
 .wb-connection__label-text {
-  font-size: 12px;
-  font-family: sans-serif;
-  fill: #374151;
+  font-size: var(--wb-text-sm);
+  font-family: var(--wb-font);
+  fill: var(--wb-ink-muted);
   user-select: none;
   pointer-events: none;
 }

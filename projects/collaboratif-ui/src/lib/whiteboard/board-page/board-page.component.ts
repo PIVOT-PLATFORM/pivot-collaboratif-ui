@@ -10,7 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { BoardStore } from '../../core/whiteboard/board.store';
 import { BoardService } from '../../core/whiteboard/board.service';
@@ -25,6 +25,7 @@ import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component'
 import { SharePanelComponent } from '../share-panel/share-panel.component';
 import { ActivitiesPanelComponent } from '../activities-panel/activities-panel.component';
 import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
+import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import type { Board } from '../../core/whiteboard/board.model';
 import type { Connection, ConnectionPatch } from '../model/board.types';
 import type { ToolMode } from '../model/tools';
@@ -61,6 +62,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     SharePanelComponent,
     ActivitiesPanelComponent,
     BoardSettingsModalComponent,
+    SelectionToolbarComponent,
   ],
   providers: [BoardStore, { provide: BoardTransport, useClass: StompBoardTransport }],
   templateUrl: './board-page.component.html',
@@ -69,6 +71,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
 export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly store = inject(BoardStore);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   protected readonly boardId = this.route.snapshot.paramMap.get('boardId') ?? '';
 
@@ -88,6 +91,24 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly highlightedGroup = signal<string | null>(null);
 
   protected readonly isOwner = computed(() => this.store.userRole() === 'OWNER');
+
+  /** Count of selected items (cards + connections) — drives the floating selection toolbar. */
+  protected readonly selectionCount = computed(() => this.store.selectedIds().size);
+  /** Colour shown on the selection toolbar's swatch — the first selected card's colour, or the
+   *  board's active colour when the selection holds no card (connections only). */
+  protected readonly selectionColor = computed(() => {
+    const ids = this.store.selectedIds();
+    return this.store.cards().find((c) => ids.has(c.id))?.color ?? this.color();
+  });
+  /** True when every selected *card* is locked — flips the toolbar's lock toggle to "unlock". */
+  protected readonly allSelectedLocked = computed(() => {
+    const ids = this.store.selectedIds();
+    if (ids.size === 0) {
+      return false;
+    }
+    const selectedCards = this.store.cards().filter((c) => ids.has(c.id));
+    return selectedCards.length > 0 && selectedCards.every((c) => c.locked);
+  });
 
   /**
    * The single selected connector, or `null` when the selection is empty, holds more than one
@@ -185,6 +206,14 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Returns to the whiteboard boards list (`/whiteboard`) — the header back affordance so the
+   * user no longer has to route through the app home to leave an open board.
+   */
+  protected goBack(): void {
+    void this.router.navigateByUrl('/whiteboard');
+  }
+
   protected openSettings(event: Event): void {
     this.settingsTriggerEl = event.currentTarget as HTMLElement;
     this.showSettings.set(true);
@@ -223,6 +252,16 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected onRecolorGroup(e: { groupId: string; color: string }): void {
     this.store.recolorGroup(e.groupId, e.color);
   }
+
+  /**
+   * Colour picked in the toolbar: recolour the current selection (post-it / shape / etc.) if any,
+   * and keep it as the default colour for the next created card. Without the `recolorSelected`
+   * call, picking a colour only affected future cards — an existing card could never be recoloured.
+   */
+  protected onColorChange(color: string): void {
+    this.color.set(color);
+    this.store.recolorSelected(color);
+  }
   protected onDissolveGroup(groupId: string): void {
     this.store.ungroupById(groupId);
   }
@@ -253,6 +292,19 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     } else if (mod && event.key.toLowerCase() === 'a') {
       event.preventDefault();
       this.store.selectCards(new Set(this.store.cards().map((c) => c.id)));
+    } else if (mod && event.key.toLowerCase() === 'c') {
+      if (this.store.selectedIds().size > 0) {
+        event.preventDefault();
+        this.store.copySelected();
+      }
+    } else if (mod && event.key.toLowerCase() === 'v') {
+      event.preventDefault();
+      this.store.pasteFromClipboard();
+    } else if (mod && event.key.toLowerCase() === 'd') {
+      if (this.store.selectedIds().size > 0) {
+        event.preventDefault();
+        this.store.duplicateSelected();
+      }
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
       if (this.store.selectedIds().size > 0) {
         event.preventDefault();

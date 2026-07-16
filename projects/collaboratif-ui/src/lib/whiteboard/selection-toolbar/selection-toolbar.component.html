@@ -1,0 +1,65 @@
+<div class="wb-selbar" role="toolbar" [attr.aria-label]="'whiteboard.selection.actions' | transloco">
+  <span class="wb-selbar__count">{{ countLabelKey() | transloco: { count: count() } }}</span>
+
+  @if (!readOnly()) {
+    <span class="wb-selbar__sep" aria-hidden="true"></span>
+
+    <div class="wb-selbar__color-wrap">
+      <button type="button" class="wb-selbar__btn wb-selbar__color-btn" (click)="togglePalette()"
+        [attr.aria-expanded]="paletteOpen()"
+        [attr.aria-label]="'whiteboard.selection.color' | transloco" [title]="'whiteboard.selection.color' | transloco">
+        <span class="wb-selbar__swatch" [style.background]="color()"></span>
+      </button>
+
+      @if (paletteOpen()) {
+        <div class="wb-selbar__palette" role="menu" [attr.aria-label]="'whiteboard.selection.color' | transloco">
+          @for (c of palette; track c) {
+            <button type="button" class="wb-selbar__palette-swatch" role="menuitemradio"
+              [class.wb-selbar__palette-swatch--on]="c === color()"
+              [attr.aria-checked]="c === color()"
+              [style.background]="c"
+              [attr.aria-label]="c"
+              [title]="c"
+              (click)="pickColor(c)"></button>
+          }
+        </div>
+      }
+    </div>
+
+    <button type="button" class="wb-selbar__btn" (click)="duplicate.emit()"
+      [attr.aria-label]="'whiteboard.selection.duplicate' | transloco" [title]="'whiteboard.selection.duplicate' | transloco">
+      <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+        <rect x="8" y="8" width="12" height="12" rx="2" stroke-width="2" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16V6a2 2 0 012-2h10" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 11v6M11 14h6" />
+      </svg>
+    </button>
+
+    <button type="button" class="wb-selbar__btn" [class.wb-selbar__btn--on]="allLocked()"
+      (click)="toggleLock.emit(!allLocked())"
+      [attr.aria-pressed]="allLocked()"
+      [attr.aria-label]="(allLocked() ? 'whiteboard.selection.unlock' : 'whiteboard.selection.lock') | transloco"
+      [title]="(allLocked() ? 'whiteboard.selection.unlock' : 'whiteboard.selection.lock') | transloco">
+      @if (allLocked()) {
+        <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+          <rect x="5" y="11" width="14" height="10" rx="2" stroke-width="2" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 018 0" />
+        </svg>
+      } @else {
+        <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+          <rect x="5" y="11" width="14" height="10" rx="2" stroke-width="2" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 014-4c1.86 0 3.43 1.27 3.87 3" />
+        </svg>
+      }
+    </button>
+  }
+
+  <span class="wb-selbar__sep" aria-hidden="true"></span>
+
+  <button type="button" class="wb-selbar__btn wb-selbar__btn--danger" (click)="remove.emit()"
+    [attr.aria-label]="'whiteboard.selection.delete' | transloco" [title]="'whiteboard.selection.delete' | transloco">
+    <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  </button>
+</div>

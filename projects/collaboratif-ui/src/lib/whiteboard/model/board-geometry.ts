@@ -69,21 +69,56 @@ export function unionRect(rects: Rect[]): Rect | null {
 
 export type EdgeSide = 'N' | 'S' | 'E' | 'W';
 
+/** The four cardinal edge sides, in a stable order (used to enumerate anchors). */
+export const CARDINAL_SIDES: readonly EdgeSide[] = ['N', 'E', 'S', 'W'];
+
+/** Midpoint of the given edge `side` of rect `r` — the connector attach point for that side. */
+export function edgeAnchorPoint(r: Rect, side: EdgeSide): { x: number; y: number } {
+  const cx = r.x + r.width / 2;
+  const cy = r.y + r.height / 2;
+  switch (side) {
+    case 'N':
+      return { x: cx, y: r.y };
+    case 'S':
+      return { x: cx, y: r.y + r.height };
+    case 'E':
+      return { x: r.x + r.width, y: cy };
+    case 'W':
+      return { x: r.x, y: cy };
+  }
+}
+
+/** Edge side of `r` whose midpoint is closest to point `p` (used for hover anchor snapping). */
+export function nearestEdgeSide(r: Rect, p: { x: number; y: number }): EdgeSide {
+  let best: EdgeSide = 'N';
+  let bestDist = Infinity;
+  for (const side of CARDINAL_SIDES) {
+    const a = edgeAnchorPoint(r, side);
+    const dist = (a.x - p.x) ** 2 + (a.y - p.y) ** 2;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = side;
+    }
+  }
+  return best;
+}
+
 /**
  * Picks the anchor point on `from`'s edge facing `to`'s center, plus the edge side.
- * Mirrors the N/S/E/W edge-anchoring used by connection routing.
+ *
+ * The direction is compared **relative to each half-extent** (`|dx| / (w/2)` vs `|dy| / (h/2)`),
+ * not on the raw deltas — exact parity with PouetPouet's `anchorSide` (`connection-line.tsx`).
+ * The Angular port previously compared raw `|dx| > |dy|`, which biased wide cards (the default
+ * 180×140 sticky is wider than tall) toward the E/W sides, so connectors rendered as horizontal
+ * bars even when the cards were stacked vertically. Normalising by the half-extent restores the
+ * geometry-faithful side choice.
  */
 export function edgeAnchor(from: Rect, to: Rect): { x: number; y: number; side: EdgeSide } {
   const fc = rectCenter(from);
   const tc = rectCenter(to);
   const dx = tc.x - fc.x;
   const dy = tc.y - fc.y;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return dx >= 0
-      ? { x: from.x + from.width, y: fc.y, side: 'E' }
-      : { x: from.x, y: fc.y, side: 'W' };
-  }
-  return dy >= 0
-    ? { x: fc.x, y: from.y + from.height, side: 'S' }
-    : { x: fc.x, y: from.y, side: 'N' };
+  const horiz = Math.abs(dx) / (from.width / 2 || 1) >= Math.abs(dy) / (from.height / 2 || 1);
+  const side: EdgeSide = horiz ? (dx >= 0 ? 'E' : 'W') : dy >= 0 ? 'S' : 'N';
+  return { ...edgeAnchorPoint(from, side), side };
 }

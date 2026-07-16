@@ -166,7 +166,8 @@ describe('BoardStore — US08.6.1 TEXT card lifecycle', () => {
     expect(store.cards().find((c) => c.id === 'card-1')?.posX).toBe(42);
     expect(store.cards().find((c) => c.id === 'card-1')?.posY).toBe(84);
 
-    // The wire emit is rAF-batched — nothing sent yet until the frame flushes.
+    // The wire emit is throttled (MOVE_EMIT_THROTTLE_MS, BUG J) — nothing sent synchronously;
+    // it flushes on the next macrotask (the first emit of a drag is scheduled with zero delay).
     expect(transport.emitted.some((e) => e.type === 'card:move')).toBe(false);
     await flushRaf();
     const moveCall = transport.lastEmit('card:move') as { id: string; posX: number; posY: number };

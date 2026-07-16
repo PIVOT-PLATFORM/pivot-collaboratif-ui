@@ -4,6 +4,16 @@
     "devHarnessNotice": "Harnais de développement — les features implémentées sont accessibles via leurs routes (ex. /whiteboard)."
   },
   "whiteboard": {
+    "selection": {
+      "actions": "Actions de sélection",
+      "count": "{{count}} sélectionné",
+      "countPlural": "{{count}} sélectionnés",
+      "color": "Couleur",
+      "duplicate": "Dupliquer (Ctrl+D)",
+      "lock": "Verrouiller",
+      "unlock": "Déverrouiller",
+      "delete": "Supprimer (Suppr)"
+    },
     "guard": {
       "accessDenied": "Vous n'avez pas accès à ce tableau"
     },
@@ -57,6 +67,7 @@
         }
       },
       "untitled": "Tableau sans titre",
+      "backToList": "Retour à la liste des tableaux",
       "reset": "Réinitialiser le tableau",
       "favorite": {
         "add": "Ajouter {{title}} aux favoris",
@@ -291,12 +302,19 @@
       "star": "Étoile",
       "draw": "Dessin libre",
       "table": "Tableau",
+      "frame": "Cadre",
       "link": "Relier des cartes",
       "colorGroup": "Couleurs",
       "pickColor": "Couleur {{color}}",
       "fillColorGroup": "Couleur de remplissage",
       "pickFillColor": "Remplissage {{color}}",
-      "noFill": "Aucun remplissage"
+      "noFill": "Aucun remplissage",
+      "collapse": "Replier la barre",
+      "expand": "Déplier la barre",
+      "shapes": "Formes",
+      "shapesMenu": "Choisir une forme",
+      "colorMenu": "Couleurs (trait et remplissage)",
+      "escapeHint": "Échap"
     },
     "card": {
       "editText": "Modifier le texte",

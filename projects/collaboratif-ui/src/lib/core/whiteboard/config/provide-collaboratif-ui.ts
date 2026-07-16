@@ -1,5 +1,10 @@
 import { EnvironmentProviders, makeEnvironmentProviders } from '@angular/core';
-import { COLLABORATIF_API_URL, COLLABORATIF_BEARER_TOKEN } from './tokens';
+import {
+  COLLABORATIF_API_URL,
+  COLLABORATIF_BEARER_TOKEN,
+  COLLABORATIF_CURRENT_USER,
+  type CollaboratifCurrentUser,
+} from './tokens';
 
 export interface CollaboratifUiConfig {
   apiUrl: string;
@@ -20,6 +25,12 @@ export interface CollaboratifUiConfig {
    * ```
    */
   bearerToken?: () => string | null;
+  /**
+   * Optional accessor for the current user's presence identity (display name + avatar) shown to
+   * other participants. Invoked lazily at each `board:join` (initial + reconnect). When omitted,
+   * the backend applies its own `"Anonymous"` fallback. See {@link COLLABORATIF_CURRENT_USER}.
+   */
+  currentUser?: () => CollaboratifCurrentUser;
 }
 
 /** Configures @pivot-platform/collaboratif-ui. Call this in the consuming app's providers array. */
@@ -28,6 +39,9 @@ export function provideCollaboratifUi(config: CollaboratifUiConfig): Environment
     { provide: COLLABORATIF_API_URL, useValue: config.apiUrl },
     ...(config.bearerToken
       ? [{ provide: COLLABORATIF_BEARER_TOKEN, useValue: config.bearerToken }]
+      : []),
+    ...(config.currentUser
+      ? [{ provide: COLLABORATIF_CURRENT_USER, useValue: config.currentUser }]
       : []),
   ]);
 }

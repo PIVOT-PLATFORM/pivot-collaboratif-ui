@@ -4,6 +4,16 @@
     "devHarnessNotice": "Development harness — implemented features are available via their routes (e.g. /whiteboard)."
   },
   "whiteboard": {
+    "selection": {
+      "actions": "Selection actions",
+      "count": "{{count}} selected",
+      "countPlural": "{{count}} selected",
+      "color": "Colour",
+      "duplicate": "Duplicate (Ctrl+D)",
+      "lock": "Lock",
+      "unlock": "Unlock",
+      "delete": "Delete (Del)"
+    },
     "guard": {
       "accessDenied": "You don't have access to this board"
     },
@@ -57,6 +67,7 @@
         }
       },
       "untitled": "Untitled board",
+      "backToList": "Back to board list",
       "reset": "Reset board",
       "favorite": {
         "add": "Add {{title}} to favorites",
@@ -291,12 +302,19 @@
       "star": "Star",
       "draw": "Freehand",
       "table": "Table",
+      "frame": "Frame",
       "link": "Link cards",
       "colorGroup": "Colours",
       "pickColor": "Colour {{color}}",
       "fillColorGroup": "Fill colour",
       "pickFillColor": "Fill {{color}}",
-      "noFill": "No fill"
+      "noFill": "No fill",
+      "collapse": "Collapse toolbar",
+      "expand": "Expand toolbar",
+      "shapes": "Shapes",
+      "shapesMenu": "Choose a shape",
+      "colorMenu": "Colours (stroke and fill)",
+      "escapeHint": "Esc"
     },
     "card": {
       "editText": "Edit text",

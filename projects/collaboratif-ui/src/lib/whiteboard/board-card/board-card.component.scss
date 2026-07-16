@@ -8,12 +8,17 @@
 // A11y (US08.6.1): visible keyboard-focus indicator for the card itself and its resize
 // handles — :focus-visible only (not :focus) so a pointer-driven select doesn't draw the ring.
 :host(:focus-visible) {
-  outline: 2px solid #2196f3;
+  outline: 2px solid var(--wb-focus);
   outline-offset: 2px;
 }
 
+// Apparition (§4) : opacity + scale depuis le point de dépôt, easing tokenisé.
+:host {
+  animation: wb-card-in var(--wb-dur-base) var(--wb-ease-out);
+}
+
 .wb-card__resize:focus-visible {
-  outline: 2px solid #2196f3;
+  outline: 2px solid var(--wb-focus);
   outline-offset: 1px;
 }
 
@@ -22,20 +27,43 @@
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+  border-radius: var(--wb-radius-card);
+  box-shadow: var(--wb-elev-1);
   overflow: hidden;
   outline: 2px solid transparent;
   outline-offset: 2px;
+  transition: box-shadow var(--wb-dur-fast) var(--wb-ease-standard);
 
   &--shape {
     box-shadow: none;
     background: transparent;
   }
+
+  // Multi-line inline edit (fix/card-multiline-text): the edit textarea auto-grows past the
+  // card's stored height (see BoardCardComponent.autosizeEditArea) — let it show in full while
+  // editing instead of clipping it, mirroring PouetPouet's expanding edit box.
+  &--editing {
+    overflow: visible;
+  }
+}
+
+// Micro-lift au survol (§3.2) — carte tactile.
+:host(:hover) .wb-card__body:not(.wb-card__body--shape) {
+  box-shadow: var(--wb-elev-2);
 }
 
 .wb-card--selected .wb-card__body {
-  box-shadow: 0 0 0 2px #2196f3;
+  box-shadow: var(--wb-halo-select);
+}
+
+@keyframes wb-card-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host { animation: none; }
+  .wb-card__body { transition: none; }
 }
 
 .wb-card--locked {
@@ -86,19 +114,19 @@
   width: 100%;
   height: 100%;
   border-collapse: collapse;
-  background: #ffffff;
-  font-size: 12px;
+  background: var(--wb-surface);
+  font-size: var(--wb-text-sm);
 
   th,
   td {
-    border: 1px solid #d0d0d0;
+    border: 1px solid var(--wb-border-strong);
     padding: 2px 6px;
     text-align: left;
   }
 
   th {
-    background: #f3f4f6;
-    font-weight: 600;
+    background: var(--wb-surface-sunken);
+    font-weight: var(--wb-fw-semibold);
   }
 
   th[tabindex],
@@ -107,7 +135,7 @@
     outline-offset: -2px;
 
     &:focus-visible {
-      outline: 2px solid #2196f3;
+      outline: 2px solid var(--wb-accent);
     }
   }
 }
@@ -116,11 +144,11 @@
   width: 100%;
   box-sizing: border-box;
   border: none;
-  outline: 2px solid #2196f3;
+  outline: 2px solid var(--wb-accent);
   outline-offset: -2px;
   padding: 1px 4px;
   font: inherit;
-  background: #ffffff;
+  background: var(--wb-surface);
 }
 
 .wb-card__link {
@@ -129,19 +157,24 @@
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  background: #ffffff;
+  background: var(--wb-surface);
   color: inherit;
   text-decoration: none;
   overflow: hidden;
+  transition: box-shadow var(--wb-dur-fast) var(--wb-ease-standard);
+
+  &:hover {
+    box-shadow: var(--wb-elev-2);
+  }
 
   &:focus-visible {
-    outline: 2px solid #2196f3;
+    outline: 2px solid var(--wb-focus);
     outline-offset: -2px;
   }
 
   &--no-preview {
     justify-content: center;
-    padding: 8px;
+    padding: var(--wb-space-2);
   }
 }
 
@@ -163,9 +196,9 @@
 }
 
 .wb-card__link-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #111827;
+  font-size: var(--wb-text-13);
+  font-weight: var(--wb-fw-semibold);
+  color: var(--wb-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -175,8 +208,8 @@
 }
 
 .wb-card__link-description {
-  font-size: 11px;
-  color: #4b5563;
+  font-size: var(--wb-text-xs);
+  color: var(--wb-ink-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -185,8 +218,8 @@
 }
 
 .wb-card__link-sitename {
-  font-size: 10px;
-  color: #9ca3af;
+  font-size: var(--wb-text-hint);
+  color: var(--wb-ink-faint);
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
@@ -205,12 +238,12 @@
 }
 
 .wb-card__chip {
-  font-size: 10px;
+  font-size: var(--wb-text-hint);
   padding: 1px 5px;
-  border-radius: 8px;
-  background: #eef2ff;
-  color: #3730a3;
-  border: 1px solid #c7d2fe;
+  border-radius: var(--wb-radius-chip);
+  background: var(--wb-accent-weak);
+  color: var(--wb-accent-active);
+  border: 1px solid var(--wb-accent-weak-2);
 }
 
 .wb-card__lock {
@@ -218,16 +251,19 @@
   top: -8px;
   right: -8px;
   font-size: 12px;
+  color: var(--wb-ink-muted);
 }
 
+// Badge éditeur distant. TODO(hors-périmètre) : lier le fond à la couleur du participant
+// (`--wb-user-*`) — nécessite un binding TS ; encre marque en attendant (§3.2).
 .wb-card__remote-editor {
   position: absolute;
   top: -18px;
   left: 0;
-  font-size: 10px;
+  font-size: var(--wb-text-hint);
   padding: 1px 6px;
-  border-radius: 6px;
-  background: #111827;
+  border-radius: var(--wb-radius-chip);
+  background: var(--wb-ink);
   color: #ffffff;
   white-space: nowrap;
 }
@@ -236,8 +272,8 @@
   position: absolute;
   width: 10px;
   height: 10px;
-  background: #ffffff;
-  border: 1px solid #2196f3;
+  background: var(--wb-surface);
+  border: 1.5px solid var(--wb-accent);
   border-radius: 2px;
   box-sizing: border-box;
 
@@ -255,13 +291,13 @@
   position: absolute;
   width: 12px;
   height: 12px;
-  background: #2196f3;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
+  background: var(--wb-accent);
+  border: 2px solid var(--wb-surface);
+  border-radius: var(--wb-radius-pill);
   box-sizing: border-box;
   cursor: crosshair;
   opacity: 0;
-  transition: opacity 0.1s;
+  transition: opacity var(--wb-dur-fast);
 
   &--n { top: -6px; left: calc(50% - 6px); }
   &--e { right: -6px; top: calc(50% - 6px); }

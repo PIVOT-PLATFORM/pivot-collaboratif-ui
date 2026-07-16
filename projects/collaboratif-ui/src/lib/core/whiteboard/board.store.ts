@@ -2,11 +2,16 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom, timeout } from 'rxjs';
-import { COLLABORATIF_API_URL } from './config/tokens';
+import { COLLABORATIF_API_URL, COLLABORATIF_CURRENT_USER } from './config/tokens';
 import { BoardTransport } from './board-transport';
 import { ToastService } from '../toast/toast.service';
 import { DEFAULT_CARD_COLOR } from '../../whiteboard/model/colors';
-import { HISTORY_LIMIT, CURSOR_THROTTLE_MS } from '../../whiteboard/model/board-constants';
+import {
+  HISTORY_LIMIT,
+  CURSOR_THROTTLE_MS,
+  DEFAULT_CARD_W,
+  DEFAULT_CARD_H,
+} from '../../whiteboard/model/board-constants';
 import type {
   Card,
   Connection,
@@ -46,6 +51,48 @@ type CardBox = { posX: number; posY: number; width: number; height: number };
 const LOAD_BOARD_TIMEOUT_MS = 8_000;
 
 /**
+ * Safety window (F1) for an optimistically-rendered card to receive its authoritative
+ * `card:created` echo. If none arrives within this delay (dropped message, backend error),
+ * the provisional card is reaped so a failed creation cannot linger as a ghost sticky. Kept
+ * generous — reconciliation is the normal, near-instant path; this is only a last-resort net.
+ */
+const OPTIMISTIC_CARD_TIMEOUT_MS = 10_000;
+
+/**
+ * Grace window (BUG 4 / BUG J) during which a card just released from a local drag/resize keeps
+ * its optimistic geometry authoritative: inbound `card:moved`/`card:resized` echoes and room-wide
+ * `board:state` snapshots for that card are ignored until it elapses. Covers the "snaps back
+ * after drop" symptom — a late, stale echo of an earlier throttled position (or a `board:state`
+ * broadcast a joining participant triggers) arriving just after the pointer is released must not
+ * overwrite the final position the user let go at.
+ *
+ * Sized to outlast a full rate-limit recovery cycle (BUG J): a fast drag that momentarily
+ * exceeds the backend's 30 SEND/s cap can force-close the session (250 ms close grace), which the
+ * client rejoins after a {@code reconnectDelay} of 1000 ms; the ensuing room-wide `board:state`
+ * then carries the server's last *stored* (stale, throttled) position and would snap the card
+ * back. 2000 ms comfortably covers 250 ms + 1000 ms + the rejoin/broadcast round trip so the
+ * front position the user released at always wins. The {@link MOVE_EMIT_THROTTLE_MS} cap makes
+ * that force-close unlikely in the first place; this window is the belt-and-suspenders guarantee.
+ */
+const LOCAL_CONTROL_GRACE_MS = 2000;
+
+/**
+ * Minimum interval between `card:move` broadcasts during a drag (BUG J). The optimistic position
+ * is applied to the local `cards` signal on every pointer move (smooth for the dragger); only the
+ * *network* emit is throttled. Previously a per-frame `requestAnimationFrame` flush emitted ~60
+ * SEND/s — on its own above the backend's 30 SEND/s cap, so a sustained fast drag tripped the
+ * three-consecutive-violation force-close. 50 ms caps it at ~20/s, under the limit. The final drop
+ * position is never throttled — {@link BoardStore.commitDragCard} flushes it immediately.
+ */
+const MOVE_EMIT_THROTTLE_MS = 50;
+
+/** localStorage key mirroring the in-memory clipboard so copy/paste survives a board switch/reload. */
+const CLIPBOARD_STORAGE_KEY = 'pivot-wb-clipboard';
+
+/** Canvas-units offset added per successive paste so cards cascade (don't stack exactly). */
+const PASTE_OFFSET_STEP = 24;
+
+/**
  * Structured whiteboard state machine — the Angular port of the PouetPouet `useBoard`
  * hook (`apps/web/src/hooks/useBoard.ts`). Owns all board domain state (cards,
  * connections, frames, fields, votes, timer, presence), a 30-deep undo/redo history,
@@ -65,6 +112,7 @@ export class BoardStore {
   private readonly transport = inject(BoardTransport);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
+  private readonly currentUser = inject(COLLABORATIF_CURRENT_USER);
 
   // ── State signals ──────────────────────────────────────────────────────────
   readonly board = signal<BoardDetail | null>(null);
@@ -87,6 +135,13 @@ export class BoardStore {
 
   readonly isReadonly = computed(() => this.userRole() === 'VIEWER');
 
+  /** Cards copied via {@link copySelected}, portable across boards (also mirrored to localStorage). */
+  readonly clipboard = signal<ClipboardCard[]>([]);
+  /** True when the clipboard holds at least one card — gates the paste affordance. */
+  readonly canPaste = computed(() => this.clipboard().length > 0);
+  /** Incremental offset so repeated pastes of the same clipboard cascade instead of stacking. */
+  private pasteOffset = 0;
+
   private readonly historyVersion = signal(0);
   readonly canUndo = computed(() => (this.historyVersion(), this.undoStack.length > 0));
   readonly canRedo = computed(() => (this.historyVersion(), this.redoStack.length > 0));
@@ -99,6 +154,8 @@ export class BoardStore {
   private boardId = '';
   private readonly unsubscribers: Array<() => void> = [];
   private readonly pendingLocalTags = new Set<string>();
+  /** Per-clientTag reaper timers for optimistically-rendered cards awaiting their echo (F1). */
+  private readonly optimisticCardTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** Id of a freshly self-created card that should open in edit mode (one-shot). */
   readonly autoEditCardId = signal<string | null>(null);
   private readonly pendingCardHistory: Array<(card: Card) => void> = [];
@@ -107,7 +164,7 @@ export class BoardStore {
   private readonly pendingGroupHistory: Array<(groupId: string) => void> = [];
 
   private cardDragStart: Map<string, { posX: number; posY: number }> | null = null;
-  private readonly moveEmit = { raf: null as number | null, pending: new Map<string, { posX: number; posY: number }>() };
+  private readonly moveEmit = { timer: null as ReturnType<typeof setTimeout> | null, lastTs: 0, pending: new Map<string, { posX: number; posY: number }>() };
   private cardResizeStart: { id: string; posX: number; posY: number; width: number; height: number } | null = null;
   private selectionResizeStart: Map<string, CardBox> | null = null;
   private selResizeEmitTs = 0;
@@ -118,6 +175,11 @@ export class BoardStore {
   } | null = null;
   private frameResizeStart: { id: string; posX: number; posY: number; width: number; height: number } | null = null;
   private cursorThrottleTs = 0;
+  /** Card ids under active local drag/resize — their optimistic geometry is authoritative, so
+   *  inbound geometry echoes and `board:state` snapshots for them are ignored (BUG 4). */
+  private readonly activeLocalCards = new Set<string>();
+  /** Post-release grace timers per card id (see {@link LOCAL_CONTROL_GRACE_MS}). */
+  private readonly localControlGraceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────────
   /** Loads the board over REST and opens the realtime room. Call once from the container. */
@@ -128,17 +190,44 @@ export class BoardStore {
     void this.loadVote('current', this.activeVoteSession);
     void this.loadVote('last', this.lastVoteSession);
     this.transport.connect(boardId);
-    this.transport.emit('board:join', boardId);
-    this.unsubscribers.push(this.transport.onReconnect(() => this.transport.emit('board:join', boardId)));
+    // F3 — announce our presence identity on join so other participants see our real name/avatar
+    // (the backend defaults an empty `displayName` to "Anonymous"). Re-sent verbatim on every
+    // reconnect. The board is scoped by the destination URL, so it is not part of this payload.
+    this.transport.emit('board:join', this.buildJoinPayload());
+    this.unsubscribers.push(
+      this.transport.onReconnect(() => this.transport.emit('board:join', this.buildJoinPayload())),
+    );
     this.registerHandlers();
+  }
+
+  /**
+   * Builds the `board:join` presence payload from {@link COLLABORATIF_CURRENT_USER} (F3). A field
+   * is included only when known: an unknown `displayName`/`avatarUrl` is omitted entirely so the
+   * backend applies its own fallback rather than persisting a `null`.
+   */
+  private buildJoinPayload(): { displayName?: string; avatarUrl?: string } {
+    const user = this.currentUser();
+    const payload: { displayName?: string; avatarUrl?: string } = {};
+    if (user.displayName != null && user.displayName !== '') {
+      payload.displayName = user.displayName;
+    }
+    if (user.avatarUrl != null && user.avatarUrl !== '') {
+      payload.avatarUrl = user.avatarUrl;
+    }
+    return payload;
   }
 
   /** Leaves the room and tears down subscriptions. Call from the container's ngOnDestroy. */
   destroy(): void {
-    if (this.moveEmit.raf != null) {
-      cancelAnimationFrame(this.moveEmit.raf);
-      this.moveEmit.raf = null;
+    if (this.moveEmit.timer != null) {
+      clearTimeout(this.moveEmit.timer);
+      this.moveEmit.timer = null;
     }
+    this.optimisticCardTimers.forEach((t) => clearTimeout(t));
+    this.optimisticCardTimers.clear();
+    this.localControlGraceTimers.forEach((t) => clearTimeout(t));
+    this.localControlGraceTimers.clear();
+    this.activeLocalCards.clear();
     this.transport.emit('board:leave', this.boardId);
     this.unsubscribers.forEach((u) => u());
     this.unsubscribers.length = 0;
@@ -224,7 +313,7 @@ export class BoardStore {
     this.on<{ cards: Card[]; connections: Connection[]; frames: Frame[]; fields: BoardField[]; role?: BoardRole }>(
       'board:state',
       ({ cards, connections, frames, fields, role }) => {
-        this.cards.set(cards);
+        this.cards.set(this.mergeBoardStateCards(cards));
         this.connections.set(connections);
         this.frames.set(frames);
         this.fields.set(fields);
@@ -343,12 +432,35 @@ export class BoardStore {
     );
 
     this.on<Card & { clientTag?: string }>('card:created', (payload) => {
-      const { clientTag, ...card } = payload;
-      if (clientTag && this.pendingLocalTags.delete(clientTag)) {
-        this.autoEditCardId.set(card.id);
+      const { clientTag, ...rest } = payload;
+      const card: Card = { ...(rest as Card), fieldValues: (rest as Card).fieldValues ?? [] };
+      // A tag we're still waiting on ⇒ this is the authoritative echo of a card WE created
+      // optimistically (F1). Reconcile the provisional entry (keyed by clientTag) in place
+      // rather than appending a duplicate, and carry the auto-edit flag from the temporary id
+      // over to the real one so the sticky stays in edit mode across the swap.
+      const isOwnOptimistic = !!clientTag && this.pendingLocalTags.delete(clientTag);
+      if (isOwnOptimistic && clientTag) {
+        this.clearOptimisticTimer(clientTag);
+        if (this.autoEditCardId() === clientTag) {
+          this.autoEditCardId.set(card.id);
+        }
       }
-      this.pendingCardHistory.shift()?.(card as Card);
-      this.cards.update((prev) => [...prev, { ...(card as Card), fieldValues: [] }]);
+      this.pendingCardHistory.shift()?.(card);
+      this.cards.update((prev) => {
+        if (isOwnOptimistic && clientTag) {
+          const idx = prev.findIndex((c) => c.id === clientTag);
+          if (idx !== -1) {
+            const next = [...prev];
+            // BUG A — carry the provisional card's stable `key` (the clientTag) onto the server
+            // card, whose payload has none, so the canvas trackBy sees no identity change and the
+            // board-card is reconciled in place rather than re-mounted (preserves a live edit).
+            next[idx] = { ...card, key: prev[idx].key ?? clientTag };
+            return next;
+          }
+        }
+        // Another participant's card, or an already-reaped optimistic one: append (deduped).
+        return prev.some((c) => c.id === card.id) ? prev : [...prev, card];
+      });
     });
     // Sender exclusion (fix/EN08.4): senderSessionId is this transport's own opaque connection
     // id, echoed back verbatim by the backend (never persisted server-side, see
@@ -362,11 +474,19 @@ export class BoardStore {
       if (senderSessionId && senderSessionId === this.transport.getSessionId()) {
         return;
       }
+      // A card the local user is dragging (or just released, within its grace window) keeps its
+      // authoritative optimistic position — a stale echo must never snap it back (BUG 4c).
+      if (this.isLocallyControlled(card.id)) {
+        return;
+      }
       this.cards.update((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...card } : c)));
     });
     this.on<Card & { senderSessionId?: string }>('card:resized', (payload) => {
       const { senderSessionId, ...card } = payload;
       if (senderSessionId && senderSessionId === this.transport.getSessionId()) {
+        return;
+      }
+      if (this.isLocallyControlled(card.id)) {
         return;
       }
       this.cards.update((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...card } : c)));
@@ -513,6 +633,16 @@ export class BoardStore {
     }
     return false;
   }
+  /**
+   * Requests inline edit mode for an existing card by id. Reuses the auto-edit flag the card's
+   * effect reacts to (→ `startEdit`); the flag is reset to null by `consumeAutoEdit` as soon as
+   * editing begins, so it re-arms for a subsequent double-click. This is the double-click path
+   * when the DOM `dblclick` never reaches the card because the surface captured the pointer
+   * (see `StructuredCanvasComponent.onDoubleClick`).
+   */
+  requestEdit(cardId: string): void {
+    this.autoEditCardId.set(cardId);
+  }
   notifyEditing(cardId: string, editing: boolean): void {
     this.transport.emit('card:editing', { boardId: this.boardId, cardId, editing });
   }
@@ -547,11 +677,134 @@ export class BoardStore {
 
     const clientTag = crypto.randomUUID();
     this.pendingLocalTags.add(clientTag);
+
+    // F1 — optimistic render: insert a provisional card immediately (keyed by clientTag as its
+    // temporary id) so the sticky appears without waiting for the server round trip, mirroring
+    // the fluidity of the already-optimistic move/resize paths. The matching `card:created`
+    // echo replaces this entry in place (see registerHandlers); a failed/dropped create is
+    // reaped by the safety timeout below so no ghost card lingers.
+    const provisional: Card = {
+      id: clientTag,
+      // BUG A — stable identity for the canvas `@for` trackBy. Preserved verbatim when the
+      // authoritative `card:created` echo swaps `id` from this clientTag to the server uuid, so
+      // the board-card is never destroyed and re-mounted mid-edit (which would drop the in-flight
+      // textarea content and re-trigger auto-edit).
+      key: clientTag,
+      boardId: this.boardId,
+      type: emitParams.type,
+      content: emitParams.content,
+      meta: null,
+      posX,
+      posY,
+      width: width ?? DEFAULT_CARD_W,
+      height: height ?? DEFAULT_CARD_H,
+      color: cardColor,
+      groupId: null,
+      groupColor: null,
+      locked: false,
+      layer: 1,
+      fieldValues: [],
+    };
+    this.cards.update((prev) => [...prev, provisional]);
+    // Open the freshly created sticky in edit mode right away; reconciliation carries this flag
+    // over to the real server id (see the `card:created` handler).
+    this.autoEditCardId.set(clientTag);
+    this.optimisticCardTimers.set(
+      clientTag,
+      setTimeout(() => this.reapOptimisticCard(clientTag), OPTIMISTIC_CARD_TIMEOUT_MS),
+    );
+
     this.transport.emit('card:create', { ...emitParams, clientTag });
   }
 
+  /** Clears (and forgets) the optimistic reaper timer for a clientTag, if any (F1). */
+  private clearOptimisticTimer(clientTag: string): void {
+    const timer = this.optimisticCardTimers.get(clientTag);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      this.optimisticCardTimers.delete(clientTag);
+    }
+  }
+
+  /**
+   * Safety net (F1): drops a provisional card whose authoritative `card:created` echo never
+   * arrived within {@link OPTIMISTIC_CARD_TIMEOUT_MS}. No-op if the tag was already reconciled.
+   */
+  private reapOptimisticCard(clientTag: string): void {
+    this.optimisticCardTimers.delete(clientTag);
+    if (!this.pendingLocalTags.delete(clientTag)) {
+      return;
+    }
+    this.cards.update((prev) => prev.filter((c) => c.id !== clientTag));
+    if (this.autoEditCardId() === clientTag) {
+      this.autoEditCardId.set(null);
+    }
+  }
+
+  // ── Local interaction authority (BUG 4: no snap-back / no disappear) ─────────
+  /** True while `id` is under active local drag/resize or within its post-release grace. */
+  private isLocallyControlled(id: string): boolean {
+    return this.activeLocalCards.has(id) || this.localControlGraceTimers.has(id);
+  }
+
+  /** Marks card ids as locally controlled (drag/resize start), cancelling any pending grace. */
+  private markLocalControl(ids: Iterable<string>): void {
+    for (const id of ids) {
+      this.activeLocalCards.add(id);
+      const grace = this.localControlGraceTimers.get(id);
+      if (grace !== undefined) {
+        clearTimeout(grace);
+        this.localControlGraceTimers.delete(id);
+      }
+    }
+  }
+
+  /** Releases active control (drag/resize commit) into a short grace window (see
+   *  {@link LOCAL_CONTROL_GRACE_MS}) so a late, stale echo cannot revert the released card. */
+  private releaseLocalControl(ids: Iterable<string>): void {
+    for (const id of ids) {
+      if (!this.activeLocalCards.delete(id)) {
+        continue;
+      }
+      const existing = this.localControlGraceTimers.get(id);
+      if (existing !== undefined) {
+        clearTimeout(existing);
+      }
+      this.localControlGraceTimers.set(
+        id,
+        setTimeout(() => this.localControlGraceTimers.delete(id), LOCAL_CONTROL_GRACE_MS),
+      );
+    }
+  }
+
+  /**
+   * Reconciles a room-wide `board:state` snapshot against local state (BUG 4). The backend
+   * re-broadcasts `board:state` to the whole room on every participant JOIN (not just to the
+   * joiner), so a blind `cards.set(snapshot)` would (a) drop a card we created optimistically
+   * that the snapshot predates — "cards disappear randomly" — and (b) yank a card we are
+   * actively dragging back to its server position. This merge keeps our optimistic geometry for
+   * locally-controlled cards and re-appends still-pending provisional cards the snapshot lacks.
+   */
+  private mergeBoardStateCards(serverCards: Card[]): Card[] {
+    const currentById = new Map(this.cards().map((c) => [c.id, c]));
+    const merged = serverCards.map((sc) => {
+      const local = currentById.get(sc.id);
+      return local && this.isLocallyControlled(sc.id)
+        ? { ...sc, posX: local.posX, posY: local.posY, width: local.width, height: local.height }
+        : sc;
+    });
+    const serverIds = new Set(serverCards.map((c) => c.id));
+    for (const c of this.cards()) {
+      if (this.pendingLocalTags.has(c.id) && !serverIds.has(c.id)) {
+        merged.push(c);
+      }
+    }
+    return merged;
+  }
+
   private flushMoveEmits(): void {
-    this.moveEmit.raf = null;
+    this.moveEmit.timer = null;
+    this.moveEmit.lastTs = Date.now();
     const pending = this.moveEmit.pending;
     if (pending.size === 0) {
       return;
@@ -560,10 +813,11 @@ export class BoardStore {
     pending.clear();
   }
   private scheduleMoveFlush(): void {
-    if (this.moveEmit.raf != null) {
+    if (this.moveEmit.timer != null) {
       return;
     }
-    this.moveEmit.raf = requestAnimationFrame(() => this.flushMoveEmits());
+    const delay = Math.max(0, MOVE_EMIT_THROTTLE_MS - (Date.now() - this.moveEmit.lastTs));
+    this.moveEmit.timer = setTimeout(() => this.flushMoveEmits(), delay);
   }
 
   moveCard(id: string, posX: number, posY: number): void {
@@ -650,12 +904,13 @@ export class BoardStore {
         return c ? ([[cid, { posX: c.posX, posY: c.posY }]] as [string, { posX: number; posY: number }][]) : [];
       }),
     );
+    this.markLocalControl(this.cardDragStart.keys());
   }
 
   commitDragCard(): void {
-    if (this.moveEmit.raf != null) {
-      cancelAnimationFrame(this.moveEmit.raf);
-      this.moveEmit.raf = null;
+    if (this.moveEmit.timer != null) {
+      clearTimeout(this.moveEmit.timer);
+      this.moveEmit.timer = null;
     }
     this.flushMoveEmits();
 
@@ -664,6 +919,7 @@ export class BoardStore {
     if (!starts) {
       return;
     }
+    this.releaseLocalControl(starts.keys());
     const cards = this.cards();
     const ends = new Map<string, { posX: number; posY: number }>();
     starts.forEach((_, cid) => {
@@ -708,6 +964,7 @@ export class BoardStore {
       return;
     }
     this.cardResizeStart = { id, posX: card.posX, posY: card.posY, width: card.width, height: card.height };
+    this.markLocalControl([id]);
   }
 
   commitResizeCard(id: string): void {
@@ -716,6 +973,7 @@ export class BoardStore {
     if (!start || start.id !== id) {
       return;
     }
+    this.releaseLocalControl([id]);
     const card = this.cards().find((c) => c.id === id);
     if (!card) {
       return;
@@ -1633,6 +1891,80 @@ export class BoardStore {
           }),
       });
     });
+  }
+
+  /**
+   * Copies the currently selected cards to the clipboard (in-memory + localStorage mirror).
+   * Connections and frames are ignored — only cards are portable. Returns the number of cards
+   * copied (0 when the selection holds no card), so callers can surface a toast/label.
+   */
+  copySelected(): number {
+    const selected = this.selectedIds();
+    if (selected.size === 0) {
+      return 0;
+    }
+    const clip: ClipboardCard[] = this.cards()
+      .filter((c) => selected.has(c.id))
+      .map((c) => ({
+        type: c.type,
+        content: c.content,
+        color: c.color,
+        posX: c.posX,
+        posY: c.posY,
+        width: c.width,
+        height: c.height,
+        layer: c.layer ?? 1,
+        groupId: c.groupId,
+        groupColor: c.groupColor,
+      }));
+    if (clip.length === 0) {
+      return 0;
+    }
+    this.clipboard.set(clip);
+    this.pasteOffset = 0;
+    try {
+      localStorage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify(clip));
+    } catch {
+      // Quota exceeded or storage denied (private mode) — the in-memory clipboard still works.
+    }
+    return clip.length;
+  }
+
+  /**
+   * Pastes the clipboard cards onto the board, cascading each successive paste by
+   * {@link PASTE_OFFSET_STEP} so they don't stack exactly. Falls back to the localStorage mirror
+   * when the in-memory clipboard is empty (e.g. after a board switch). No-op when both are empty.
+   */
+  pasteFromClipboard(): void {
+    let clip = this.clipboard();
+    if (clip.length === 0) {
+      try {
+        const raw = localStorage.getItem(CLIPBOARD_STORAGE_KEY);
+        if (raw) {
+          clip = JSON.parse(raw) as ClipboardCard[];
+          this.clipboard.set(clip);
+        }
+      } catch {
+        // Malformed/absent mirror — nothing to paste.
+      }
+    }
+    if (clip.length === 0) {
+      return;
+    }
+    const minX = Math.min(...clip.map((c) => c.posX));
+    const minY = Math.min(...clip.map((c) => c.posY));
+    const maxX = Math.max(...clip.map((c) => c.posX + c.width));
+    const maxY = Math.max(...clip.map((c) => c.posY + c.height));
+    this.pasteOffset += PASTE_OFFSET_STEP;
+    this.pasteCards(clip, (minX + maxX) / 2 + this.pasteOffset, (minY + maxY) / 2 + this.pasteOffset);
+  }
+
+  /** Copies the current selection and immediately pastes it, offset — the Ctrl+D convenience path. */
+  duplicateSelected(): void {
+    if (this.copySelected() === 0) {
+      return;
+    }
+    this.pasteFromClipboard();
   }
 
   // ── Cursor ─────────────────────────────────────────────────────────────────

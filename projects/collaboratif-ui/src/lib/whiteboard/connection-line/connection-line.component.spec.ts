@@ -249,4 +249,29 @@ describe('ConnectionLineComponent (US08.7.1)', () => {
 
     expect(fixture.nativeElement.querySelector('.wb-connection__halo')).not.toBeNull();
   });
+
+  // ── Pinned endpoint anchors (ITEM C — user-facing side override) ────────────────
+
+  it('pins the start point to fromAnchor when set, instead of the centre-facing side', () => {
+    // FROM_RECT is {0,0,192,128}; its N-edge midpoint is (96,0). Without the override the side
+    // facing TO_RECT (down-right) would be E/S, not N.
+    host.connection.set(makeConnection({ shape: 'straight', fromAnchor: 'N' }));
+    fixture.detectChanges();
+    expect(linePath().getAttribute('d')).toContain('M96,0 ');
+  });
+
+  it('pins the end point to toAnchor when set', () => {
+    // TO_RECT is {400,300,192,128}; its W-edge midpoint is (400,364).
+    host.connection.set(makeConnection({ shape: 'straight', toAnchor: 'W' }));
+    fixture.detectChanges();
+    expect(linePath().getAttribute('d')).toContain('L400,364');
+  });
+
+  it('falls back to the centre-facing side when the anchor override is null (backward compat)', () => {
+    host.connection.set(makeConnection({ shape: 'straight', fromAnchor: null, toAnchor: null }));
+    fixture.detectChanges();
+    // TO is down-right of FROM → from anchors on E or S (never the N/W far edges).
+    const d = linePath().getAttribute('d') ?? '';
+    expect(d.startsWith('M96,0 ')).toBe(false);
+  });
 });

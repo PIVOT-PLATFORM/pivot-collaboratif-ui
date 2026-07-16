@@ -22,6 +22,9 @@ export const whiteboardRoutes: Routes = [
     // `/whiteboard`, US08.3.2b AC5) — it no longer blocks the canvas from rendering while
     // that check is in flight.
     path: ':boardId',
+    // Full-bleed canvas: the shell drops its content padding / max-width for this route so the
+    // board fills the viewport (read by pivot-ui's ShellComponent, and the local dev harness).
+    data: { fullBleed: true },
     loadComponent: () => import('./board-page/board-page.component').then(m => m.BoardPageComponent),
   },
 ];

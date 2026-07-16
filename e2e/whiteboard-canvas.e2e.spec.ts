@@ -35,11 +35,15 @@ test.describe('Whiteboard structured board — happy path', () => {
     // The floating tool palette renders (role="toolbar").
     await expect(page.getByRole('toolbar')).toBeVisible();
 
-    // Selecting a tool flips its pressed state — exercises the real toolbar → canvas tool wiring.
-    const rectangle = page.getByRole('button', { name: 'Rectangle' });
+    // Shapes live in a submenu since the toolbar refonte (PouetPouet port): open "Formes",
+    // pick Rectangle, and assert its checked state — exercises the real toolbar → canvas wiring.
+    const shapes = page.getByRole('button', { name: 'Formes' });
+    await expect(shapes).toBeVisible();
+    await shapes.click();
+    const rectangle = page.getByRole('menuitemradio', { name: 'Rectangle' });
     await expect(rectangle).toBeVisible();
     await rectangle.click();
-    await expect(rectangle).toHaveAttribute('aria-pressed', 'true');
+    await expect(rectangle).toHaveAttribute('aria-checked', 'true');
 
     // Undo starts disabled (empty history) — a stable, backend-independent signal.
     await expect(page.getByRole('button', { name: 'Annuler (Ctrl+Z)' })).toBeDisabled();

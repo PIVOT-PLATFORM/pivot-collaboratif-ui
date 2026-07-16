@@ -276,6 +276,111 @@ describe('BoardCardComponent — US08.6.1 TEXT card', () => {
     expect(emitted).toBe('edited');
   });
 
+  // ── Multi-line support (fix/card-multiline-text) ────────────────────────────────
+
+  it('a multi-line TEXT value is preserved end-to-end through commit (Entrée = nouvelle ligne)', async () => {
+    await create({ card: makeTextCard({ content: 'original' }) });
+    fixture.nativeElement.querySelector('.wb-card__body').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    fixture.detectChanges();
+
+    let emitted: string | undefined;
+    fixture.componentInstance.contentCommit.subscribe((v: string) => (emitted = v));
+
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit') as HTMLTextAreaElement;
+    textarea.value = 'first line\nsecond line';
+    textarea.dispatchEvent(new Event('input'));
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(emitted).toContain('first line\nsecond line');
+  });
+
+  it('renders multi-line TEXT content with preserved line breaks (white-space: pre-wrap)', async () => {
+    await create({ card: makeTextCard({ content: 'first line\nsecond line' }) });
+    const text = fixture.nativeElement.querySelector('.wb-card__text') as HTMLElement;
+    expect(text.textContent).toBe('first line\nsecond line');
+  });
+
+  it('pressing Enter in the TEXT edit textarea does not commit or exit edit mode', async () => {
+    await create({ card: makeTextCard({ content: 'original' }) });
+    fixture.nativeElement.querySelector('.wb-card__body').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    fixture.detectChanges();
+
+    let emitted = false;
+    fixture.componentInstance.contentCommit.subscribe(() => (emitted = true));
+
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit') as HTMLTextAreaElement;
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    textarea.dispatchEvent(event);
+
+    expect(fixture.componentInstance['editing']()).toBe(true);
+    expect(event.defaultPrevented).toBe(false);
+    expect(emitted).toBe(false);
+  });
+
+  // ── Auto-grow persistence (polish/card-autogrow-anchor, ITEM I) ──────────────────
+  // jsdom performs no layout, so `scrollHeight` is stubbed to simulate the measured content
+  // height of the (autosized) edit textarea at commit time.
+
+  function stubScrollHeight(el: HTMLElement, value: number): void {
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, get: () => value });
+  }
+
+  it('emits heightGrow with the measured content height when committed text overflows the card', async () => {
+    // Card height 128; the committed multi-line text needs 260px → the card must grow to fit.
+    await create({ card: makeTextCard({ content: 'short', height: 128 }) });
+    fixture.nativeElement.querySelector('.wb-card__body').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    fixture.detectChanges();
+
+    let grown: number | undefined;
+    fixture.componentInstance.heightGrow.subscribe((h: number) => (grown = h));
+
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit') as HTMLTextAreaElement;
+    textarea.value = 'a\nvery\ntall\nmulti\nline\nnote';
+    textarea.dispatchEvent(new Event('input'));
+    stubScrollHeight(textarea, 260);
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(grown).toBe(260);
+  });
+
+  it('rounds a fractional measured height up before emitting heightGrow', async () => {
+    await create({ card: makeTextCard({ content: 'short', height: 128 }) });
+    fixture.nativeElement.querySelector('.wb-card__body').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    fixture.detectChanges();
+
+    let grown: number | undefined;
+    fixture.componentInstance.heightGrow.subscribe((h: number) => (grown = h));
+
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit') as HTMLTextAreaElement;
+    textarea.value = 'tall';
+    textarea.dispatchEvent(new Event('input'));
+    stubScrollHeight(textarea, 200.4);
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(grown).toBe(201);
+  });
+
+  it('does not emit heightGrow when the committed text still fits the card height', async () => {
+    await create({ card: makeTextCard({ content: 'short', height: 128 }) });
+    fixture.nativeElement.querySelector('.wb-card__body').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    fixture.detectChanges();
+
+    let emitted = false;
+    fixture.componentInstance.heightGrow.subscribe(() => (emitted = true));
+
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit') as HTMLTextAreaElement;
+    textarea.value = 'still short';
+    textarea.dispatchEvent(new Event('input'));
+    stubScrollHeight(textarea, 60);
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(emitted).toBe(false);
+  });
+
   it('falls back to an accessible ink colour for default-styled text on a dark background', async () => {
     // #111827 (near-black) is a valid TEXT card background swatch — default ink (#1f2937) would
     // be dark-on-dark; the accessible override must kick in (US08.6.1 A11y AC, ≥ 4.5:1).
@@ -493,24 +598,81 @@ describe('BoardCardComponent — LABEL (US08.6.2)', () => {
     expect(component['editing']()).toBe(false);
   });
 
-  it('pressing Enter inside the edit textarea commits and does not immediately reopen edit mode', () => {
-    // Regression guard: onEditKeydown must stop propagation, otherwise the same keydown
-    // would bubble to the host's own listener right after `editing` flips back to false,
-    // instantly reopening edit mode.
+  // ── Multi-line support (fix/card-multiline-text): Enter inserts a newline instead of
+  // committing/blurring — mirrors PouetPouet's board-card.tsx, whose handleKeyDown only ever
+  // intercepts Escape and lets Enter fall through to the textarea's default newline insertion.
+
+  it('pressing Enter inside the edit textarea does not commit and leaves edit mode open (multiline)', () => {
     setCard({ content: 'before' });
     component['onDoubleClick']();
     component['editValue'].set('after');
+    let emitted = false;
+    component.contentCommit.subscribe(() => (emitted = true));
     const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     component['onEditKeydown'](event);
+    expect(component['editing']()).toBe(true);
+    expect(emitted).toBe(false);
+  });
+
+  it('does not call preventDefault on Enter, so the browser default (insert newline) still runs', () => {
+    setCard({ content: 'before' });
+    component['onDoubleClick']();
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    component['onEditKeydown'](event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('Shift+Enter behaves the same as plain Enter — inserts a newline, does not commit', () => {
+    setCard({ content: 'before' });
+    component['onDoubleClick']();
+    const event = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    component['onEditKeydown'](event);
+    expect(component['editing']()).toBe(true);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('Escape still cancels the edit without committing', () => {
+    setCard({ content: 'before' });
+    component['onDoubleClick']();
+    component['editValue'].set('discarded');
+    let emitted = false;
+    component.contentCommit.subscribe(() => (emitted = true));
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    component['onEditKeydown'](event);
     expect(component['editing']()).toBe(false);
+    expect(emitted).toBe(false);
+  });
+
+  it('a multi-line value typed into the textarea is preserved end-to-end through commit', () => {
+    setCard({ content: 'before' });
+    let committed: string | undefined;
+    component.contentCommit.subscribe((v: string) => (committed = v));
+    component['onDoubleClick']();
+    fixture.detectChanges();
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit--label') as HTMLTextAreaElement;
+    textarea.value = 'line one\nline two\nline three';
+    textarea.dispatchEvent(new Event('input'));
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    expect(committed).toContain('line one\nline two\nline three');
+  });
+
+  it('auto-grows the edit textarea to fit multi-line content on input (mirrors PouetPouet scrollHeight resize)', () => {
+    setCard({ content: 'before' });
+    component['onDoubleClick']();
+    fixture.detectChanges();
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit--label') as HTMLTextAreaElement;
+    Object.defineProperty(textarea, 'scrollHeight', { value: 96, configurable: true });
+    textarea.value = 'line one\nline two\nline three';
+    textarea.dispatchEvent(new Event('input'));
+    expect(textarea.style.height).toBe('96px');
   });
 
   // ── Contrast: default LABEL text colour vs the canvas background (WCAG AA ≥ 4.5:1) ──
 
-  it('the default LABEL text colour passes WCAG AA against the canvas background (#fafafa)', () => {
+  it('the default LABEL text colour passes WCAG AA against the canvas background (--wb-canvas-bg #fbfaff)', () => {
     setCard({ content: 'x' });
     const defaultLabelColor = component['labelFmt']().color;
-    expect(contrastRatio(defaultLabelColor, '#fafafa')).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(defaultLabelColor, '#fbfaff')).toBeGreaterThanOrEqual(4.5);
   });
 });
 
