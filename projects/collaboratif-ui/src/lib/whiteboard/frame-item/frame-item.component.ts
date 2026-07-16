@@ -44,6 +44,10 @@ export class FrameItemComponent {
   readonly titleCommit = output<string>();
   /** Toggles whether the frame carries its contained cards on drag. */
   readonly toggleActive = output<boolean>();
+  /** US08.9.3 — request to raise this frame above every other item (z-order). */
+  readonly bringToFront = output<void>();
+  /** US08.9.3 — request to drop this frame beneath every other item (z-order). */
+  readonly sendToBack = output<void>();
 
   private readonly titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
 

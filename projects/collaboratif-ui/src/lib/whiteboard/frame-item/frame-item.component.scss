@@ -52,6 +52,31 @@
   padding: 0 4px;
 }
 
+.wb-frame__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--wb-ink);
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 0 2px;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus);
+  }
+}
+
+.wb-frame__btn-icon {
+  width: 14px;
+  height: 14px;
+}
+
 .wb-frame__active-toggle {
   border: none;
   background: transparent;

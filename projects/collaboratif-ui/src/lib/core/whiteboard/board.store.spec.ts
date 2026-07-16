@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BoardStore } from './board.store';
 import { BoardTransport } from './board-transport';
 import { COLLABORATIF_API_URL, COLLABORATIF_CURRENT_USER } from './config/tokens';
-import type { BoardVote, Card, Connection, VoteSession } from '../../whiteboard/model/board.types';
+import type { BoardVote, Card, Connection, Frame, VoteSession } from '../../whiteboard/model/board.types';
 
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 const BOARD_ID = 'board-1';
@@ -1133,5 +1133,118 @@ describe('BoardStore — dot-vote tallies and budget (US08.12.2)', () => {
     expect(transport.emitted.filter((e) => e.type === 'vote:uncast')).toHaveLength(0);
     store.uncastVote('c1');
     expect(transport.emitted.filter((e) => e.type === 'vote:uncast')).toHaveLength(1);
+  });
+});
+
+function makeFrame(id: string, overrides: Partial<Frame> = {}): Frame {
+  return {
+    id,
+    boardId: BOARD_ID,
+    title: '',
+    posX: 0,
+    posY: 0,
+    width: 300,
+    height: 200,
+    color: '#EDE9FE',
+    active: false,
+    layer: 1,
+    ...overrides,
+  };
+}
+
+describe('BoardStore — z-order front/back (US08.9.3)', () => {
+  let httpMock: HttpTestingController;
+  let transport: FakeBoardTransport;
+  let store: BoardStore;
+
+  async function flushInitRequests(): Promise<void> {
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}`).flush({
+      id: BOARD_ID,
+      title: 'Board',
+      role: 'OWNER',
+      description: null,
+      coverImage: null,
+      maxParticipants: null,
+      enabledActivities: [],
+    });
+    httpMock.expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/members`).flush([]);
+    httpMock
+      .expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/vote/current`)
+      .flush('', { status: 404, statusText: 'Not Found' });
+    httpMock
+      .expectOne((r) => r.url === `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/vote/last`)
+      .flush('', { status: 404, statusText: 'Not Found' });
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  beforeEach(() => {
+    transport = new FakeBoardTransport();
+    TestBed.configureTestingModule({
+      providers: [
+        BoardStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: Router, useValue: { navigateByUrl: vi.fn().mockResolvedValue(true) } },
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        { provide: BoardTransport, useValue: transport },
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(BoardStore);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    TestBed.resetTestingModule();
+  });
+
+  it('derives frontLayer/backLayer from the extent over cards AND frames', () => {
+    store.cards.set([makeCard('c1', { layer: 2 }), makeCard('c2', { layer: 5 })]);
+    store.frames.set([makeFrame('f1', { layer: 9 }), makeFrame('f2', { layer: -1 })]);
+
+    expect(store.frontLayer()).toBe(10); // max(2,5,9,-1) + 1
+    expect(store.backLayer()).toBe(-2); // min(2,5,9,-1) - 1
+  });
+
+  it('falls back to a sane layer on an empty board', () => {
+    store.cards.set([]);
+    store.frames.set([]);
+
+    expect(store.frontLayer()).toBe(2);
+    expect(store.backLayer()).toBe(0);
+  });
+
+  it('setLayerSelected applies to ALL selected cards including locked ones (z-order is not gated by lock)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.cards.set([
+      makeCard('c1', { layer: 1, locked: false }),
+      makeCard('c2', { layer: 1, locked: true }),
+      makeCard('c3', { layer: 5 }),
+    ]);
+    store.selectCards(new Set(['c1', 'c2']));
+
+    store.setLayerSelected(store.frontLayer()); // frontLayer = 6
+
+    const layered = transport.emitted.filter((e) => e.type === 'card:layer');
+    expect(layered).toHaveLength(2);
+    expect(layered.map((e) => (e.data as { id: string; layer: number }).id).sort()).toEqual(['c1', 'c2']);
+    expect(layered.every((e) => (e.data as { layer: number }).layer === 6)).toBe(true);
+    expect(store.cards().find((c) => c.id === 'c2')?.layer).toBe(6);
+  });
+
+  it('setFrameLayer emits frame:layer with the send-to-back target', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.cards.set([makeCard('c1', { layer: 3 })]);
+    store.frames.set([makeFrame('f1', { layer: 3 })]);
+
+    store.setFrameLayer('f1', store.backLayer()); // backLayer = min(3,3) - 1 = 2
+
+    const layered = transport.emitted.filter((e) => e.type === 'frame:layer');
+    expect(layered).toHaveLength(1);
+    expect(layered[0].data).toEqual({ id: 'f1', boardId: BOARD_ID, layer: 2 });
+    expect(store.frames()[0].layer).toBe(2);
   });
 });

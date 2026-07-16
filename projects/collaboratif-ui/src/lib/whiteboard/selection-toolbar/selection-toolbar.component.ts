@@ -33,6 +33,14 @@ export class SelectionToolbarComponent {
   readonly recolor = output<string>();
   /** Emits the desired locked state (true = lock, false = unlock). */
   readonly toggleLock = output<boolean>();
+  /**
+   * US08.9.3 — request to raise the selection above every other item (z-order). Unlike recolour
+   * or delete, this intent applies to *all* selected cards, locked ones included: reordering is
+   * the one batch mutation not gated by `locked`.
+   */
+  readonly bringToFront = output<void>();
+  /** US08.9.3 — request to drop the selection beneath every other item (z-order). */
+  readonly sendToBack = output<void>();
   readonly remove = output<void>();
 
   protected readonly palette = BASE_COLORS;

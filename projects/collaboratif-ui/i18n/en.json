@@ -14,6 +14,10 @@
       "unlock": "Unlock",
       "delete": "Delete (Del)"
     },
+    "layer": {
+      "bringToFront": "Bring to front",
+      "sendToBack": "Send to back"
+    },
     "guard": {
       "accessDenied": "You don't have access to this board"
     },

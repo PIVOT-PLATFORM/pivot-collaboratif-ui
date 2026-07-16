@@ -14,6 +14,10 @@ const FR = {
       unlock: 'Déverrouiller',
       delete: 'Supprimer (Suppr)',
     },
+    layer: {
+      bringToFront: 'Passer au premier plan',
+      sendToBack: "Envoyer à l'arrière-plan",
+    },
   },
 };
 
@@ -109,7 +113,23 @@ describe('SelectionToolbarComponent', () => {
     expect(toggle).toHaveBeenCalledWith(false);
   });
 
-  it('hides recolour / duplicate / lock on a read-only board but keeps delete', () => {
+  it('emits bringToFront and sendToBack on the matching z-order buttons (US08.9.3)', () => {
+    fixture.componentRef.setInput('count', 2);
+    fixture.detectChanges();
+
+    const front = vi.fn();
+    const back = vi.fn();
+    component.bringToFront.subscribe(front);
+    component.sendToBack.subscribe(back);
+
+    btn(fixture, 'Passer au premier plan')!.click();
+    btn(fixture, "Envoyer à l'arrière-plan")!.click();
+
+    expect(front).toHaveBeenCalledTimes(1);
+    expect(back).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides recolour / duplicate / lock / z-order on a read-only board but keeps delete', () => {
     fixture.componentRef.setInput('count', 1);
     fixture.componentRef.setInput('readOnly', true);
     fixture.detectChanges();
@@ -117,6 +137,8 @@ describe('SelectionToolbarComponent', () => {
     expect(btn(fixture, 'Couleur')).toBeUndefined();
     expect(btn(fixture, 'Dupliquer (Ctrl+D)')).toBeUndefined();
     expect(btn(fixture, 'Verrouiller')).toBeUndefined();
+    expect(btn(fixture, 'Passer au premier plan')).toBeUndefined();
+    expect(btn(fixture, "Envoyer à l'arrière-plan")).toBeUndefined();
     expect(btn(fixture, 'Supprimer (Suppr)')).toBeDefined();
   });
 });
