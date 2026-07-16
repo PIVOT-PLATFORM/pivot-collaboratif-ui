@@ -14,6 +14,10 @@
       "unlock": "Déverrouiller",
       "delete": "Supprimer (Suppr)"
     },
+    "layer": {
+      "bringToFront": "Passer au premier plan",
+      "sendToBack": "Envoyer à l'arrière-plan"
+    },
     "guard": {
       "accessDenied": "Vous n'avez pas accès à ce tableau"
     },

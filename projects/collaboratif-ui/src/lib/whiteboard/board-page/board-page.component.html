@@ -220,6 +220,8 @@
       (duplicate)="store.duplicateSelected()"
       (recolor)="onColorChange($event)"
       (toggleLock)="store.lockSelected($event)"
+      (bringToFront)="store.setLayerSelected(store.frontLayer())"
+      (sendToBack)="store.setLayerSelected(store.backLayer())"
       (remove)="store.deleteSelected()"
     ></wb-selection-toolbar>
   }

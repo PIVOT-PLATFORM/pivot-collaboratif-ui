@@ -16,6 +16,32 @@
   @if (!readOnly()) {
     <button
       type="button"
+      class="wb-frame__btn"
+      [attr.aria-label]="'whiteboard.layer.bringToFront' | transloco"
+      [title]="'whiteboard.layer.bringToFront' | transloco"
+      (click)="bringToFront.emit()"
+    >
+      <svg class="wb-frame__btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+        <rect x="9" y="3" width="12" height="12" rx="2" stroke-width="2" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2h4" />
+      </svg>
+    </button>
+
+    <button
+      type="button"
+      class="wb-frame__btn"
+      [attr.aria-label]="'whiteboard.layer.sendToBack' | transloco"
+      [title]="'whiteboard.layer.sendToBack' | transloco"
+      (click)="sendToBack.emit()"
+    >
+      <svg class="wb-frame__btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V5a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2h-4" />
+        <rect x="3" y="9" width="12" height="12" rx="2" stroke-width="2" fill="currentColor" fill-opacity="0.16" />
+      </svg>
+    </button>
+
+    <button
+      type="button"
       class="wb-frame__active-toggle"
       [class.wb-frame__active-toggle--on]="frame().active"
       [attr.aria-pressed]="frame().active"

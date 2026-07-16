@@ -141,6 +141,26 @@ export class BoardStore {
 
   readonly isReadonly = computed(() => this.userRole() === 'VIEWER');
 
+  /**
+   * US08.9.3 — current z-order extent across *every* orderable item on the board (cards and
+   * frames share a single z-index space). There is no absolute "front"/"back" value: the
+   * bring-to-front / send-to-back targets are derived relative to this extent. Falls back to
+   * `{ min: 1, max: 1 }` on an empty board so the first ordered item still lands on a sane
+   * positive layer.
+   */
+  private readonly layerExtent = computed<{ min: number; max: number }>(() => {
+    const layers = [...this.cards().map((c) => c.layer), ...this.frames().map((f) => f.layer)];
+    if (layers.length === 0) {
+      return { min: 1, max: 1 };
+    }
+    return { min: Math.min(...layers), max: Math.max(...layers) };
+  });
+
+  /** US08.9.3 — target layer that lifts an item above all others (one past the current highest). */
+  readonly frontLayer = computed(() => this.layerExtent().max + 1);
+  /** US08.9.3 — target layer that drops an item beneath all others (one below the current lowest). */
+  readonly backLayer = computed(() => this.layerExtent().min - 1);
+
   /** US08.12.2 — total dot-votes cast per card in the active session (all users). */
   readonly voteTallyByCard = computed<ReadonlyMap<string, number>>(() => {
     const session = this.activeVoteSession();

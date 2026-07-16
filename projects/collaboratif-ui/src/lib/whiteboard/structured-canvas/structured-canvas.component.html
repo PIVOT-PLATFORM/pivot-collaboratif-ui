@@ -73,6 +73,8 @@
         [readOnly]="store.isReadonly()"
         (titleCommit)="onFrameTitle(frame.id, $event)"
         (toggleActive)="onFrameActive(frame.id, $event)"
+        (bringToFront)="onFrameBringToFront(frame.id)"
+        (sendToBack)="onFrameSendToBack(frame.id)"
       ></wb-frame-item>
     }
 

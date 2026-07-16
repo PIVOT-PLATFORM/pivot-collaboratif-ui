@@ -893,6 +893,14 @@ export class StructuredCanvasComponent {
   protected onFrameActive(id: string, active: boolean): void {
     this.store.setFrameActive(id, active);
   }
+  /** US08.9.3 — lift the frame above every other item (its `layer` becomes one past the highest). */
+  protected onFrameBringToFront(id: string): void {
+    this.store.setFrameLayer(id, this.store.frontLayer());
+  }
+  /** US08.9.3 — drop the frame beneath every other item (its `layer` becomes one below the lowest). */
+  protected onFrameSendToBack(id: string): void {
+    this.store.setFrameLayer(id, this.store.backLayer());
+  }
   protected onConnectionSelect(id: string): void {
     this.store.selectCards(new Set([id]));
   }
