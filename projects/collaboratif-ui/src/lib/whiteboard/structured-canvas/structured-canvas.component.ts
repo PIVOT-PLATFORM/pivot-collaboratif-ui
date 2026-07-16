@@ -456,8 +456,13 @@ export class StructuredCanvasComponent {
     if (this.store.isReadonly() || this.tool() !== 'select') {
       return;
     }
-    const target = event.target as HTMLElement;
-    if (target.closest('[data-card-id], [data-frame-id], [data-frame-drag], [wbConnectionLine]')) {
+    // `event.target` is unreliable here: onPointerDown calls setPointerCapture on the surface, so
+    // the dblclick's target is redirected to `.wb-surface` even when the cursor is over a card —
+    // the guard would then never match. Hit-test the real element under the pointer instead
+    // (same technique as the connector drop), so a double-click on a card/frame/connector is left
+    // to that element (a card opens its inline editor) and never spawns a stray post-it.
+    const hit = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+    if (hit?.closest('[data-card-id], [data-frame-id], [data-frame-drag], [wbConnectionLine]')) {
       return;
     }
     const pt = this.toCanvas(event.clientX, event.clientY);
