@@ -10,7 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { BoardStore } from '../../core/whiteboard/board.store';
 import { BoardService } from '../../core/whiteboard/board.service';
@@ -69,6 +69,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
 export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly store = inject(BoardStore);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   protected readonly boardId = this.route.snapshot.paramMap.get('boardId') ?? '';
 
@@ -183,6 +184,14 @@ export class BoardPageComponent implements OnInit, OnDestroy {
       },
       error: () => this.toast.show('whiteboard.board.settings.resetError', 'error'),
     });
+  }
+
+  /**
+   * Returns to the whiteboard boards list (`/whiteboard`) — the header back affordance so the
+   * user no longer has to route through the app home to leave an open board.
+   */
+  protected goBack(): void {
+    void this.router.navigateByUrl('/whiteboard');
   }
 
   protected openSettings(event: Event): void {
