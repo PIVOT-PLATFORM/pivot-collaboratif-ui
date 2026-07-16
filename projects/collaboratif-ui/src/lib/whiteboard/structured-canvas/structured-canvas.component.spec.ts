@@ -563,7 +563,7 @@ describe('StructuredCanvasComponent — connect gesture (BUG 6)', () => {
     expect(addConnection).toHaveBeenCalledWith('A', 'B');
   });
 
-  it('shows the hovered target card anchor pastilles and highlights the nearest during a connect drag (ITEM B)', () => {
+  it('highlights the anchor the connector actually attaches to, not the one under the cursor (ITEM anchor)', () => {
     const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
     surfaceEl.getBoundingClientRect = vi
       .fn()
@@ -589,15 +589,16 @@ describe('StructuredCanvasComponent — connect gesture (BUG 6)', () => {
     const efpOriginal = (document as unknown as Record<string, unknown>)['elementFromPoint'];
     (document as unknown as Record<string, unknown>)['elementFromPoint'] = vi.fn().mockReturnValue(targetCard);
 
-    // Move near B's left (W) edge midpoint (400,50).
-    component['onPointerMove']({ clientX: 405, clientY: 50, pointerId: 1 } as unknown as PointerEvent);
+    // Cursor sits near B's TOP (N) edge (450,5) — cursor-nearest would say 'N'. But the connector
+    // routes to B's LEFT (W) edge, the side facing source A's centre. The highlight must be W.
+    component['onPointerMove']({ clientX: 450, clientY: 5, pointerId: 1 } as unknown as PointerEvent);
 
     (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
 
     const hover = component['hoverAnchors']();
     expect(hover?.cardId).toBe('B');
     expect(hover?.points).toHaveLength(4);
-    expect(hover?.nearest).toBe('W');
+    expect(hover?.attach).toBe('W');
   });
 
   it('does not create a self-connector when dropped back on the source card', () => {
@@ -909,5 +910,59 @@ describe('StructuredCanvasComponent — ITEM H: middle-button pan', () => {
     } as unknown as PointerEvent);
 
     expect(component['store'].addCard).not.toHaveBeenCalled();
+  });
+});
+
+
+/**
+ * ITEM I (polish/card-autogrow-anchor): a TEXT/LABEL card whose committed text overflows its stored
+ * height asks the canvas to grow it. The canvas persists that through the existing `card:resize`
+ * contract (`BoardStore.resizeCard`) — width untouched, only the height grows.
+ */
+describe('StructuredCanvasComponent — ITEM I: auto-grow relay', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let resizeCard: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    resizeCard = vi.fn();
+    const storeStub = {
+      isReadonly: () => false,
+      frames: () => [],
+      cards: () => [],
+      connections: () => [],
+      selectedIds: () => new Set<string>(),
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      fields: () => [],
+      emitCursor: vi.fn(),
+      selectCards: vi.fn(),
+      resizeCard,
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: storeStub }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('persists a grown height via resizeCard, keeping the card width unchanged', () => {
+    const card = { id: 'A', width: 192, height: 128 } as unknown as Card;
+    component['onCardHeightGrow'](card, 260);
+    expect(resizeCard).toHaveBeenCalledTimes(1);
+    expect(resizeCard).toHaveBeenCalledWith('A', 192, 260);
   });
 });

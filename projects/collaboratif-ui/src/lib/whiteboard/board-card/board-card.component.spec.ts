@@ -318,6 +318,69 @@ describe('BoardCardComponent — US08.6.1 TEXT card', () => {
     expect(emitted).toBe(false);
   });
 
+  // ── Auto-grow persistence (polish/card-autogrow-anchor, ITEM I) ──────────────────
+  // jsdom performs no layout, so `scrollHeight` is stubbed to simulate the measured content
+  // height of the (autosized) edit textarea at commit time.
+
+  function stubScrollHeight(el: HTMLElement, value: number): void {
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, get: () => value });
+  }
+
+  it('emits heightGrow with the measured content height when committed text overflows the card', async () => {
+    // Card height 128; the committed multi-line text needs 260px → the card must grow to fit.
+    await create({ card: makeTextCard({ content: 'short', height: 128 }) });
+    fixture.nativeElement.querySelector('.wb-card__body').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    fixture.detectChanges();
+
+    let grown: number | undefined;
+    fixture.componentInstance.heightGrow.subscribe((h: number) => (grown = h));
+
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit') as HTMLTextAreaElement;
+    textarea.value = 'a\nvery\ntall\nmulti\nline\nnote';
+    textarea.dispatchEvent(new Event('input'));
+    stubScrollHeight(textarea, 260);
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(grown).toBe(260);
+  });
+
+  it('rounds a fractional measured height up before emitting heightGrow', async () => {
+    await create({ card: makeTextCard({ content: 'short', height: 128 }) });
+    fixture.nativeElement.querySelector('.wb-card__body').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    fixture.detectChanges();
+
+    let grown: number | undefined;
+    fixture.componentInstance.heightGrow.subscribe((h: number) => (grown = h));
+
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit') as HTMLTextAreaElement;
+    textarea.value = 'tall';
+    textarea.dispatchEvent(new Event('input'));
+    stubScrollHeight(textarea, 200.4);
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(grown).toBe(201);
+  });
+
+  it('does not emit heightGrow when the committed text still fits the card height', async () => {
+    await create({ card: makeTextCard({ content: 'short', height: 128 }) });
+    fixture.nativeElement.querySelector('.wb-card__body').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    fixture.detectChanges();
+
+    let emitted = false;
+    fixture.componentInstance.heightGrow.subscribe(() => (emitted = true));
+
+    const textarea = fixture.nativeElement.querySelector('.wb-card__edit') as HTMLTextAreaElement;
+    textarea.value = 'still short';
+    textarea.dispatchEvent(new Event('input'));
+    stubScrollHeight(textarea, 60);
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(emitted).toBe(false);
+  });
+
   it('falls back to an accessible ink colour for default-styled text on a dark background', async () => {
     // #111827 (near-black) is a valid TEXT card background swatch — default ink (#1f2937) would
     // be dark-on-dark; the accessible override must kick in (US08.6.1 A11y AC, ≥ 4.5:1).

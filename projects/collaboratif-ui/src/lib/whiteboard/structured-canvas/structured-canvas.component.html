@@ -44,10 +44,10 @@
         @for (a of ha.points; track a.side) {
           <svg:circle
             class="wb-anchor"
-            [class.wb-anchor--active]="a.side === ha.nearest"
+            [class.wb-anchor--active]="a.side === ha.attach"
             [attr.cx]="a.x"
             [attr.cy]="a.y"
-            [attr.r]="a.side === ha.nearest ? 7 : 5"
+            [attr.r]="a.side === ha.attach ? 7 : 5"
           ></svg:circle>
         }
       }
@@ -74,6 +74,7 @@
         [readOnly]="store.isReadonly()"
         [autoEdit]="store.autoEditCardId() === card.id"
         (contentCommit)="onCardContent(card, $event)"
+        (heightGrow)="onCardHeightGrow(card, $event)"
         (editingChange)="onCardEditing(card, $event)"
         (openDetail)="openDetail.emit($event)"
       ></wb-board-card>
