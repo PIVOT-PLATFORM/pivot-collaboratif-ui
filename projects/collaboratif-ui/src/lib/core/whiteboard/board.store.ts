@@ -850,26 +850,41 @@ export class BoardStore {
       return;
     }
     const delay = Math.max(0, MOVE_EMIT_THROTTLE_MS - (Date.now() - this.emitCoalescer.lastTs));
-    this.emitCoalescer.timer = setTimeout(() => this.flushCoalescedEmits(), delay);
+    this.emitCoalescer.timer = setTimeout(() => this.flushCoalescedEmits(false), delay);
   }
 
-  private flushCoalescedEmits(): void {
+  /**
+   * Flushes the coalesced emits. Intermediate throttled flushes ({@code guaranteed=false}) are
+   * droppable — and when disconnected they emit nothing AND keep the pending values, so the latest
+   * geometry survives for the guaranteed commit flush (or the next reconnect) rather than being lost
+   * behind the transport's disconnect drop guard. The commit flush ({@code guaranteed=true}) always
+   * emits, with guaranteed delivery, so the authoritative final drag/resize position is never lost
+   * even if the gesture ends during a network blip.
+   *
+   * @param guaranteed whether these are authoritative commit emits that must be delivered
+   */
+  private flushCoalescedEmits(guaranteed: boolean): void {
     this.emitCoalescer.timer = null;
     this.emitCoalescer.lastTs = Date.now();
     if (this.emitCoalescer.pending.size === 0) {
       return;
     }
-    this.emitCoalescer.pending.forEach(({ channel, payload }) => this.transport.emit(channel, payload));
+    if (!guaranteed && !this.transport.isConnected()) {
+      // Keep pending: a dropped intermediate must not discard the latest geometry — the commit
+      // flush (or next reconnect) still needs to deliver it.
+      return;
+    }
+    this.emitCoalescer.pending.forEach(({ channel, payload }) => this.transport.emit(channel, payload, { guaranteed }));
     this.emitCoalescer.pending.clear();
   }
 
-  /** Cancels any pending timer and flushes immediately — call before emitting an authoritative commit value. */
+  /** Cancels any pending timer and flushes immediately with guaranteed delivery — call before an authoritative commit value. */
   private flushCoalescedEmitsNow(): void {
     if (this.emitCoalescer.timer != null) {
       clearTimeout(this.emitCoalescer.timer);
       this.emitCoalescer.timer = null;
     }
-    this.flushCoalescedEmits();
+    this.flushCoalescedEmits(true);
   }
 
   moveCard(id: string, posX: number, posY: number): void {

@@ -123,4 +123,19 @@ describe('StompBoardTransport — sender tagging on card:move/card:resize (fix/E
     expect(fake.publishCalls).toHaveLength(1);
     expect(fake.publishCalls[0].retryIfDisconnected).toBe(false);
   });
+
+  it('delivers a guaranteed mutation frame while disconnected (authoritative commit value)', () => {
+    fake.isConnected = false;
+    transport.emit('card:move', { id: 'card-1', boardId: BOARD_ID, posX: 9, posY: 9 }, { guaranteed: true });
+
+    expect(fake.publishCalls).toHaveLength(1);
+    expect(fake.publishCalls[0].retryIfDisconnected).toBe(true);
+  });
+
+  it('isConnected() reflects the live rx-stomp connection state', () => {
+    fake.isConnected = true;
+    expect(transport.isConnected()).toBe(true);
+    fake.isConnected = false;
+    expect(transport.isConnected()).toBe(false);
+  });
 });

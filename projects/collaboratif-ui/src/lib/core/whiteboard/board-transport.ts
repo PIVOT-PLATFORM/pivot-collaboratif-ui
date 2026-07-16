@@ -25,8 +25,26 @@ export abstract class BoardTransport {
   abstract connect(boardId: string): void;
   /** Closes the connection and clears all handlers. */
   abstract disconnect(boardId: string): void;
-  /** Sends a `{ type, data }` action envelope to the board's action destination. */
-  abstract emit(type: string, data: unknown): void;
+  /**
+   * Sends a `{ type, data }` action envelope to the board's action destination.
+   *
+   * @param type the action type
+   * @param data the payload
+   * @param opts `guaranteed: true` marks an authoritative emit (e.g. a commit's final drag/resize
+   *             position) that must be delivered even while disconnected — it bypasses the
+   *             high-frequency-mutation drop guard and is buffered for replay on reconnect.
+   */
+  abstract emit(type: string, data: unknown, opts?: { guaranteed?: boolean }): void;
+  /**
+   * Whether the realtime connection is currently open. Default {@code true} — test doubles are
+   * treated as always connected; the real {@link StompBoardTransport} reports the live STOMP state.
+   * The store reads this to avoid discarding a coalesced position when the socket is down.
+   *
+   * @return {@code true} if connected (or for a non-networked transport double)
+   */
+  isConnected(): boolean {
+    return true;
+  }
   /** Subscribes to inbound broadcasts of a given `type`; returns an unsubscribe fn. */
   abstract on<T = unknown>(type: string, handler: (data: T) => void): () => void;
   /** Registers a callback fired on every automatic reconnect (to re-join the room). */
@@ -126,25 +144,30 @@ export class StompBoardTransport extends BoardTransport {
     this.boardId = boardId === this.boardId ? null : this.boardId;
   }
 
-  emit(type: string, data: unknown): void {
+  emit(type: string, data: unknown, opts?: { guaranteed?: boolean }): void {
     if (!this.rxStomp || !this.boardId) {
       return;
     }
     // Backpressure guard: while disconnected, rx-stomp would queue every publish and replay the
     // whole buffer on reconnect — after a network blip that means a burst of stale drag/resize
     // positions floods the server. Drop high-frequency mutation frames instead (board state
-    // re-syncs via `board:state` on re-join); only lifecycle frames keep the buffer-and-replay
-    // behaviour (see {@link LIFECYCLE_TYPES}).
-    const isLifecycle = LIFECYCLE_TYPES.has(type);
-    if (!isLifecycle && !this.rxStomp.connected()) {
+    // re-syncs via `board:state` on re-join). Frames that must always be delivered — lifecycle
+    // (see {@link LIFECYCLE_TYPES}) and `guaranteed` authoritative commit values — keep the
+    // buffer-and-replay behaviour so the final drag/resize position is never lost.
+    const mustDeliver = LIFECYCLE_TYPES.has(type) || opts?.guaranteed === true;
+    if (!mustDeliver && !this.rxStomp.connected()) {
       return;
     }
     const payload = this.withSenderSessionId(type, data);
     this.rxStomp.publish({
       destination: `/app/whiteboard/${this.boardId}/action`,
       body: JSON.stringify({ type, data: payload }),
-      retryIfDisconnected: isLifecycle,
+      retryIfDisconnected: mustDeliver,
     });
+  }
+
+  override isConnected(): boolean {
+    return this.rxStomp?.connected() ?? false;
   }
 
   on<T = unknown>(type: string, handler: (data: T) => void): () => void {

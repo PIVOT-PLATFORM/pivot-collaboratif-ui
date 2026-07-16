@@ -17,15 +17,24 @@ const BOARD_ID = 'board-1';
  * {@link FakeTransport.getSessionId} for the fix/EN08.4 sender-exclusion tests below.
  */
 class FakeTransport extends BoardTransport {
-  readonly emitted: { type: string; data: unknown }[] = [];
+  readonly emitted: { type: string; data: unknown; guaranteed?: boolean }[] = [];
   private sessionId = 'my-session-id';
+  private connected = true;
   private readonly handlers = new Map<string, Set<(data: unknown) => void>>();
 
   connect(): void {}
   disconnect(): void {}
 
-  emit(type: string, data: unknown): void {
-    this.emitted.push({ type, data });
+  emit(type: string, data: unknown, opts?: { guaranteed?: boolean }): void {
+    this.emitted.push({ type, data, guaranteed: opts?.guaranteed });
+  }
+
+  override isConnected(): boolean {
+    return this.connected;
+  }
+
+  setConnected(value: boolean): void {
+    this.connected = value;
   }
 
   on<T = unknown>(type: string, handler: (data: T) => void): () => void {
@@ -322,6 +331,25 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
       expect(frameMoves).toHaveLength(1); // one frame:move for the whole burst, not one per pointermove
       expect(cardMoves).toHaveLength(1); // one card:move for the captured card, not one per pointermove
       expect(frameMoves.at(-1)!.data).toMatchObject({ id: 'frame-1', posX: 60, posY: 60 });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the final resize pending while disconnected, then delivers it guaranteed on commit (U3 regression)', () => {
+    vi.useFakeTimers();
+    try {
+      transport.setConnected(false);
+      const resizes = () => transport.emitted.filter((e) => e.type === 'card:resize');
+      store.startResizeCard('card-1');
+      store.resizeCardBox('card-1', { posX: 0, posY: 0, width: 300, height: 200 });
+      vi.advanceTimersByTime(50); // throttled intermediate flush fires while disconnected...
+      expect(resizes()).toHaveLength(0); // ...emits nothing and keeps the latest value pending
+      store.commitResizeCard('card-1'); // commit flush delivers the terminal value, guaranteed
+      const last = resizes().at(-1);
+      expect(last!.data).toMatchObject({ id: 'card-1', width: 300, height: 200 });
+      expect(last!.guaranteed).toBe(true);
     } finally {
       vi.clearAllTimers();
       vi.useRealTimers();
