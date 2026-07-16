@@ -1,4 +1,7 @@
 // Config
+// COLLABORATIF_CURRENT_USER bridges the host shell's authenticated profile to the whiteboard
+// presence layer (board:join displayName) — the consumer (pivot-ui) provides it; without it the
+// backend labels every participant "Anonymous". See pivot-ui app.config.ts.
 export { COLLABORATIF_API_URL, COLLABORATIF_BEARER_TOKEN, COLLABORATIF_CURRENT_USER } from './lib/core/whiteboard/config/tokens';
 export type { CollaboratifCurrentUser } from './lib/core/whiteboard/config/tokens';
 export { provideCollaboratifUi } from './lib/core/whiteboard/config/provide-collaboratif-ui';
