@@ -259,6 +259,16 @@ export class StructuredCanvasComponent {
 
   // ── Pointer state machine ─────────────────────────────────────────────────
   protected onPointerDown(event: PointerEvent): void {
+    // ITEM H — the middle mouse button (wheel click) pans the canvas exactly like space+drag or
+    // the pan tool, whatever the active tool is. Routed first, before any card/placement/marquee
+    // logic, and `preventDefault`-ed to suppress the browser's default middle-click autoscroll.
+    if (event.button === 1) {
+      event.preventDefault();
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      const v = this.viewport();
+      this.gesture = { kind: 'pan', startX: event.clientX, startY: event.clientY, vpX: v.x, vpY: v.y };
+      return;
+    }
     if (event.button !== 0) {
       return;
     }

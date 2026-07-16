@@ -813,3 +813,101 @@ describe('StructuredCanvasComponent — BUG F: auto-edit is one-shot', () => {
     expect(store.autoEditCardId()).toBe('card-A');
   });
 });
+
+/**
+ * ITEM H — middle mouse button (button 1, the wheel click) pans the canvas exactly like
+ * space+drag or the pan tool, regardless of the active tool, and suppresses the browser's
+ * default middle-click behaviour (autoscroll / context actions).
+ */
+describe('StructuredCanvasComponent — ITEM H: middle-button pan', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+
+  beforeEach(async () => {
+    const storeStub = {
+      isReadonly: () => false,
+      frames: () => [],
+      cards: () => [],
+      connections: () => [],
+      selectedIds: () => new Set<string>(),
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      fields: () => [],
+      emitCursor: vi.fn(),
+      selectCards: vi.fn(),
+      addCard: vi.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: storeStub }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    // A non-default tool proves the middle button pans regardless of the active tool.
+    fixture.componentRef.setInput('tool', 'sticky');
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  function surface(): HTMLElement {
+    const el = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    el.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof el.getBoundingClientRect;
+    (el as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+    (el as unknown as { releasePointerCapture: (id: number) => void }).releasePointerCapture = vi.fn();
+    return el;
+  }
+
+  it('routes a middle-button (button 1) pointerdown to a pan gesture, preventing default', () => {
+    const surfaceEl = surface();
+    const preventDefault = vi.fn();
+    component['onPointerDown']({
+      button: 1,
+      target: surfaceEl,
+      currentTarget: surfaceEl,
+      clientX: 100,
+      clientY: 100,
+      pointerId: 1,
+      shiftKey: false,
+      preventDefault,
+    } as unknown as PointerEvent);
+
+    expect(preventDefault).toHaveBeenCalled();
+
+    // Dragging with the wheel held pans the viewport by the pointer delta.
+    component['onPointerMove']({
+      clientX: 150,
+      clientY: 130,
+      pointerId: 1,
+    } as unknown as PointerEvent);
+
+    expect(component['viewport']()).toEqual({ x: 50, y: 30, zoom: 1 });
+  });
+
+  it('does not create a card on middle-button down even though a placement tool is active', () => {
+    const surfaceEl = surface();
+    component['onPointerDown']({
+      button: 1,
+      target: surfaceEl,
+      currentTarget: surfaceEl,
+      clientX: 100,
+      clientY: 100,
+      pointerId: 1,
+      shiftKey: false,
+      preventDefault: vi.fn(),
+    } as unknown as PointerEvent);
+
+    expect(component['store'].addCard).not.toHaveBeenCalled();
+  });
+});
