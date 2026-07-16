@@ -19,6 +19,7 @@ import { BoardTransport, StompBoardTransport } from '../../core/whiteboard/board
 import { FloatingToolbarComponent } from '../floating-toolbar/floating-toolbar.component';
 import { StructuredCanvasComponent } from '../structured-canvas/structured-canvas.component';
 import { GroupsPanelComponent } from '../groups-panel/groups-panel.component';
+import { BoardFieldsPanelComponent } from '../board-fields-panel/board-fields-panel.component';
 import { ConnectorStylePanelComponent } from '../connector-style-panel/connector-style-panel.component';
 import { VoteResultsPanelComponent } from '../vote-results-panel/vote-results-panel.component';
 import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component';
@@ -58,6 +59,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     FloatingToolbarComponent,
     StructuredCanvasComponent,
     GroupsPanelComponent,
+    BoardFieldsPanelComponent,
     ConnectorStylePanelComponent,
     VoteResultsPanelComponent,
     TimerOverlayComponent,
@@ -88,6 +90,8 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   /** SHAPE fill colour (US08.6.3) — `null` means no fill (transparent), the SHAPE default. */
   protected readonly fillColor = signal<string | null>(null);
   protected readonly showGroups = signal(false);
+  /** US08.10.1 — board custom-fields definition panel visibility. */
+  protected readonly showFields = signal(false);
   protected readonly showActivities = signal(false);
   protected readonly showShare = signal(false);
   protected readonly showVoteResults = signal(false);

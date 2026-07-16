@@ -450,6 +450,35 @@
       "recolorTo": "Recolour to {{color}}",
       "dissolve": "Dissolve group {{index}}"
     },
+    "field": {
+      "title": "Custom fields",
+      "close": "Close the fields panel",
+      "empty": "No field defined on this board.",
+      "name": "Name",
+      "namePlaceholder": "Field name",
+      "emoji": "Emoji",
+      "type": {
+        "label": "Type",
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "select": "Select list"
+      },
+      "typeLocked": "The type cannot be changed. Delete and recreate the field to change it.",
+      "options": "Options",
+      "addOption": "Add an option",
+      "optionPlaceholder": "New option",
+      "removeOption": "Remove option {{value}}",
+      "create": "Create field",
+      "createTitle": "New field",
+      "edit": "Edit field {{name}}",
+      "editTitle": "Edit field",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete field {{name}}",
+      "confirmDelete": "Confirm deletion of {{name}}",
+      "deleteWarning": "Deleting this field removes all its values on cards."
+    },
     "voteResults": {
       "title": "Vote results",
       "summary": "{{votes}} votes · {{voters}} participants",

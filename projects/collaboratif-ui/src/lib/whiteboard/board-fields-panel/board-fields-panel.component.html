@@ -1,0 +1,202 @@
+<section class="wb-fields" [attr.aria-label]="'whiteboard.field.title' | transloco">
+  <header class="wb-fields__head">
+    <h2 class="wb-fields__title">{{ 'whiteboard.field.title' | transloco }}</h2>
+    <button
+      type="button"
+      class="wb-fields__close"
+      (click)="onClose()"
+      [attr.aria-label]="'whiteboard.field.close' | transloco"
+    >
+      &times;
+    </button>
+  </header>
+
+  @if (fields().length === 0) {
+    <p class="wb-fields__empty">{{ 'whiteboard.field.empty' | transloco }}</p>
+  } @else {
+    <ul class="wb-fields__list">
+      @for (field of fields(); track field.id) {
+        <li class="wb-fields__row">
+          <span class="wb-fields__info">
+            @if (field.emoji) {
+              <span class="wb-fields__emoji" aria-hidden="true">{{ field.emoji }}</span>
+            }
+            <span class="wb-fields__name">{{ field.name }}</span>
+            <span class="wb-fields__type">{{ typeLabelKey(field.type) | transloco }}</span>
+          </span>
+
+          @if (field.type === 'SELECT' && field.options?.length) {
+            <span class="wb-fields__options" aria-hidden="true">
+              @for (opt of field.options; track opt) {
+                <span class="wb-fields__opt-chip">{{ opt }}</span>
+              }
+            </span>
+          }
+
+          @if (!readonly()) {
+            <span class="wb-fields__row-actions">
+              @if (confirmDeleteId() === field.id) {
+                <span class="wb-fields__confirm" role="alert">
+                  <span class="wb-fields__confirm-warn">
+                    {{ 'whiteboard.field.deleteWarning' | transloco }}
+                  </span>
+                  <button
+                    type="button"
+                    class="wb-fields__btn wb-fields__btn--danger"
+                    (click)="confirmDelete(field.id)"
+                    [attr.aria-label]="'whiteboard.field.confirmDelete' | transloco: { name: field.name }"
+                  >
+                    {{ 'whiteboard.field.confirmDelete' | transloco: { name: field.name } }}
+                  </button>
+                  <button
+                    type="button"
+                    class="wb-fields__btn wb-fields__btn--ghost"
+                    (click)="cancelDelete()"
+                  >
+                    {{ 'whiteboard.field.cancel' | transloco }}
+                  </button>
+                </span>
+              } @else {
+                <button
+                  type="button"
+                  class="wb-fields__icon-btn"
+                  (click)="startEdit(field)"
+                  [attr.aria-label]="'whiteboard.field.edit' | transloco: { name: field.name }"
+                >
+                  {{ 'whiteboard.field.edit' | transloco: { name: field.name } }}
+                </button>
+                <button
+                  type="button"
+                  class="wb-fields__icon-btn wb-fields__icon-btn--danger"
+                  (click)="requestDelete(field.id)"
+                  [attr.aria-label]="'whiteboard.field.delete' | transloco: { name: field.name }"
+                >
+                  {{ 'whiteboard.field.delete' | transloco: { name: field.name } }}
+                </button>
+              }
+            </span>
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (!readonly()) {
+    <form class="wb-fields__form" (submit)="$event.preventDefault(); submit()">
+      <h3 class="wb-fields__form-title">
+        {{ (isEditing() ? 'whiteboard.field.editTitle' : 'whiteboard.field.createTitle') | transloco }}
+      </h3>
+
+      <label class="wb-fields__field" for="wb-field-name">
+        <span class="wb-fields__label">{{ 'whiteboard.field.name' | transloco }}</span>
+        <input
+          id="wb-field-name"
+          type="text"
+          class="wb-fields__input"
+          [value]="name()"
+          (input)="onNameInput($event)"
+          [attr.placeholder]="'whiteboard.field.namePlaceholder' | transloco"
+          required
+        />
+      </label>
+
+      <label class="wb-fields__field" for="wb-field-emoji">
+        <span class="wb-fields__label">{{ 'whiteboard.field.emoji' | transloco }}</span>
+        <input
+          id="wb-field-emoji"
+          type="text"
+          class="wb-fields__input wb-fields__input--emoji"
+          maxlength="4"
+          [value]="emoji()"
+          (input)="onEmojiInput($event)"
+          [attr.aria-label]="'whiteboard.field.emoji' | transloco"
+        />
+      </label>
+
+      @if (!isEditing()) {
+        <label class="wb-fields__field" for="wb-field-type">
+          <span class="wb-fields__label">{{ 'whiteboard.field.type.label' | transloco }}</span>
+          <select
+            id="wb-field-type"
+            class="wb-fields__select"
+            [value]="type()"
+            (change)="onTypeChange($event)"
+          >
+            @for (t of fieldTypes; track t) {
+              <option [value]="t" [selected]="t === type()">{{ typeLabelKey(t) | transloco }}</option>
+            }
+          </select>
+        </label>
+      } @else {
+        <p class="wb-fields__type-locked">
+          <span class="wb-fields__label">{{ 'whiteboard.field.type.label' | transloco }}</span>
+          <span class="wb-fields__type-locked-value">{{ typeLabelKey(type()) | transloco }}</span>
+          <span class="wb-fields__hint">{{ 'whiteboard.field.typeLocked' | transloco }}</span>
+        </p>
+      }
+
+      @if (isSelect()) {
+        <div class="wb-fields__options-editor" role="group" [attr.aria-label]="'whiteboard.field.options' | transloco">
+          <span class="wb-fields__label">{{ 'whiteboard.field.options' | transloco }}</span>
+          @if (options().length > 0) {
+            <ul class="wb-fields__opt-list">
+              @for (opt of options(); track opt; let i = $index) {
+                <li class="wb-fields__opt-row">
+                  <span class="wb-fields__opt-value">{{ opt }}</span>
+                  <button
+                    type="button"
+                    class="wb-fields__icon-btn wb-fields__icon-btn--danger"
+                    (click)="removeOption(i)"
+                    [attr.aria-label]="'whiteboard.field.removeOption' | transloco: { value: opt }"
+                  >
+                    &times;
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+          <div class="wb-fields__opt-add">
+            <label class="wb-fields__field" for="wb-field-option">
+              <span class="wb-fields__label wb-fields__label--sr">{{ 'whiteboard.field.addOption' | transloco }}</span>
+              <input
+                id="wb-field-option"
+                type="text"
+                class="wb-fields__input"
+                [value]="newOption()"
+                (input)="onNewOptionInput($event)"
+                (keydown.enter)="$event.preventDefault(); addOption()"
+                [attr.placeholder]="'whiteboard.field.optionPlaceholder' | transloco"
+              />
+            </label>
+            <button
+              type="button"
+              class="wb-fields__btn wb-fields__btn--ghost"
+              (click)="addOption()"
+            >
+              {{ 'whiteboard.field.addOption' | transloco }}
+            </button>
+          </div>
+        </div>
+      }
+
+      <div class="wb-fields__form-actions">
+        @if (isEditing()) {
+          <button
+            type="button"
+            class="wb-fields__btn wb-fields__btn--ghost"
+            (click)="cancelEdit()"
+          >
+            {{ 'whiteboard.field.cancel' | transloco }}
+          </button>
+        }
+        <button
+          type="submit"
+          class="wb-fields__btn wb-fields__btn--primary"
+          [disabled]="!canSubmit()"
+        >
+          {{ (isEditing() ? 'whiteboard.field.save' : 'whiteboard.field.create') | transloco }}
+        </button>
+      </div>
+    </form>
+  }
+</section>
