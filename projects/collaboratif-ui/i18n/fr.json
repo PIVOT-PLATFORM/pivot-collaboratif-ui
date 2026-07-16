@@ -297,7 +297,13 @@
       "pickColor": "Couleur {{color}}",
       "fillColorGroup": "Couleur de remplissage",
       "pickFillColor": "Remplissage {{color}}",
-      "noFill": "Aucun remplissage"
+      "noFill": "Aucun remplissage",
+      "collapse": "Replier la barre",
+      "expand": "Déplier la barre",
+      "shapes": "Formes",
+      "shapesMenu": "Choisir une forme",
+      "colorMenu": "Couleurs (trait et remplissage)",
+      "escapeHint": "Échap"
     },
     "card": {
       "editText": "Modifier le texte",
