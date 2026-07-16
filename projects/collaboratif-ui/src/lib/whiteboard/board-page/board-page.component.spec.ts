@@ -42,6 +42,7 @@ const FR_TRANSLATIONS = {
         resetError: 'Erreur reset',
       },
       untitled: 'Sans titre',
+      backToList: 'Retour à la liste des tableaux',
     },
     share: { panel: { title: 'Partager' } },
     activities: { open: 'Activités', title: 'Activités', close: 'Fermer', recentSection: '', items: {} },
@@ -300,6 +301,19 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
     const req = httpMock.expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1/reset`);
     expect(req.request.method).toBe('POST');
     req.flush(null);
+  });
+
+  it('back button navigates to the boards list (/whiteboard)', async () => {
+    const { fixture } = create();
+    fixture.detectChanges();
+    await flushInitRequests();
+    fixture.detectChanges();
+    const back = fixture.nativeElement.querySelector(
+      '[aria-label="Retour à la liste des tableaux"]',
+    ) as HTMLButtonElement;
+    expect(back).toBeTruthy();
+    back.click();
+    expect(navigateSpy).toHaveBeenCalledWith('/whiteboard');
   });
 
   it('ac08_2_4_14_reset error shows a toast and clears the confirm state', () => {

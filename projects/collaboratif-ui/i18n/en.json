@@ -57,6 +57,7 @@
         }
       },
       "untitled": "Untitled board",
+      "backToList": "Back to board list",
       "reset": "Reset board",
       "favorite": {
         "add": "Add {{title}} to favorites",
