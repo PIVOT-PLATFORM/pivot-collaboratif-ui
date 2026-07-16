@@ -450,6 +450,35 @@
       "recolorTo": "Recolorer en {{color}}",
       "dissolve": "Dissoudre le groupe {{index}}"
     },
+    "field": {
+      "title": "Champs personnalisés",
+      "close": "Fermer le panneau des champs",
+      "empty": "Aucun champ défini sur ce tableau.",
+      "name": "Nom",
+      "namePlaceholder": "Nom du champ",
+      "emoji": "Emoji",
+      "type": {
+        "label": "Type",
+        "text": "Texte",
+        "number": "Nombre",
+        "date": "Date",
+        "select": "Liste de choix"
+      },
+      "typeLocked": "Le type ne peut pas être modifié. Supprimez et recréez le champ pour en changer.",
+      "options": "Options",
+      "addOption": "Ajouter une option",
+      "optionPlaceholder": "Nouvelle option",
+      "removeOption": "Retirer l'option {{value}}",
+      "create": "Créer le champ",
+      "createTitle": "Nouveau champ",
+      "edit": "Modifier le champ {{name}}",
+      "editTitle": "Modifier le champ",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "delete": "Supprimer le champ {{name}}",
+      "confirmDelete": "Confirmer la suppression de {{name}}",
+      "deleteWarning": "Supprimer ce champ efface toutes ses valeurs sur les cartes."
+    },
     "voteResults": {
       "title": "Résultats du vote",
       "summary": "{{votes}} votes · {{voters}} participants",
