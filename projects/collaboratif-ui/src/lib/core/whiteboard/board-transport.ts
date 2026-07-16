@@ -48,6 +48,14 @@ interface Envelope {
 }
 
 /**
+ * Lifecycle frames that must survive a disconnect: rx-stomp buffers them and delivers them
+ * once (re)connected. The initial `board:join` is emitted right after `connect()`, before the
+ * socket is open, and relies on this buffering — so it must never be dropped by the guard in
+ * {@link StompBoardTransport.emit}.
+ */
+const LIFECYCLE_TYPES = new Set(['board:join', 'board:leave']);
+
+/**
  * STOMP-backed {@link BoardTransport}. Reuses the same broker URL / bearer-token
  * conventions as {@link import('./whiteboard-sync.service').WhiteboardSyncService}.
  */
@@ -122,10 +130,20 @@ export class StompBoardTransport extends BoardTransport {
     if (!this.rxStomp || !this.boardId) {
       return;
     }
+    // Backpressure guard: while disconnected, rx-stomp would queue every publish and replay the
+    // whole buffer on reconnect — after a network blip that means a burst of stale drag/resize
+    // positions floods the server. Drop high-frequency mutation frames instead (board state
+    // re-syncs via `board:state` on re-join); only lifecycle frames keep the buffer-and-replay
+    // behaviour (see {@link LIFECYCLE_TYPES}).
+    const isLifecycle = LIFECYCLE_TYPES.has(type);
+    if (!isLifecycle && !this.rxStomp.connected()) {
+      return;
+    }
     const payload = this.withSenderSessionId(type, data);
     this.rxStomp.publish({
       destination: `/app/whiteboard/${this.boardId}/action`,
       body: JSON.stringify({ type, data: payload }),
+      retryIfDisconnected: isLifecycle,
     });
   }
 
