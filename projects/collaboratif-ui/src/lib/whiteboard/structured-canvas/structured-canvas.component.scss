@@ -53,6 +53,19 @@
   stroke-dasharray: 4 4;
 }
 
+// Anchor pastilles shown on a hovered target card during a connect drag (ITEM B).
+// The nearest-to-cursor anchor is filled with the accent colour to signal the attach point.
+.wb-anchor {
+  fill: var(--wb-surface);
+  stroke: var(--wb-accent);
+  stroke-width: 2;
+  pointer-events: none;
+
+  &--active {
+    fill: var(--wb-accent);
+  }
+}
+
 .wb-marquee {
   position: absolute;
   border: 1px solid var(--wb-accent);

@@ -10,6 +10,7 @@
   (pointerdown)="onPointerDown($event)"
   (pointermove)="onPointerMove($event)"
   (pointerup)="onPointerUp($event)"
+  (dblclick)="onDoubleClick($event)"
   (wheel)="onWheel($event)"
   (keydown)="onKeyDown($event)"
   (keyup)="onKeyUp($event)"
@@ -37,6 +38,18 @@
           [attr.x2]="g.to.x"
           [attr.y2]="g.to.y"
         ></svg:line>
+      }
+      <!-- Anchor pastilles on the hovered target card while linking (ITEM B) -->
+      @if (hoverAnchors(); as ha) {
+        @for (a of ha.points; track a.side) {
+          <svg:circle
+            class="wb-anchor"
+            [class.wb-anchor--active]="a.side === ha.nearest"
+            [attr.cx]="a.x"
+            [attr.cy]="a.y"
+            [attr.r]="a.side === ha.nearest ? 7 : 5"
+          ></svg:circle>
+        }
       }
     </svg>
 

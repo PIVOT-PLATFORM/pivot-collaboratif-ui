@@ -562,6 +562,43 @@ describe('StructuredCanvasComponent — connect gesture (BUG 6)', () => {
     expect(addConnection).toHaveBeenCalledWith('A', 'B');
   });
 
+  it('shows the hovered target card anchor pastilles and highlights the nearest during a connect drag (ITEM B)', () => {
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    surfaceEl.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof surfaceEl.getBoundingClientRect;
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+
+    const handle = document.createElement('span');
+    handle.setAttribute('data-connect', 'E');
+    handle.setAttribute('data-card-id', 'A');
+    component['onPointerDown']({
+      button: 0,
+      target: handle,
+      currentTarget: surfaceEl,
+      clientX: 90,
+      clientY: 50,
+      pointerId: 1,
+      shiftKey: false,
+    } as unknown as PointerEvent);
+
+    // Pointer hovers over card B (rect 400,0,100,100); elementFromPoint resolves the real target.
+    const targetCard = document.createElement('div');
+    targetCard.setAttribute('data-card-id', 'B');
+    const efpOriginal = (document as unknown as Record<string, unknown>)['elementFromPoint'];
+    (document as unknown as Record<string, unknown>)['elementFromPoint'] = vi.fn().mockReturnValue(targetCard);
+
+    // Move near B's left (W) edge midpoint (400,50).
+    component['onPointerMove']({ clientX: 405, clientY: 50, pointerId: 1 } as unknown as PointerEvent);
+
+    (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
+
+    const hover = component['hoverAnchors']();
+    expect(hover?.cardId).toBe('B');
+    expect(hover?.points).toHaveLength(4);
+    expect(hover?.nearest).toBe('W');
+  });
+
   it('does not create a self-connector when dropped back on the source card', () => {
     const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
     surfaceEl.getBoundingClientRect = vi
@@ -598,5 +635,92 @@ describe('StructuredCanvasComponent — connect gesture (BUG 6)', () => {
 
     (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
     expect(addConnection).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * ITEM D — double-clicking the empty canvas (select tool) creates a centred post-it, mirroring
+ * PouetPouet's `handleCanvasDoubleClick`. A double-click on a card/frame/connector must NOT
+ * create one (it bubbles up but is filtered by the `data-*` target guard).
+ */
+describe('StructuredCanvasComponent — double-click creates a post-it (ITEM D)', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let addCard: ReturnType<typeof vi.fn>;
+
+  function makeStore(readonly: boolean) {
+    return {
+      addCard,
+      isReadonly: () => readonly,
+      frames: () => [],
+      cards: () => [],
+      connections: () => [],
+      fields: () => [],
+      selectedIds: () => new Set<string>(),
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      emitCursor: vi.fn(),
+      selectCards: vi.fn(),
+    };
+  }
+
+  async function create(tool: string, readonly = false) {
+    addCard = vi.fn();
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: makeStore(readonly) }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    fixture.componentRef.setInput('tool', tool);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    surfaceEl.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof surfaceEl.getBoundingClientRect;
+    return surfaceEl;
+  }
+
+  it('creates a centred TEXT card at the double-click point on the empty surface', async () => {
+    const surfaceEl = await create('select');
+    component['onDoubleClick']({ target: surfaceEl, clientX: 300, clientY: 200 } as unknown as MouseEvent);
+
+    expect(addCard).toHaveBeenCalledTimes(1);
+    // Default card is 180×140 → centred: (300-90, 200-70).
+    const [px, py, type, content] = addCard.mock.calls[0];
+    expect(px).toBe(210);
+    expect(py).toBe(130);
+    expect(type).toBe('TEXT');
+    expect(content).toBe('');
+  });
+
+  it('does NOT create a card when the double-click lands on a card (card handles its own edit)', async () => {
+    await create('select');
+    const cardEl = document.createElement('div');
+    cardEl.setAttribute('data-card-id', 'X');
+    const inner = document.createElement('span');
+    cardEl.appendChild(inner);
+    component['onDoubleClick']({ target: inner, clientX: 300, clientY: 200 } as unknown as MouseEvent);
+    expect(addCard).not.toHaveBeenCalled();
+  });
+
+  it('does nothing outside the select tool', async () => {
+    const surfaceEl = await create('sticky');
+    component['onDoubleClick']({ target: surfaceEl, clientX: 300, clientY: 200 } as unknown as MouseEvent);
+    expect(addCard).not.toHaveBeenCalled();
+  });
+
+  it('does nothing in read-only mode', async () => {
+    const surfaceEl = await create('select', true);
+    component['onDoubleClick']({ target: surfaceEl, clientX: 300, clientY: 200 } as unknown as MouseEvent);
+    expect(addCard).not.toHaveBeenCalled();
   });
 });
