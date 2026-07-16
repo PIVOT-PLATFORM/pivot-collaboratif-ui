@@ -8,6 +8,7 @@ import { StructuredCanvasComponent } from './structured-canvas.component';
 import { BoardStore } from '../../core/whiteboard/board.store';
 import { BoardTransport } from '../../core/whiteboard/board-transport';
 import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
+import type { Card } from '../model/board.types';
 
 /** Inert transport — this suite never opens the realtime room (`store.init` is never called). */
 class NoopTransport extends BoardTransport {
@@ -722,5 +723,93 @@ describe('StructuredCanvasComponent — double-click creates a post-it (ITEM D)'
     const surfaceEl = await create('select', true);
     component['onDoubleClick']({ target: surfaceEl, clientX: 300, clientY: 200 } as unknown as MouseEvent);
     expect(addCard).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * BUG F — auto-edit must be one-shot. `store.autoEditCardId` is set to the freshly-created
+ * card at creation; if it is never cleared, that last card "monopolises" edit mode (it re-opens
+ * on every re-render/re-mount, and no other card can take over). Entering inline edit consumes
+ * the flag so it fires exactly once. Wired in {@link StructuredCanvasComponent.onCardEditing}.
+ */
+describe('StructuredCanvasComponent — BUG F: auto-edit is one-shot', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let store: BoardStore;
+
+  function cardWith(id: string): Card {
+    return {
+      id,
+      boardId: 'board-1',
+      type: 'TEXT',
+      content: '',
+      meta: null,
+      posX: 0,
+      posY: 0,
+      width: 192,
+      height: 128,
+      color: '#FFEB3B',
+      groupId: null,
+      groupColor: null,
+      locked: false,
+      layer: 1,
+      fieldValues: [],
+    };
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: COLLABORATIF_API_URL, useValue: 'http://localhost:8083/api/collaboratif' },
+        BoardStore,
+        { provide: BoardTransport, useClass: NoopTransport },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    component = fixture.componentInstance;
+    store = fixture.debugElement.injector.get(BoardStore);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('clears autoEditCardId when a card enters edit (editing === true)', () => {
+    store.autoEditCardId.set('card-A');
+
+    component['onCardEditing'](cardWith('card-A'), true);
+
+    expect(store.autoEditCardId()).toBeNull();
+  });
+
+  it('lets any OTHER card take over edit afterwards — the last-created no longer monopolises', () => {
+    // Card A was the last created → flagged for auto-edit.
+    store.autoEditCardId.set('card-A');
+    // A enters edit once (consumes the flag)…
+    component['onCardEditing'](cardWith('card-A'), true);
+    expect(store.autoEditCardId()).toBeNull();
+
+    // …then the user double-clicks card B to edit it. Nothing must re-pin edit onto A.
+    component['onCardEditing'](cardWith('card-B'), true);
+    expect(store.autoEditCardId()).toBeNull();
+  });
+
+  it('does not clear autoEditCardId when a card LEAVES edit (editing === false)', () => {
+    store.autoEditCardId.set('card-A');
+
+    component['onCardEditing'](cardWith('card-A'), false);
+
+    expect(store.autoEditCardId()).toBe('card-A');
   });
 });

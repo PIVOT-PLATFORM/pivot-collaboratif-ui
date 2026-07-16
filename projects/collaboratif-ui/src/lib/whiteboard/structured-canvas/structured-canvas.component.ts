@@ -810,6 +810,13 @@ export class StructuredCanvasComponent {
     this.store.updateCard(card.id, content);
   }
   protected onCardEditing(card: Card, editing: boolean): void {
+    // BUG F — auto-edit is one-shot: the moment a card actually enters inline edit, consume the
+    // `autoEditCardId` flag. Otherwise it stays pinned to the last-created card, which then
+    // "monopolises" edit mode (it re-opens on every re-render/re-mount and blocks other cards
+    // from taking over). Only the enter transition consumes it — leaving edit must not.
+    if (editing) {
+      this.store.consumeAutoEdit(card.id);
+    }
     this.store.notifyEditing(card.id, editing);
   }
   protected onFrameTitle(id: string, title: string): void {
