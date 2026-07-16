@@ -38,6 +38,13 @@
     box-shadow: none;
     background: transparent;
   }
+
+  // Multi-line inline edit (fix/card-multiline-text): the edit textarea auto-grows past the
+  // card's stored height (see BoardCardComponent.autosizeEditArea) — let it show in full while
+  // editing instead of clipping it, mirroring PouetPouet's expanding edit box.
+  &--editing {
+    overflow: visible;
+  }
 }
 
 // Micro-lift au survol (§3.2) — carte tactile.

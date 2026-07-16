@@ -198,7 +198,16 @@ export class BoardCardComponent {
     this.editValue.set(t === 'LABEL' ? parseLabelFmt(this.card().content).text : parseTextFmt(this.card().content).text);
     this.editing.set(true);
     this.editingChange.emit(true);
-    queueMicrotask(() => this.editArea()?.nativeElement.focus());
+    queueMicrotask(() => {
+      const el = this.editArea()?.nativeElement;
+      el?.focus();
+      // Pre-size the textarea to its (possibly multi-line) pre-filled content on open —
+      // otherwise a card re-opened for editing briefly shows the single-line default height
+      // before the first keystroke triggers `onEditInput`'s own autosize.
+      if (el) {
+        this.autosizeEditArea(el);
+      }
+    });
   }
 
   /** Commits the edited text, re-wrapping it in the card's formatting envelope. */
@@ -227,19 +236,42 @@ export class BoardCardComponent {
     this.editingChange.emit(false);
   }
 
+  /**
+   * Enter (with or without Shift) is deliberately left untouched here — the default
+   * `<textarea>` behaviour inserts a newline, which is what makes multi-line notes possible
+   * (mirrors PouetPouet's `board-card.tsx`: its own `handleKeyDown` only ever intercepts
+   * Escape, Enter always falls through to insert `\n`). Only Escape cancels inline edit;
+   * committing otherwise happens on blur (see the template's `(blur)="commitEdit()"`).
+   *
+   * Stops propagation on Escape so the same keydown never bubbles up to the host's own
+   * (keydown) listener (onHostKeydown) right after `editing` has already flipped back to
+   * false, which would otherwise immediately reopen edit mode.
+   */
   protected onEditKeydown(event: KeyboardEvent): void {
-    // Stops here — without it, the same keydown would bubble up to the host's own
-    // (keydown) listener (onHostKeydown) after commitEdit()/cancelEdit() has already flipped
-    // `editing` back to false, immediately reopening edit mode on every Enter/Escape.
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      this.commitEdit();
-    } else if (event.key === 'Escape') {
+    if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       this.cancelEdit();
     }
+  }
+
+  /** Updates the live edit buffer from the textarea and keeps it auto-sized to its content. */
+  protected onEditInput(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    this.editValue.set(target.value);
+    this.autosizeEditArea(target);
+  }
+
+  /**
+   * Grows (or shrinks) the inline edit `<textarea>` to fit its current content — mirrors
+   * PouetPouet's `board-card.tsx` (`scrollHeight`-driven resize on every keystroke), so a
+   * multi-line note stays fully visible while editing instead of being clipped to the card's
+   * stored height. Resetting to `'auto'` first is required for `scrollHeight` to shrink back
+   * down when text is deleted, not just grow.
+   */
+  private autosizeEditArea(el: HTMLTextAreaElement): void {
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
   }
 
   protected onDoubleClick(): void {

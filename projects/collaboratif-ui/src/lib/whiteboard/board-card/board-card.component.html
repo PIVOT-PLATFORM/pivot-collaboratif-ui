@@ -6,6 +6,7 @@
 <div
   class="wb-card__body"
   [class.wb-card__body--shape]="card().type === 'SHAPE' || card().type === 'DRAW'"
+  [class.wb-card__body--editing]="editing()"
   [style.background]="card().type === 'TEXT' ? card().color : null"
   [style.outlineColor]="card().groupColor || null"
   (dblclick)="onDoubleClick()"
@@ -17,7 +18,7 @@
           #editArea
           class="wb-card__edit"
           [value]="editValue()"
-          (input)="editValue.set($any($event.target).value)"
+          (input)="onEditInput($event)"
           (blur)="commitEdit()"
           (keydown)="onEditKeydown($event)"
           [attr.aria-label]="'whiteboard.card.text.contentAriaLabel' | transloco"
@@ -41,7 +42,7 @@
           #editArea
           class="wb-card__edit wb-card__edit--label"
           [value]="editValue()"
-          (input)="editValue.set($any($event.target).value)"
+          (input)="onEditInput($event)"
           (blur)="commitEdit()"
           (keydown)="onEditKeydown($event)"
           [attr.aria-label]="'whiteboard.card.editLabel' | transloco"
