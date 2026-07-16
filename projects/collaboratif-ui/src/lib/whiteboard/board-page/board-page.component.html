@@ -188,7 +188,7 @@
         [board]="sBoard"
         [triggerElement]="settingsTriggerEl"
         (closed)="closeSettings()"
-        (saved)="onSettingsSaved()"
+        (saved)="onSettingsSaved($event)"
         (resetDone)="closeSettings()"
       ></wb-board-settings-modal>
     </dialog>

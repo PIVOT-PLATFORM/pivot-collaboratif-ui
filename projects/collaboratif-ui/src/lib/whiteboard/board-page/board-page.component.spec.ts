@@ -267,6 +267,39 @@ describe('BoardPageComponent — AC08.2.4 settings modal + reset wiring', () => 
     expect(cmp.showSettings()).toBe(false);
   });
 
+  // US08.2.4 recette — the modal persists through BoardService directly, so onSettingsSaved must
+  // push the saved values back into the store; otherwise the H1 title and a reopened modal show
+  // stale data until a full page reload.
+  it('ac08_2_4_11d_settings save syncs the saved title/description into the store', async () => {
+    const { fixture, store } = create();
+    fixture.detectChanges();
+    await flushInitRequests();
+    store.userRole.set('OWNER');
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[aria-label="Paramètres du tableau"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.wb-settings__footer .wb-settings__btn--primary') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne(r => r.url === `${TEST_API_URL}/whiteboard/boards/board-1` && r.method === 'PATCH')
+      .flush({
+        id: 'board-1', title: 'Titre révisé', role: 'owner', createdAt: '', updatedAt: '',
+        thumbnailUrl: null, activeParticipantCount: 0, favorite: false,
+        description: 'Description révisée', coverImage: null, maxParticipants: null,
+        enabledActivities: [], deletedAt: null,
+      });
+    fixture.detectChanges();
+
+    expect(store.board()?.name).toBe('Titre révisé');
+    expect(store.board()?.description).toBe('Description révisée');
+    // The H1 reflects the new title without a reload.
+    expect((fixture.nativeElement.querySelector('h1.wb-page__title') as HTMLElement).textContent?.trim())
+      .toBe('Titre révisé');
+  });
+
   it('ac08_2_4_11c_closeSettings hides the modal without an API call', async () => {
     const { fixture, cmp, store } = create();
     fixture.detectChanges();

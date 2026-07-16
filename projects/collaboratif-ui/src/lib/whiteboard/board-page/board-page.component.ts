@@ -223,7 +223,17 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     this.showSettings.set(false);
   }
 
-  protected onSettingsSaved(): void {
+  protected onSettingsSaved(updated: Board): void {
+    // The settings modal persists via BoardService directly, so push the saved values back
+    // into the store — otherwise the header title and a reopened modal show stale data until
+    // a full reload (US08.2.4 recette finding).
+    this.store.applySavedMetadata({
+      title: updated.title,
+      description: updated.description,
+      coverImage: updated.coverImage,
+      maxParticipants: updated.maxParticipants,
+      enabledActivities: updated.enabledActivities,
+    });
     this.showSettings.set(false);
   }
 
