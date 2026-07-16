@@ -187,6 +187,72 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
     expect(store.cards()[0].width).toBe(300);
     expect(store.cards()[0].height).toBe(250);
   });
+
+  // ── BUG 4: optimistic drag stays put, cards never vanish ────────────────────
+  it('ignores a stale card:moved for a card being actively dragged (no snap-back mid-drag)', () => {
+    store.startDragCard('card-1');
+    store.moveCard('card-1', 300, 400);
+    // A late, stale echo (an earlier throttled position round-tripping) arrives mid-drag.
+    transport.dispatch('card:moved', { ...baseCard(), posX: 50, posY: 60 });
+
+    expect(store.cards()[0].posX).toBe(300);
+    expect(store.cards()[0].posY).toBe(400);
+  });
+
+  it('ignores a stale card:moved arriving right after drop (no revert to previous position)', () => {
+    store.startDragCard('card-1');
+    store.moveCard('card-1', 300, 400);
+    store.commitDragCard();
+    // The card:moved echo of the drag (or an older throttled one) lands just after release.
+    transport.dispatch('card:moved', { ...baseCard(), posX: 0, posY: 0 });
+
+    expect(store.cards()[0].posX).toBe(300);
+    expect(store.cards()[0].posY).toBe(400);
+  });
+
+  it('honours a remote card:moved again once the post-drop grace window has elapsed', () => {
+    vi.useFakeTimers();
+    try {
+      store.startDragCard('card-1');
+      store.moveCard('card-1', 300, 400);
+      store.commitDragCard();
+      vi.advanceTimersByTime(600);
+      transport.dispatch('card:moved', { ...baseCard(), posX: 12, posY: 34 });
+
+      expect(store.cards()[0].posX).toBe(12);
+      expect(store.cards()[0].posY).toBe(34);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('board:state keeps the local position of a card being actively dragged', () => {
+    store.startDragCard('card-1');
+    store.moveCard('card-1', 300, 400);
+    // A room-wide board:state (another participant joined) carrying the pre-drag server position.
+    transport.dispatch('board:state', {
+      cards: [baseCard({ posX: 0, posY: 0 })],
+      connections: [],
+      frames: [],
+      fields: [],
+    });
+
+    expect(store.cards()[0].posX).toBe(300);
+    expect(store.cards()[0].posY).toBe(400);
+  });
+
+  it('board:state preserves an optimistic card still awaiting its card:created echo', () => {
+    store.cards.set([]);
+    store.addCard(0, 0, 'TEXT', 'draft');
+    const provisional = store.cards().at(-1);
+    expect(provisional).toBeDefined();
+
+    // A room-wide board:state that predates our create must not wipe the provisional card.
+    transport.dispatch('board:state', { cards: [], connections: [], frames: [], fields: [] });
+
+    expect(store.cards().some((c) => c.id === provisional!.id)).toBe(true);
+  });
 });
 
 /**

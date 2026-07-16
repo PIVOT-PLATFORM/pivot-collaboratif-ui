@@ -59,6 +59,17 @@ const LOAD_BOARD_TIMEOUT_MS = 8_000;
 const OPTIMISTIC_CARD_TIMEOUT_MS = 10_000;
 
 /**
+ * Grace window (BUG 4) during which a card just released from a local drag/resize keeps its
+ * optimistic geometry authoritative: inbound `card:moved`/`card:resized` echoes and room-wide
+ * `board:state` snapshots for that card are ignored until it elapses. Covers the "snaps back
+ * after drop" symptom — a late, stale echo of an earlier throttled position (or a `board:state`
+ * broadcast a joining participant triggers) arriving just after the pointer is released must not
+ * overwrite the final position the user let go at. Kept short: only long enough to outlast one
+ * network round trip of the final emitted position.
+ */
+const LOCAL_CONTROL_GRACE_MS = 500;
+
+/**
  * Structured whiteboard state machine — the Angular port of the PouetPouet `useBoard`
  * hook (`apps/web/src/hooks/useBoard.ts`). Owns all board domain state (cards,
  * connections, frames, fields, votes, timer, presence), a 30-deep undo/redo history,
@@ -134,6 +145,11 @@ export class BoardStore {
   } | null = null;
   private frameResizeStart: { id: string; posX: number; posY: number; width: number; height: number } | null = null;
   private cursorThrottleTs = 0;
+  /** Card ids under active local drag/resize — their optimistic geometry is authoritative, so
+   *  inbound geometry echoes and `board:state` snapshots for them are ignored (BUG 4). */
+  private readonly activeLocalCards = new Set<string>();
+  /** Post-release grace timers per card id (see {@link LOCAL_CONTROL_GRACE_MS}). */
+  private readonly localControlGraceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────────
   /** Loads the board over REST and opens the realtime room. Call once from the container. */
@@ -179,6 +195,9 @@ export class BoardStore {
     }
     this.optimisticCardTimers.forEach((t) => clearTimeout(t));
     this.optimisticCardTimers.clear();
+    this.localControlGraceTimers.forEach((t) => clearTimeout(t));
+    this.localControlGraceTimers.clear();
+    this.activeLocalCards.clear();
     this.transport.emit('board:leave', this.boardId);
     this.unsubscribers.forEach((u) => u());
     this.unsubscribers.length = 0;
@@ -264,7 +283,7 @@ export class BoardStore {
     this.on<{ cards: Card[]; connections: Connection[]; frames: Frame[]; fields: BoardField[]; role?: BoardRole }>(
       'board:state',
       ({ cards, connections, frames, fields, role }) => {
-        this.cards.set(cards);
+        this.cards.set(this.mergeBoardStateCards(cards));
         this.connections.set(connections);
         this.frames.set(frames);
         this.fields.set(fields);
@@ -422,11 +441,19 @@ export class BoardStore {
       if (senderSessionId && senderSessionId === this.transport.getSessionId()) {
         return;
       }
+      // A card the local user is dragging (or just released, within its grace window) keeps its
+      // authoritative optimistic position — a stale echo must never snap it back (BUG 4c).
+      if (this.isLocallyControlled(card.id)) {
+        return;
+      }
       this.cards.update((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...card } : c)));
     });
     this.on<Card & { senderSessionId?: string }>('card:resized', (payload) => {
       const { senderSessionId, ...card } = payload;
       if (senderSessionId && senderSessionId === this.transport.getSessionId()) {
+        return;
+      }
+      if (this.isLocallyControlled(card.id)) {
         return;
       }
       this.cards.update((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...card } : c)));
@@ -666,6 +693,67 @@ export class BoardStore {
     }
   }
 
+  // ── Local interaction authority (BUG 4: no snap-back / no disappear) ─────────
+  /** True while `id` is under active local drag/resize or within its post-release grace. */
+  private isLocallyControlled(id: string): boolean {
+    return this.activeLocalCards.has(id) || this.localControlGraceTimers.has(id);
+  }
+
+  /** Marks card ids as locally controlled (drag/resize start), cancelling any pending grace. */
+  private markLocalControl(ids: Iterable<string>): void {
+    for (const id of ids) {
+      this.activeLocalCards.add(id);
+      const grace = this.localControlGraceTimers.get(id);
+      if (grace !== undefined) {
+        clearTimeout(grace);
+        this.localControlGraceTimers.delete(id);
+      }
+    }
+  }
+
+  /** Releases active control (drag/resize commit) into a short grace window (see
+   *  {@link LOCAL_CONTROL_GRACE_MS}) so a late, stale echo cannot revert the released card. */
+  private releaseLocalControl(ids: Iterable<string>): void {
+    for (const id of ids) {
+      if (!this.activeLocalCards.delete(id)) {
+        continue;
+      }
+      const existing = this.localControlGraceTimers.get(id);
+      if (existing !== undefined) {
+        clearTimeout(existing);
+      }
+      this.localControlGraceTimers.set(
+        id,
+        setTimeout(() => this.localControlGraceTimers.delete(id), LOCAL_CONTROL_GRACE_MS),
+      );
+    }
+  }
+
+  /**
+   * Reconciles a room-wide `board:state` snapshot against local state (BUG 4). The backend
+   * re-broadcasts `board:state` to the whole room on every participant JOIN (not just to the
+   * joiner), so a blind `cards.set(snapshot)` would (a) drop a card we created optimistically
+   * that the snapshot predates — "cards disappear randomly" — and (b) yank a card we are
+   * actively dragging back to its server position. This merge keeps our optimistic geometry for
+   * locally-controlled cards and re-appends still-pending provisional cards the snapshot lacks.
+   */
+  private mergeBoardStateCards(serverCards: Card[]): Card[] {
+    const currentById = new Map(this.cards().map((c) => [c.id, c]));
+    const merged = serverCards.map((sc) => {
+      const local = currentById.get(sc.id);
+      return local && this.isLocallyControlled(sc.id)
+        ? { ...sc, posX: local.posX, posY: local.posY, width: local.width, height: local.height }
+        : sc;
+    });
+    const serverIds = new Set(serverCards.map((c) => c.id));
+    for (const c of this.cards()) {
+      if (this.pendingLocalTags.has(c.id) && !serverIds.has(c.id)) {
+        merged.push(c);
+      }
+    }
+    return merged;
+  }
+
   private flushMoveEmits(): void {
     this.moveEmit.raf = null;
     const pending = this.moveEmit.pending;
@@ -766,6 +854,7 @@ export class BoardStore {
         return c ? ([[cid, { posX: c.posX, posY: c.posY }]] as [string, { posX: number; posY: number }][]) : [];
       }),
     );
+    this.markLocalControl(this.cardDragStart.keys());
   }
 
   commitDragCard(): void {
@@ -780,6 +869,7 @@ export class BoardStore {
     if (!starts) {
       return;
     }
+    this.releaseLocalControl(starts.keys());
     const cards = this.cards();
     const ends = new Map<string, { posX: number; posY: number }>();
     starts.forEach((_, cid) => {
@@ -824,6 +914,7 @@ export class BoardStore {
       return;
     }
     this.cardResizeStart = { id, posX: card.posX, posY: card.posY, width: card.width, height: card.height };
+    this.markLocalControl([id]);
   }
 
   commitResizeCard(id: string): void {
@@ -832,6 +923,7 @@ export class BoardStore {
     if (!start || start.id !== id) {
       return;
     }
+    this.releaseLocalControl([id]);
     const card = this.cards().find((c) => c.id === id);
     if (!card) {
       return;
