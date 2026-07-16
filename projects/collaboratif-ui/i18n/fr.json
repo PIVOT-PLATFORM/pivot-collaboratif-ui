@@ -421,7 +421,24 @@
       "resultsReady": "Les résultats sont prêts",
       "displayIn": "Affichage dans",
       "countdown": "{{count}}s · Cliquez pour voir",
-      "showResults": "Afficher les résultats"
+      "showResults": "Afficher les résultats",
+      "config": {
+        "title": "Lancer un vote",
+        "hint": "Chaque participant répartit ses points sur les cartes du tableau.",
+        "budget": "Points par personne",
+        "decrease": "Retirer un point",
+        "increase": "Ajouter un point",
+        "withTimer": "Limiter dans le temps",
+        "timerMinutesLabel": "Durée en minutes",
+        "minUnit": "min",
+        "start": "Lancer le vote",
+        "cancel": "Annuler"
+      },
+      "card": {
+        "cast": "Voter pour cette carte",
+        "uncast": "Retirer mon vote",
+        "count": "{{count}} vote(s)"
+      }
     },
     "groups": {
       "title": "Groupes",

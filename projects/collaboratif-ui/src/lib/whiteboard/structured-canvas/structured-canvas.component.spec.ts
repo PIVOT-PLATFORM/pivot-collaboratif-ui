@@ -214,8 +214,14 @@ describe('StructuredCanvasComponent — frame placement tool', () => {
       selectedIds: () => new Set<string>(),
       remoteEditors: () => new Map<string, { name: string }>(),
       autoEditCardId: () => null,
+      activeVoteSession: () => null,
+      voteTallyByCard: () => new Map<string, number>(),
+      myVoteTallyByCard: () => new Map<string, number>(),
+      voteBudgetRemaining: () => null,
       emitCursor: vi.fn(),
       selectCards: vi.fn(),
+      castVote: vi.fn(),
+      uncastVote: vi.fn(),
     };
 
     await TestBed.configureTestingModule({
@@ -498,8 +504,14 @@ describe('StructuredCanvasComponent — connect gesture (BUG 6)', () => {
       selectedIds: () => new Set<string>(),
       remoteEditors: () => new Map<string, { name: string }>(),
       autoEditCardId: () => null,
+      activeVoteSession: () => null,
+      voteTallyByCard: () => new Map<string, number>(),
+      myVoteTallyByCard: () => new Map<string, number>(),
+      voteBudgetRemaining: () => null,
       emitCursor: vi.fn(),
       selectCards: vi.fn(),
+      castVote: vi.fn(),
+      uncastVote: vi.fn(),
     };
 
     await TestBed.configureTestingModule({
@@ -663,8 +675,14 @@ describe('StructuredCanvasComponent — double-click creates a post-it (ITEM D)'
       selectedIds: () => new Set<string>(),
       remoteEditors: () => new Map<string, { name: string }>(),
       autoEditCardId: () => null,
+      activeVoteSession: () => null,
+      voteTallyByCard: () => new Map<string, number>(),
+      myVoteTallyByCard: () => new Map<string, number>(),
+      voteBudgetRemaining: () => null,
       emitCursor: vi.fn(),
       selectCards: vi.fn(),
+      castVote: vi.fn(),
+      uncastVote: vi.fn(),
     };
   }
 
@@ -1012,8 +1030,14 @@ describe('StructuredCanvasComponent — free-draw tool', () => {
       selectedIds: () => new Set<string>(),
       remoteEditors: () => new Map<string, { name: string }>(),
       autoEditCardId: () => null,
+      activeVoteSession: () => null,
+      voteTallyByCard: () => new Map<string, number>(),
+      myVoteTallyByCard: () => new Map<string, number>(),
+      voteBudgetRemaining: () => null,
       emitCursor: vi.fn(),
       selectCards: vi.fn(),
+      castVote: vi.fn(),
+      uncastVote: vi.fn(),
     };
 
     await TestBed.configureTestingModule({

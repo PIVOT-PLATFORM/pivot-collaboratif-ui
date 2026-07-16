@@ -207,6 +207,13 @@
     ></wb-timer-config-dialog>
   }
 
+  @if (showVoteConfig()) {
+    <wb-vote-config-dialog
+      (start)="onStartVote($event)"
+      (close)="showVoteConfig.set(false)"
+    ></wb-vote-config-dialog>
+  }
+
   @if (showShare()) {
     <dialog class="wb-page__modal" open [attr.aria-label]="'whiteboard.share.panel.title' | transloco">
       <app-share-panel [boardId]="boardId" (closed)="showShare.set(false)"></app-share-panel>

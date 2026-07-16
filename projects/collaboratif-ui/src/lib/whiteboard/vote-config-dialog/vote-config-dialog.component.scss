@@ -1,0 +1,216 @@
+.wb-votecfg__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 16, 41, 0.42);
+  animation: wb-votecfg-fade var(--wb-dur-fast, 100ms) var(--wb-ease-out, ease-out);
+}
+
+.wb-votecfg {
+  width: min(92vw, 400px);
+  padding: 20px;
+  background: #fff;
+  border-radius: var(--wb-radius-panel, 14px);
+  box-shadow: var(--wb-elev-3, 0 8px 24px rgba(20, 16, 41, 0.16));
+  font-family: var(--wb-font, inherit);
+  color: var(--wb-ink, #201a3b);
+  animation: wb-votecfg-pop var(--wb-dur-base, 160ms) var(--wb-ease-out, ease-out);
+}
+
+.wb-votecfg__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.wb-votecfg__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: var(--wb-fw-semibold, 600);
+}
+
+.wb-votecfg__close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--wb-ink-muted, #5b5470);
+  cursor: pointer;
+  border-radius: var(--wb-radius-control, 10px);
+  width: 32px;
+  height: 32px;
+
+  &:hover {
+    background: var(--wb-accent-weak, #efe9ff);
+    color: var(--wb-accent, #7c5cff);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 2px;
+  }
+}
+
+.wb-votecfg__hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--wb-ink-muted, #5b5470);
+}
+
+.wb-votecfg__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  margin-bottom: 12px;
+}
+
+.wb-votecfg__label {
+  font-size: 14px;
+  font-weight: var(--wb-fw-medium, 500);
+}
+
+.wb-votecfg__stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wb-votecfg__step {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--wb-border, #e6e4ef);
+  border-radius: var(--wb-radius-control, 10px);
+  background: #fff;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--wb-ink, #201a3b);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--wb-accent-weak, #efe9ff);
+    border-color: var(--wb-accent, #7c5cff);
+    color: var(--wb-accent, #7c5cff);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 2px;
+  }
+}
+
+.wb-votecfg__count {
+  min-width: 28px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: var(--wb-fw-semibold, 600);
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-votecfg__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.wb-votecfg__field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.wb-votecfg__input {
+  width: 56px;
+  padding: 8px 10px;
+  border: 1px solid var(--wb-border, #e6e4ef);
+  border-radius: var(--wb-radius-control, 10px);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--wb-ink, #201a3b);
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 1px;
+    border-color: var(--wb-accent, #7c5cff);
+  }
+}
+
+.wb-votecfg__unit {
+  font-size: 12px;
+  color: var(--wb-ink-muted, #5b5470);
+}
+
+.wb-votecfg__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.wb-votecfg__btn {
+  padding: 9px 16px;
+  border-radius: var(--wb-radius-control, 10px);
+  font-size: 14px;
+  font-weight: var(--wb-fw-medium, 500);
+  cursor: pointer;
+  border: 1px solid transparent;
+
+  &:focus-visible {
+    outline: 2px solid var(--wb-focus, #7c5cff);
+    outline-offset: 2px;
+  }
+
+  &--ghost {
+    background: transparent;
+    border-color: var(--wb-border, #e6e4ef);
+    color: var(--wb-ink, #201a3b);
+
+    &:hover {
+      background: var(--wb-surface-muted, #f6f5fb);
+    }
+  }
+
+  &--primary {
+    background: var(--wb-accent, #7c5cff);
+    color: #fff;
+
+    &:hover {
+      background: var(--wb-accent-hover, #6a49f2);
+    }
+  }
+}
+
+@keyframes wb-votecfg-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes wb-votecfg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-votecfg__backdrop,
+  .wb-votecfg {
+    animation: none;
+  }
+}

@@ -85,10 +85,16 @@
         [remoteEditorName]="remoteEditorFor(card.id)"
         [readOnly]="store.isReadonly()"
         [autoEdit]="store.autoEditCardId() === card.id"
+        [voteActive]="store.activeVoteSession() !== null"
+        [voteCount]="store.voteTallyByCard().get(card.id) ?? 0"
+        [myVotes]="store.myVoteTallyByCard().get(card.id) ?? 0"
+        [canVoteMore]="(store.voteBudgetRemaining() ?? 0) > 0"
         (contentCommit)="onCardContent(card, $event)"
         (heightGrow)="onCardHeightGrow(card, $event)"
         (editingChange)="onCardEditing(card, $event)"
         (openDetail)="openDetail.emit($event)"
+        (castVote)="store.castVote(card.id)"
+        (uncastVote)="store.uncastVote(card.id)"
       ></wb-board-card>
     }
 

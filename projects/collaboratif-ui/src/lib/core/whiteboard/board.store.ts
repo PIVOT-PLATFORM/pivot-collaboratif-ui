@@ -132,8 +132,61 @@ export class BoardStore {
   readonly timerEndsAt = signal<number | null>(null);
   readonly activeVoteSession = signal<VoteSession | null>(null);
   readonly lastVoteSession = signal<VoteSession | null>(null);
+  /**
+   * US08.12.2 — the current user's own {@code public.users.id}, fetched from
+   * {@code GET /whiteboard/me}. The realtime channel never carries a self identity, so the
+   * dot-vote UI needs this to tell which votes in a session are the caller's own.
+   */
+  readonly selfUserId = signal<string | null>(null);
 
   readonly isReadonly = computed(() => this.userRole() === 'VIEWER');
+
+  /** US08.12.2 — total dot-votes cast per card in the active session (all users). */
+  readonly voteTallyByCard = computed<ReadonlyMap<string, number>>(() => {
+    const session = this.activeVoteSession();
+    const tally = new Map<string, number>();
+    if (!session) {
+      return tally;
+    }
+    for (const vote of session.votes) {
+      tally.set(vote.cardId, (tally.get(vote.cardId) ?? 0) + 1);
+    }
+    return tally;
+  });
+
+  /** US08.12.2 — dot-votes the current user has cast per card in the active session. */
+  readonly myVoteTallyByCard = computed<ReadonlyMap<string, number>>(() => {
+    const session = this.activeVoteSession();
+    const me = this.selfUserId();
+    const tally = new Map<string, number>();
+    if (!session || me === null) {
+      return tally;
+    }
+    for (const vote of session.votes) {
+      if (String(vote.userId) === me) {
+        tally.set(vote.cardId, (tally.get(vote.cardId) ?? 0) + 1);
+      }
+    }
+    return tally;
+  });
+
+  /** US08.12.2 — total votes the current user has spent in the active session. */
+  readonly myVotesUsed = computed<number>(() => {
+    let used = 0;
+    for (const count of this.myVoteTallyByCard().values()) {
+      used += count;
+    }
+    return used;
+  });
+
+  /** US08.12.2 — the current user's remaining vote budget, or `null` when no vote is active. */
+  readonly voteBudgetRemaining = computed<number | null>(() => {
+    const session = this.activeVoteSession();
+    if (!session) {
+      return null;
+    }
+    return Math.max(0, session.votesPerPerson - this.myVotesUsed());
+  });
 
   /** Cards copied via {@link copySelected}, portable across boards (also mirrored to localStorage). */
   readonly clipboard = signal<ClipboardCard[]>([]);
@@ -292,15 +345,38 @@ export class BoardStore {
 
   private async loadVote(which: 'current' | 'last', target: typeof this.activeVoteSession): Promise<void> {
     try {
-      // ⚠️ WIP: vote endpoints not implemented in collaboratif-core yet.
       const session = await firstValueFrom(
         this.http.get<VoteSession | null>(`${this.apiUrl}/whiteboard/boards/${this.boardId}/vote/${which}`),
       );
       if (session) {
         target.set(session);
+        if (which === 'current') {
+          // Rejoining an already-active vote — resolve our own id so the UI can attribute votes.
+          void this.ensureSelfUserId();
+        }
       }
     } catch {
-      /* endpoint absent — WIP */
+      /* no session yet (404) — nothing to restore */
+    }
+  }
+
+  /**
+   * Lazily fetches the current user's own id the first time a dot-vote makes it relevant
+   * (US08.12.2) — never on plain board open, so read-only viewers never trigger it. Fetched at
+   * most once per store; non-fatal on failure (the UI falls back to read-only tallies with no
+   * own-dot highlighting or un-casting).
+   */
+  private async ensureSelfUserId(): Promise<void> {
+    if (this.selfUserId() !== null) {
+      return;
+    }
+    try {
+      const me = await firstValueFrom(
+        this.http.get<{ userId: string }>(`${this.apiUrl}/whiteboard/me`),
+      );
+      this.selfUserId.set(me.userId);
+    } catch {
+      /* self id unavailable — dot-vote degrades to read-only tallies */
     }
   }
 
@@ -414,7 +490,11 @@ export class BoardStore {
     );
     this.on<void>('timer:stopped', () => this.timerEndsAt.set(null));
 
-    this.on<VoteSession>('vote:session:started', (s) => this.activeVoteSession.set(s));
+    this.on<VoteSession>('vote:session:started', (s) => {
+      this.activeVoteSession.set(s);
+      // A vote just started room-wide — resolve our own id so we can cast/track our dots.
+      void this.ensureSelfUserId();
+    });
     this.on<VoteSession>('vote:updated', (s) => this.activeVoteSession.set(s));
     this.on<VoteSession>('vote:session:closed', (s) => {
       this.activeVoteSession.set(null);
@@ -1622,11 +1702,20 @@ export class BoardStore {
     if (!s) {
       return;
     }
+    // Enforce the per-person budget client-side so a cast never gets silently dropped server-side
+    // (US08.12.2). The server remains the authority — this only avoids no-op round-trips.
+    if (this.myVotesUsed() >= s.votesPerPerson) {
+      return;
+    }
     this.transport.emit('vote:cast', { sessionId: s.id, boardId: this.boardId, cardId });
   }
   uncastVote(cardId: string): void {
     const s = this.activeVoteSession();
     if (!s) {
+      return;
+    }
+    // Only un-cast a card the current user has actually voted for (US08.12.2).
+    if ((this.myVoteTallyByCard().get(cardId) ?? 0) <= 0) {
       return;
     }
     this.transport.emit('vote:uncast', { sessionId: s.id, boardId: this.boardId, cardId });

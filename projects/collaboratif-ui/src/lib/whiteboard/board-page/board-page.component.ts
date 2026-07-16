@@ -25,6 +25,7 @@ import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component'
 import { SharePanelComponent } from '../share-panel/share-panel.component';
 import { ActivitiesPanelComponent } from '../activities-panel/activities-panel.component';
 import { TimerConfigDialogComponent } from '../timer-config-dialog/timer-config-dialog.component';
+import { VoteConfigDialogComponent, type VoteConfig } from '../vote-config-dialog/vote-config-dialog.component';
 import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
 import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import type { Board } from '../../core/whiteboard/board.model';
@@ -63,6 +64,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     SharePanelComponent,
     ActivitiesPanelComponent,
     TimerConfigDialogComponent,
+    VoteConfigDialogComponent,
     BoardSettingsModalComponent,
     SelectionToolbarComponent,
   ],
@@ -91,6 +93,8 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly showVoteResults = signal(false);
   /** US08.12.1 — timer duration picker visibility (opened from the activities panel). */
   protected readonly showTimerConfig = signal(false);
+  /** US08.12.2 — dot-vote configuration picker visibility (opened from the activities panel). */
+  protected readonly showVoteConfig = signal(false);
   protected readonly showSettings = signal(false);
   protected readonly highlightedGroup = signal<string | null>(null);
 
@@ -277,6 +281,8 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     this.showActivities.set(false);
     if (activityId === 'timer') {
       this.showTimerConfig.set(true);
+    } else if (activityId === 'dotvote') {
+      this.showVoteConfig.set(true);
     }
   }
 
@@ -284,6 +290,17 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected onStartTimer(seconds: number): void {
     this.store.startTimer(seconds);
     this.showTimerConfig.set(false);
+  }
+
+  /**
+   * Starts a dot-vote (US08.12.2) and reveals the live results panel. The eligible-voter list is
+   * left empty — the backend treats that as "anyone with board access", gated by the per-person
+   * quota — so no client-side member enumeration is needed.
+   */
+  protected onStartVote(config: VoteConfig): void {
+    this.store.startVote({ ...config, voterIds: [] });
+    this.showVoteConfig.set(false);
+    this.showVoteResults.set(true);
   }
 
   protected dismissTimer(): void {
