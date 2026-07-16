@@ -9,7 +9,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #fafafa;
+  background: var(--wb-canvas-bg);
   cursor: default;
   outline: none;
   touch-action: none;
@@ -25,7 +25,7 @@
   left: 0;
   transform-origin: 0 0;
   // Dotted grid — scales with the layer transform (zoom).
-  background-image: radial-gradient(circle, #d4d4d8 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--wb-grid-dot) 1px, transparent 1px);
   background-size: 24px 24px;
   width: 1px;
   height: 1px;
@@ -47,14 +47,14 @@
 }
 
 .wb-connect-ghost {
-  stroke: #6366f1;
+  stroke: var(--wb-accent);
   stroke-width: 2;
   stroke-dasharray: 4 4;
 }
 
 .wb-marquee {
   position: absolute;
-  border: 1px solid #2196f3;
-  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid var(--wb-accent);
+  background: var(--wb-accent-ghost-fill);
   pointer-events: none;
 }

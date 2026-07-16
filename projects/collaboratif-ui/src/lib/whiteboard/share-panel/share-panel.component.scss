@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #fff;
+  background: var(--wb-surface);
   outline: none;
 
   &__header {
@@ -10,7 +10,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--wb-border);
     flex-shrink: 0;
   }
 
@@ -18,7 +18,7 @@
     font-size: 1.125rem;
     font-weight: 600;
     margin: 0;
-    color: #1e293b;
+    color: var(--wb-ink);
   }
 
   &__close-btn {
@@ -26,19 +26,19 @@
     border: none;
     font-size: 1.375rem;
     line-height: 1;
-    color: #64748b;
+    color: var(--wb-ink-muted);
     cursor: pointer;
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
 
-    &:hover { background: #f1f5f9; color: #1e293b; }
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    &:hover { background: var(--wb-surface-hover); color: var(--wb-ink); }
+    &:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: 2px; }
   }
 
   // ── Sections ──
   &__section {
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--wb-border);
 
     &:last-child { border-bottom: none; }
   }
@@ -46,7 +46,7 @@
   &__section-heading {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--wb-ink-muted);
     margin: 0 0 0.875rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -57,7 +57,7 @@
     display: block;
     font-size: 0.8125rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--wb-ink-muted);
     margin-bottom: 0.25rem;
   }
 
@@ -70,14 +70,14 @@
 
   &__select {
     padding: 0.375rem 0.625rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--wb-border);
     border-radius: 0.375rem;
     font-size: 0.875rem;
-    background: #fff;
-    color: #1e293b;
+    background: var(--wb-surface);
+    color: var(--wb-ink);
     cursor: pointer;
 
-    &:focus { outline: 2px solid #3b82f6; outline-offset: 2px; border-color: #3b82f6; }
+    &:focus { outline: 2px solid var(--wb-accent); outline-offset: 2px; border-color: var(--wb-accent); }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
 
     &--sm {
@@ -91,8 +91,8 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    background: #3b82f6;
-    color: #fff;
+    background: var(--wb-accent);
+    color: var(--wb-surface);
     border: none;
     border-radius: 0.375rem;
     font-size: 0.875rem;
@@ -100,8 +100,8 @@
     cursor: pointer;
     margin-bottom: 0.75rem;
 
-    &:hover:not(:disabled) { background: #2563eb; }
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    &:hover:not(:disabled) { background: var(--wb-accent-hover); }
+    &:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: 2px; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 
@@ -116,7 +116,7 @@
   &__link-preview {
     flex: 1;
     font-size: 0.8125rem;
-    color: #475569;
+    color: var(--wb-ink-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -125,18 +125,18 @@
   &__link-input {
     flex: 1;
     padding: 0.375rem 0.625rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--wb-border);
     border-radius: 0.375rem;
     font-size: 0.8125rem;
-    color: #475569;
-    background: #f8fafc;
+    color: var(--wb-ink-muted);
+    background: var(--wb-surface-sunken);
   }
 
   &__copy-btn {
     padding: 0.375rem 0.75rem;
-    background: #f1f5f9;
-    color: #1e293b;
-    border: 1px solid #e2e8f0;
+    background: var(--wb-surface-hover);
+    color: var(--wb-ink);
+    border: 1px solid var(--wb-border);
     border-radius: 0.375rem;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -144,13 +144,13 @@
     white-space: nowrap;
     flex-shrink: 0;
 
-    &:hover { background: #e2e8f0; }
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    &:hover { background: var(--wb-border); }
+    &:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: 2px; }
   }
 
   &__copied-notice {
     font-size: 0.8125rem;
-    color: #16a34a;
+    color: var(--wb-success);
     margin: 0;
   }
 
@@ -163,7 +163,7 @@
 
   &__error {
     font-size: 0.875rem;
-    color: #dc2626;
+    color: var(--wb-danger);
     margin: 0;
   }
 
@@ -177,23 +177,23 @@
     text-align: left;
     padding: 0.5rem 0.75rem;
     font-weight: 600;
-    color: #64748b;
-    border-bottom: 1px solid #e2e8f0;
+    color: var(--wb-ink-muted);
+    border-bottom: 1px solid var(--wb-border);
     white-space: nowrap;
   }
 
   &__tr {
-    &:hover { background: #f8fafc; }
+    &:hover { background: var(--wb-surface-sunken); }
   }
 
   &__td {
     padding: 0.625rem 0.75rem;
-    color: #1e293b;
+    color: var(--wb-ink);
     vertical-align: middle;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--wb-border);
 
-    &--id { font-family: monospace; font-size: 0.75rem; color: #64748b; }
-    &--date { color: #94a3b8; font-size: 0.75rem; }
+    &--id { font-family: monospace; font-size: 0.75rem; color: var(--wb-ink-muted); }
+    &--date { color: var(--wb-ink-faint); font-size: 0.75rem; }
   }
 
   // ── Role badge ──
@@ -204,22 +204,22 @@
     font-size: 0.6875rem;
     font-weight: 600;
 
-    &--owner { background: #dbeafe; color: #1e40af; }
+    &--owner { background: var(--wb-accent-weak); color: var(--wb-accent-active); }
   }
 
   // ── Remove button ──
   &__remove-btn {
     padding: 0.25rem 0.625rem;
-    background: #fff;
-    color: #dc2626;
-    border: 1px solid #fca5a5;
+    background: var(--wb-surface);
+    color: var(--wb-danger);
+    border: 1px solid var(--wb-danger-border);
     border-radius: 0.375rem;
     font-size: 0.75rem;
     cursor: pointer;
     white-space: nowrap;
 
-    &:hover:not(:disabled) { background: #fef2f2; }
-    &:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+    &:hover:not(:disabled) { background: var(--wb-danger-bg); }
+    &:focus-visible { outline: 2px solid var(--wb-danger); outline-offset: 2px; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 
@@ -229,15 +229,15 @@
     width: 0.875rem;
     height: 0.875rem;
     border: 2px solid rgba(255, 255, 255, 0.4);
-    border-top-color: #fff;
+    border-top-color: var(--wb-surface);
     border-radius: 50%;
     animation: share-panel-spin 0.6s linear infinite;
 
     &--sm {
       width: 0.75rem;
       height: 0.75rem;
-      border-color: rgba(59, 130, 246, 0.3);
-      border-top-color: #3b82f6;
+      border-color: rgba(109, 40, 217, 0.3);
+      border-top-color: var(--wb-accent);
     }
   }
 
@@ -245,7 +245,7 @@
   &__overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(26, 18, 48, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -253,24 +253,24 @@
   }
 
   &__dialog {
-    background: #fff;
+    background: var(--wb-surface);
     border-radius: 0.5rem;
     padding: 1.5rem;
     width: 100%;
     max-width: 380px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 20px 40px rgba(26, 18, 48, 0.15);
   }
 
   &__dialog-heading {
     font-size: 1rem;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--wb-ink);
     margin: 0 0 0.75rem;
   }
 
   &__dialog-message {
     font-size: 0.875rem;
-    color: #374151;
+    color: var(--wb-ink-muted);
     margin: 0 0 1rem;
     line-height: 1.5;
   }
@@ -291,23 +291,23 @@
     align-items: center;
     gap: 0.375rem;
 
-    &:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: 2px; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
 
     &--cancel {
-      background: #fff;
-      color: #64748b;
-      border: 1px solid #e2e8f0;
+      background: var(--wb-surface);
+      color: var(--wb-ink-muted);
+      border: 1px solid var(--wb-border);
 
-      &:hover:not(:disabled) { background: #f8fafc; }
+      &:hover:not(:disabled) { background: var(--wb-surface-sunken); }
     }
 
     &--confirm {
-      background: #ef4444;
-      color: #fff;
+      background: var(--wb-danger);
+      color: var(--wb-surface);
       border: none;
 
-      &:hover:not(:disabled) { background: #dc2626; }
+      &:hover:not(:disabled) { background: var(--wb-danger); }
     }
   }
 }
