@@ -20,6 +20,7 @@ import { FloatingToolbarComponent } from '../floating-toolbar/floating-toolbar.c
 import { StructuredCanvasComponent } from '../structured-canvas/structured-canvas.component';
 import { GroupsPanelComponent } from '../groups-panel/groups-panel.component';
 import { BoardFieldsPanelComponent } from '../board-fields-panel/board-fields-panel.component';
+import { CardFieldValuesPanelComponent } from '../card-field-values-panel/card-field-values-panel.component';
 import { ConnectorStylePanelComponent } from '../connector-style-panel/connector-style-panel.component';
 import { VoteResultsPanelComponent } from '../vote-results-panel/vote-results-panel.component';
 import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component';
@@ -30,7 +31,7 @@ import { VoteConfigDialogComponent, type VoteConfig } from '../vote-config-dialo
 import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
 import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import type { Board } from '../../core/whiteboard/board.model';
-import type { Connection, ConnectionPatch } from '../model/board.types';
+import type { Card, Connection, ConnectionPatch } from '../model/board.types';
 import type { ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
 
@@ -60,6 +61,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     StructuredCanvasComponent,
     GroupsPanelComponent,
     BoardFieldsPanelComponent,
+    CardFieldValuesPanelComponent,
     ConnectorStylePanelComponent,
     VoteResultsPanelComponent,
     TimerOverlayComponent,
@@ -134,6 +136,20 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     }
     const [id] = ids;
     return this.store.connections().find((c) => c.id === id) ?? null;
+  });
+
+  /**
+   * The single selected card, or `null` when the selection is empty, holds more than one item,
+   * or matches a connection instead — gates the per-card field-value editor (US08.10.2). Derived
+   * from the same shared {@link BoardStore.selectedIds} signal as {@link selectedConnection}.
+   */
+  protected readonly selectedCard = computed<Card | null>(() => {
+    const ids = this.store.selectedIds();
+    if (ids.size !== 1) {
+      return null;
+    }
+    const [id] = ids;
+    return this.store.cards().find((c) => c.id === id) ?? null;
   });
 
   /** Board snapshot passed to the settings modal — kept in sync with the store's loaded board. */
@@ -269,6 +285,11 @@ export class BoardPageComponent implements OnInit, OnDestroy {
 
   protected onToolConsumed(): void {
     this.tool.set('select');
+  }
+
+  /** Clears the current selection — closes the per-card field-value editor (US08.10.2). */
+  protected clearSelection(): void {
+    this.store.selectCards(new Set());
   }
 
   /** Relays the toolbar's explicit image-upload selection to the canvas (US08.6.4). */

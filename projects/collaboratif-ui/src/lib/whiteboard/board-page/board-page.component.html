@@ -176,6 +176,17 @@
       </aside>
     }
 
+    @if (selectedCard(); as card) {
+      @if (store.fields().length > 0) {
+        <aside class="wb-page__panel wb-page__panel--card-fields" [attr.aria-label]="'whiteboard.fieldValue.title' | transloco">
+          <wb-card-field-values-panel
+            [card]="card"
+            (close)="clearSelection()"
+          ></wb-card-field-values-panel>
+        </aside>
+      }
+    }
+
     @if (showActivities()) {
       <aside class="wb-page__panel wb-page__panel--activities" [attr.aria-label]="'whiteboard.activities.title' | transloco">
         <wb-activities-panel

@@ -1,0 +1,102 @@
+<section class="wb-cardfields" [attr.aria-label]="'whiteboard.fieldValue.title' | transloco">
+  <header class="wb-cardfields__head">
+    <h2 class="wb-cardfields__title">{{ 'whiteboard.fieldValue.title' | transloco }}</h2>
+    <button
+      type="button"
+      class="wb-cardfields__close"
+      (click)="onClose()"
+      [attr.aria-label]="'whiteboard.fieldValue.close' | transloco"
+    >
+      &times;
+    </button>
+  </header>
+
+  @if (rows().length === 0) {
+    <p class="wb-cardfields__empty">{{ 'whiteboard.fieldValue.empty' | transloco }}</p>
+  } @else {
+    <ul class="wb-cardfields__list">
+      @for (row of rows(); track row.field.id) {
+        <li class="wb-cardfields__row">
+          <label class="wb-cardfields__label" [attr.for]="readonly() ? null : controlId(row.field)">
+            @if (row.field.emoji) {
+              <span class="wb-cardfields__emoji" aria-hidden="true">{{ row.field.emoji }}</span>
+            }
+            <span class="wb-cardfields__name">{{ row.field.name }}</span>
+          </label>
+
+          @if (readonly()) {
+            <output class="wb-cardfields__readonly" [attr.id]="controlId(row.field)">
+              @if (row.value) {
+                {{ displayValue(row.field.type, row.value) }}
+              } @else {
+                <span class="wb-cardfields__none">{{ 'whiteboard.fieldValue.none' | transloco }}</span>
+              }
+            </output>
+          } @else {
+            <div class="wb-cardfields__control">
+              @switch (row.field.type) {
+                @case ('SELECT') {
+                  <select
+                    class="wb-cardfields__select"
+                    [id]="controlId(row.field)"
+                    [value]="row.value"
+                    [attr.aria-label]="'whiteboard.fieldValue.valueFor' | transloco: { name: row.field.name }"
+                    (change)="onValueChange(row.field, $event)"
+                  >
+                    <option value="" [selected]="row.value === ''">
+                      {{ 'whiteboard.fieldValue.none' | transloco }}
+                    </option>
+                    @for (opt of row.field.options ?? []; track opt) {
+                      <option [value]="opt" [selected]="opt === row.value">{{ opt }}</option>
+                    }
+                  </select>
+                }
+                @case ('NUMBER') {
+                  <input
+                    type="number"
+                    class="wb-cardfields__input"
+                    [id]="controlId(row.field)"
+                    [value]="row.value"
+                    [attr.aria-label]="'whiteboard.fieldValue.valueFor' | transloco: { name: row.field.name }"
+                    (change)="onValueChange(row.field, $event)"
+                  />
+                }
+                @case ('DATE') {
+                  <input
+                    type="date"
+                    class="wb-cardfields__input"
+                    [id]="controlId(row.field)"
+                    [value]="row.value"
+                    [attr.aria-label]="'whiteboard.fieldValue.valueFor' | transloco: { name: row.field.name }"
+                    (change)="onValueChange(row.field, $event)"
+                  />
+                }
+                @default {
+                  <input
+                    type="text"
+                    class="wb-cardfields__input"
+                    [id]="controlId(row.field)"
+                    [value]="row.value"
+                    [attr.aria-label]="'whiteboard.fieldValue.valueFor' | transloco: { name: row.field.name }"
+                    (change)="onValueChange(row.field, $event)"
+                  />
+                }
+              }
+
+              @if (row.value) {
+                <button
+                  type="button"
+                  class="wb-cardfields__clear"
+                  (click)="clearValue(row.field)"
+                  [attr.aria-label]="'whiteboard.fieldValue.clear' | transloco: { name: row.field.name }"
+                >
+                  &times;
+                </button>
+              }
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  }
+</section>

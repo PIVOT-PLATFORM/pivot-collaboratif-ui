@@ -479,6 +479,14 @@
       "confirmDelete": "Confirm deletion of {{name}}",
       "deleteWarning": "Deleting this field removes all its values on cards."
     },
+    "fieldValue": {
+      "title": "Field values",
+      "close": "Close the field values panel",
+      "empty": "No field defined on this board.",
+      "none": "— none —",
+      "valueFor": "Value of field {{name}}",
+      "clear": "Clear the value of field {{name}}"
+    },
     "voteResults": {
       "title": "Vote results",
       "summary": "{{votes}} votes · {{voters}} participants",
