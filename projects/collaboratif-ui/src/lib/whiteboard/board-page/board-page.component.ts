@@ -94,6 +94,12 @@ export class BoardPageComponent implements OnInit, OnDestroy {
 
   /** Count of selected items (cards + connections) — drives the floating selection toolbar. */
   protected readonly selectionCount = computed(() => this.store.selectedIds().size);
+  /** Colour shown on the selection toolbar's swatch — the first selected card's colour, or the
+   *  board's active colour when the selection holds no card (connections only). */
+  protected readonly selectionColor = computed(() => {
+    const ids = this.store.selectedIds();
+    return this.store.cards().find((c) => ids.has(c.id))?.color ?? this.color();
+  });
   /** True when every selected *card* is locked — flips the toolbar's lock toggle to "unlock". */
   protected readonly allSelectedLocked = computed(() => {
     const ids = this.store.selectedIds();

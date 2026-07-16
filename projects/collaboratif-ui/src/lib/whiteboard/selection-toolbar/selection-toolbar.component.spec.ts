@@ -8,8 +8,7 @@ const FR = {
       actions: 'Actions de sélection',
       count: '{{count}} sélectionné',
       countPlural: '{{count}} sélectionnés',
-      copy: 'Copier (Ctrl+C)',
-      paste: 'Coller (Ctrl+V)',
+      color: 'Couleur',
       duplicate: 'Dupliquer (Ctrl+D)',
       lock: 'Verrouiller',
       unlock: 'Déverrouiller',
@@ -60,36 +59,43 @@ describe('SelectionToolbarComponent', () => {
     );
   });
 
-  it('emits copy / paste / duplicate / remove on the matching buttons', () => {
+  it('emits duplicate and remove on the matching buttons', () => {
     fixture.componentRef.setInput('count', 1);
-    fixture.componentRef.setInput('canPaste', true);
     fixture.detectChanges();
 
-    const copy = vi.fn();
-    const paste = vi.fn();
     const duplicate = vi.fn();
     const remove = vi.fn();
-    component.copy.subscribe(copy);
-    component.paste.subscribe(paste);
     component.duplicate.subscribe(duplicate);
     component.remove.subscribe(remove);
 
-    btn(fixture, 'Copier (Ctrl+C)')!.click();
-    btn(fixture, 'Coller (Ctrl+V)')!.click();
     btn(fixture, 'Dupliquer (Ctrl+D)')!.click();
     btn(fixture, 'Supprimer (Suppr)')!.click();
 
-    expect(copy).toHaveBeenCalledTimes(1);
-    expect(paste).toHaveBeenCalledTimes(1);
     expect(duplicate).toHaveBeenCalledTimes(1);
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
-  it('disables paste when the clipboard is empty', () => {
+  it('opens the palette and emits recolor with the picked colour, then closes it', () => {
     fixture.componentRef.setInput('count', 1);
-    fixture.componentRef.setInput('canPaste', false);
+    fixture.componentRef.setInput('color', '#A5B4FC');
     fixture.detectChanges();
-    expect(btn(fixture, 'Coller (Ctrl+V)')!.disabled).toBe(true);
+
+    const recolor = vi.fn();
+    component.recolor.subscribe(recolor);
+
+    expect(fixture.nativeElement.querySelector('.wb-selbar__palette')).toBeNull();
+    btn(fixture, 'Couleur')!.click();
+    fixture.detectChanges();
+
+    const swatches = fixture.nativeElement.querySelectorAll('.wb-selbar__palette-swatch') as NodeListOf<HTMLButtonElement>;
+    expect(swatches.length).toBeGreaterThan(0);
+    swatches[0].click();
+    fixture.detectChanges();
+
+    expect(recolor).toHaveBeenCalledTimes(1);
+    expect(recolor.mock.calls[0][0]).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    // Picking a colour closes the palette.
+    expect(fixture.nativeElement.querySelector('.wb-selbar__palette')).toBeNull();
   });
 
   it('toggleLock emits the desired state and shows "unlock" when all locked', () => {
@@ -103,12 +109,12 @@ describe('SelectionToolbarComponent', () => {
     expect(toggle).toHaveBeenCalledWith(false);
   });
 
-  it('hides copy / duplicate / lock on a read-only board but keeps delete', () => {
+  it('hides recolour / duplicate / lock on a read-only board but keeps delete', () => {
     fixture.componentRef.setInput('count', 1);
     fixture.componentRef.setInput('readOnly', true);
     fixture.detectChanges();
 
-    expect(btn(fixture, 'Copier (Ctrl+C)')).toBeUndefined();
+    expect(btn(fixture, 'Couleur')).toBeUndefined();
     expect(btn(fixture, 'Dupliquer (Ctrl+D)')).toBeUndefined();
     expect(btn(fixture, 'Verrouiller')).toBeUndefined();
     expect(btn(fixture, 'Supprimer (Suppr)')).toBeDefined();

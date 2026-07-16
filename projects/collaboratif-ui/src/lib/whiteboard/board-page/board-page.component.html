@@ -162,12 +162,11 @@
   @if (selectionCount() > 0) {
     <wb-selection-toolbar
       [count]="selectionCount()"
-      [canPaste]="store.canPaste()"
+      [color]="selectionColor()"
       [allLocked]="allSelectedLocked()"
       [readOnly]="store.isReadonly()"
-      (copy)="store.copySelected()"
-      (paste)="store.pasteFromClipboard()"
       (duplicate)="store.duplicateSelected()"
+      (recolor)="onColorChange($event)"
       (toggleLock)="store.lockSelected($event)"
       (remove)="store.deleteSelected()"
     ></wb-selection-toolbar>
