@@ -720,6 +720,36 @@ describe('BoardStore — F1 optimistic card creation', () => {
     expect(store.autoEditCardId()).toBe('server-id');
   });
 
+  it('BUG A — the provisional card carries a stable key equal to its clientTag', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.addCard(10, 20, 'TEXT', '', '#FFEB3B', 180, 140);
+
+    expect(store.cards()[0].key).toBe(emittedClientTag());
+  });
+
+  it('BUG A — reconciling card:created preserves the stable key across the id swap (no re-mount)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.addCard(10, 20, 'TEXT', 'hello', '#FFEB3B', 180, 140);
+    const clientTag = emittedClientTag();
+    const stableKey = store.cards()[0].key;
+    expect(stableKey).toBe(clientTag);
+
+    // The server echo carries the real uuid but NO key — the optimistic one must be carried over
+    // so the canvas `@for` trackBy (card.key ?? card.id) sees no change and never re-mounts the
+    // board-card mid-edit (which would drop the in-flight textarea content — BUG A).
+    transport.trigger('card:created', {
+      ...makeCard('server-id', { content: 'hello', posX: 10, posY: 20 }),
+      clientTag,
+    });
+
+    expect(store.cards()).toHaveLength(1);
+    const reconciled = store.cards()[0];
+    expect(reconciled.id).toBe('server-id');
+    expect(reconciled.key).toBe(stableKey);
+  });
+
   it('appends a card:created with an unknown clientTag (another participant)', async () => {
     store.init(BOARD_ID);
     await flushInitRequests();

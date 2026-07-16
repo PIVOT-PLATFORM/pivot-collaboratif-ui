@@ -796,7 +796,14 @@ export class StructuredCanvasComponent {
     return { x: Math.min(x1, x2), y: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) };
   }
 
-  protected trackCard = (_: number, c: Card): string => c.id;
+  /**
+   * BUG A — track cards by their stable {@link Card.key} (the `clientTag`) when present, falling
+   * back to `id`. A card created optimistically keeps the same key when its `id` is swapped from
+   * the temporary clientTag to the server uuid on `card:created`, so `@for` reconciles the
+   * board-card in place instead of destroying and re-mounting it mid-edit (which lost the typed,
+   * uncommitted text). Server-originated cards have no key and use their already-stable id.
+   */
+  protected trackCard = (_: number, c: Card): string => c.key ?? c.id;
 
   // ── Card event relays ─────────────────────────────────────────────────────
   protected onCardContent(card: Card, content: string): void {
