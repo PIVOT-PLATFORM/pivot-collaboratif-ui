@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.6.0...v0.6.1) (2026-07-16)
+
+
+### Bug Fixes
+
+* **whiteboard:** recette consolidée — bugs A/E/F/G/H/I/J + finitions + copier-coller/sélection ([#120](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/issues/120)) ([0eb6225](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/commit/0eb6225d65925657b2c13ee3da66ebe8071ccf31))
+
 # [0.6.0](https://github.com/PIVOT-PLATFORM/pivot-collaboratif-ui/compare/v0.5.0...v0.6.0) (2026-07-15)
 
 
