@@ -91,21 +91,74 @@
               }
             </div>
             <div class="wb-selbar__link-row" role="group" [attr.aria-label]="'whiteboard.toolbar.arrowGroup' | transloco">
-              @for (a of arrowPresets; track a.id) {
-                <button type="button" class="wb-selbar__preset"
-                  [class.wb-selbar__preset--on]="isArrowPreset(a)"
-                  [attr.aria-pressed]="isArrowPreset(a)"
-                  [attr.aria-label]="('whiteboard.toolbar.arrow.' + a.id) | transloco"
-                  [wbTooltip]="('whiteboard.toolbar.arrow.' + a.id) | transloco"
-                  (click)="chooseArrow(a)">
+              <!-- One button, four states — the icon is the state. No `aria-pressed`: it is binary
+                   and would lie about a four-state cycle; the label names the state instead. -->
+              <button
+                type="button"
+                class="wb-selbar__preset wb-selbar__preset--cycle"
+                [attr.aria-label]="('whiteboard.toolbar.arrowDir.' + arrowDir()) | transloco"
+                [wbTooltip]="('whiteboard.toolbar.arrowDir.' + arrowDir()) | transloco"
+                (click)="cycleArrow()"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M3 12h18" />
+                  @if (arrowDir() === 'end' || arrowDir() === 'both') { <path d="M16 8l5 4-5 4" /> }
+                  @if (arrowDir() === 'start' || arrowDir() === 'both') { <path d="M8 8l-5 4 5 4" /> }
+                </svg>
+              </button>
+              <!-- Without this, a screen-reader user cycling the button hears nothing change. -->
+              <span class="wb-selbar__sr-only" aria-live="polite">
+                {{ ('whiteboard.toolbar.arrowDir.' + arrowDir()) | transloco }}
+              </span>
+
+              @for (cap of caps; track cap) {
+                <button
+                  type="button"
+                  class="wb-selbar__preset"
+                  [class.wb-selbar__preset--on]="capShape() === cap && arrowDir() !== 'none'"
+                  [attr.aria-pressed]="capShape() === cap && arrowDir() !== 'none'"
+                  [attr.aria-label]="('whiteboard.connector.style.cap.' + cap) | transloco"
+                  [wbTooltip]="('whiteboard.connector.style.cap.' + cap) | transloco"
+                  (click)="chooseCap(cap)"
+                >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                    <path d="M3 12h13" />
-                    @if (a.endCap !== 'none') { <path d="M12 8l5 4-5 4" /> }
-                    @if (a.startCap !== 'none') { <path d="M8 8l-5 4 5 4" /> }
+                    <path d="M3 12h10" />
+                    @switch (cap) {
+                      @case ('arrow') { <path d="M12 8l5 4-5 4" /> }
+                      @case ('triangle') { <polygon points="12,8 19,12 12,16" fill="currentColor" /> }
+                      @case ('circle') { <circle cx="16" cy="12" r="3.5" fill="currentColor" /> }
+                      @case ('diamond') { <polygon points="16,8 20,12 16,16 12,12" fill="currentColor" /> }
+                    }
                   </svg>
                 </button>
               }
             </div>
+
+            <div class="wb-selbar__link-row" role="group" [attr.aria-label]="'whiteboard.toolbar.shapeGroup' | transloco">
+              @for (sh of connShapes; track sh) {
+                <button
+                  type="button"
+                  class="wb-selbar__preset"
+                  [class.wb-selbar__preset--on]="conn.shape === sh"
+                  [attr.aria-pressed]="conn.shape === sh"
+                  [attr.aria-label]="('whiteboard.connector.style.shape.' + sh) | transloco"
+                  [wbTooltip]="('whiteboard.connector.style.shape.' + sh) | transloco"
+                  (click)="chooseShape(sh)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" focusable="false">
+                    @switch (sh) {
+                      @case ('straight') { <path d="M3 18L21 6" /> }
+                      @case ('curved') { <path d="M3 18C9 18 15 6 21 6" /> }
+                      @case ('orthogonal') { <path d="M3 18h9V6h9" /> }
+                    }
+                  </svg>
+                </button>
+              }
+            </div>
+
+            <button type="button" class="wb-selbar__link-action" (click)="editLabel.emit()">
+              {{ (conn.label ? 'whiteboard.toolbar.labelEdit' : 'whiteboard.toolbar.labelAdd') | transloco }}
+            </button>
           </div>
         }
       </div>

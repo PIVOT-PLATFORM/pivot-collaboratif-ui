@@ -2,7 +2,20 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { TranslocoPipe } from '@jsverse/transloco';
 import { BASE_COLORS } from '../model/colors';
 import { WbTooltipDirective } from '../tooltip/wb-tooltip.directive';
-import type { Connection, ConnectionPatch, ConnCap, ConnLineStyle } from '../model/board.types';
+import type { Connection, ConnectionPatch, ConnCap, ConnLineStyle, ConnShape } from '../model/board.types';
+
+/** Which ends of a connector carry a cap. */
+type ArrowDir = 'none' | 'end' | 'start' | 'both';
+/** A cap shape — `none` is not one: absence is a direction, not a shape. */
+type CapShape = Exclude<ConnCap, 'none'>;
+
+/** none → end → start → both → none. Four states, one button, the icon *is* the state. */
+const ARROW_CYCLE: Readonly<Record<ArrowDir, ArrowDir>> = {
+  none: 'end',
+  end: 'start',
+  start: 'both',
+  both: 'none',
+};
 
 /**
  * Floating action bar shown at the bottom-centre of the board while a selection is active
@@ -49,6 +62,8 @@ export class SelectionToolbarComponent {
   readonly refill = output<string | null>();
   /** Emits a partial style patch for the selected connector. */
   readonly connectionStyleChange = output<ConnectionPatch>();
+  /** Asks the board to open the selected connector's label editor. */
+  readonly editLabel = output<void>();
   /** Emits the desired locked state (true = lock, false = unlock). */
   readonly toggleLock = output<boolean>();
   /**
@@ -66,11 +81,57 @@ export class SelectionToolbarComponent {
   protected readonly fillOpen = signal(false);
   protected readonly linkOpen = signal(false);
   protected readonly lineStyles: readonly ConnLineStyle[] = ['solid', 'dashed', 'dotted'];
-  protected readonly arrowPresets: readonly { id: string; startCap: ConnCap; endCap: ConnCap }[] = [
-    { id: 'none', startCap: 'none', endCap: 'none' },
-    { id: 'end', startCap: 'none', endCap: 'arrow' },
-    { id: 'both', startCap: 'arrow', endCap: 'arrow' },
-  ];
+  protected readonly connShapes: readonly ConnShape[] = ['straight', 'curved', 'orthogonal'];
+  /** Cap shapes, minus `none` — absence is expressed by the direction cycle, not by a shape. */
+  protected readonly caps: readonly CapShape[] = ['arrow', 'triangle', 'circle', 'diamond'];
+  /** Remembers the shape so it can be restored after the cycle passes through "no arrow". */
+  private readonly lastShape = signal<CapShape>('arrow');
+
+  /** Which ends carry a cap, derived from the two independent fields. */
+  protected readonly arrowDir = computed<ArrowDir>(() => {
+    const c = this.connection();
+    if (!c) {
+      return 'none';
+    }
+    const start = c.startCap !== 'none';
+    const end = c.endCap !== 'none';
+    return start && end ? 'both' : end ? 'end' : start ? 'start' : 'none';
+  });
+
+  /** Shape currently in use — the end's, else the start's, else the last one picked. */
+  protected readonly capShape = computed<CapShape>(() => {
+    const c = this.connection();
+    const inUse = c && c.endCap !== 'none' ? c.endCap : c && c.startCap !== 'none' ? c.startCap : null;
+    return (inUse as CapShape) ?? this.lastShape();
+  });
+
+  /**
+   * One button, four states — the icon *is* the state. Asked for as « une seule fleche, si on
+   * reclique sur le btn ca change le sens ».
+   */
+  protected cycleArrow(): void {
+    const next = ARROW_CYCLE[this.arrowDir()];
+    const shape = this.capShape();
+    this.lastShape.set(shape);
+    this.connectionStyleChange.emit({
+      startCap: next === 'start' || next === 'both' ? shape : 'none',
+      endCap: next === 'end' || next === 'both' ? shape : 'none',
+    });
+  }
+
+  /** Picking a shape on an arrow-less connector creates the arrow rather than doing nothing. */
+  protected chooseCap(cap: CapShape): void {
+    this.lastShape.set(cap);
+    const dir = this.arrowDir() === 'none' ? 'end' : this.arrowDir();
+    this.connectionStyleChange.emit({
+      startCap: dir === 'start' || dir === 'both' ? cap : 'none',
+      endCap: dir === 'end' || dir === 'both' ? cap : 'none',
+    });
+  }
+
+  protected chooseShape(shape: ConnShape): void {
+    this.connectionStyleChange.emit({ shape });
+  }
 
   /** Whether the selection holds at least one SHAPE — gates the fill swatch. */
   protected readonly hasShape = computed(() => this.fillColor() !== undefined);
@@ -81,15 +142,6 @@ export class SelectionToolbarComponent {
 
   protected chooseLineStyle(lineStyle: ConnLineStyle): void {
     this.connectionStyleChange.emit({ lineStyle });
-  }
-
-  protected chooseArrow(preset: { startCap: ConnCap; endCap: ConnCap }): void {
-    this.connectionStyleChange.emit({ startCap: preset.startCap, endCap: preset.endCap });
-  }
-
-  protected isArrowPreset(preset: { startCap: ConnCap; endCap: ConnCap }): boolean {
-    const c = this.connection();
-    return !!c && c.startCap === preset.startCap && c.endCap === preset.endCap;
   }
 
   /** SVG `stroke-dasharray` previewing a line style — `null` for a solid line. */

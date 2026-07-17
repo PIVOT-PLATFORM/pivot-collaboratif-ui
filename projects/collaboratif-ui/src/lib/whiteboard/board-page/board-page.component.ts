@@ -165,7 +165,13 @@ export class BoardPageComponent implements OnInit, OnDestroy {
    *  board's active colour when the selection holds no card (connections only). */
   protected readonly selectionColor = computed(() => {
     const ids = this.store.selectedIds();
-    return this.store.cards().find((c) => ids.has(c.id))?.color ?? this.color();
+    const card = this.store.cards().find((c) => ids.has(c.id));
+    if (card) {
+      return card.color;
+    }
+    // No card selected: fall back to the connector's own colour rather than the tool colour, which
+    // would show a swatch that has nothing to do with what is selected.
+    return this.selectedConnection()?.color ?? this.color();
   });
   /** True when every selected *card* is locked — flips the toolbar's lock toggle to "unlock". */
   protected readonly allSelectedLocked = computed(() => {
@@ -400,6 +406,13 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     // whatever is created next, whatever its type.
     this.colorPicked.set(true);
     this.store.recolorSelected(color);
+    // `recolorSelected` walks cards only — a connector's colour lives on the connection, not on a
+    // card, so the swatch never reached it. Until now the style panel was the only thing that
+    // could; routing it here is what lets that panel go away without losing the feature.
+    const conn = this.selectedConnection();
+    if (conn) {
+      this.store.updateConnection(conn.id, { color });
+    }
   }
   protected onDissolveGroup(groupId: string): void {
     this.store.ungroupById(groupId);
