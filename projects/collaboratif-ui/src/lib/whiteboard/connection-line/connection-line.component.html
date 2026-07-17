@@ -57,12 +57,13 @@
     [attr.width]="labelBox().width + 40"
     [attr.height]="labelBox().height + 8"
   >
+    <!-- Uncontrolled on purpose: a `[value]` binding re-applies the signal on every keystroke and
+         wipes what was just typed (measured — the field stayed empty). The value is seeded once on
+         open and read back here at commit. -->
     <input
       #labelInput
       class="wb-connection__label-input"
-      [value]="editValue()"
       [attr.aria-label]="'whiteboard.connector.style.labelFieldLabel' | transloco"
-      (input)="editValue.set($any($event.target).value)"
       (blur)="commitLabel()"
       (keydown.enter)="commitLabel()"
       (keydown.escape)="cancelLabel($event)"
