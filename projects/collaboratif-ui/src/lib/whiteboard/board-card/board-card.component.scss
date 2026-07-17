@@ -425,7 +425,6 @@
 // …except the parts that must stay grabbable: the line itself, and the handles/anchors, which
 // live outside the body and are the only way to resize or connect it.
 :host(.wb-card--line) .wb-card__line-hit,
-:host(.wb-card--line) .wb-card__resize,
-:host(.wb-card--line) .wb-card__connect {
+:host(.wb-card--line) .wb-card__resize {
   pointer-events: auto;
 }

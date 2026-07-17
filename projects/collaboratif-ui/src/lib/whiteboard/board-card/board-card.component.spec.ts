@@ -750,6 +750,28 @@ describe('BoardCardComponent — SHAPE (US08.6.3)', () => {
 
   // ── Rendering: whitelisted kinds ────────────────────────────────────────────────
 
+  /**
+   * Connect anchors sit at the midpoints of the box. On a line — whose box is flat on one axis, or
+   * whose content is a diagonal — they land right on the line and on its resize handles, stealing
+   * the clicks that should reshape it (recette 2026-07-17). Linking *to* a line has no meaning
+   * either: connectors join cards, and a line is already one.
+   */
+  it('gives a line no connect anchors, so nothing steals the clicks that reshape it', () => {
+    fixture.componentRef.setInput('selected', true);
+    setCard({ content: 'line|#112233|none|1|0|tlbr' });
+
+    expect(fixture.nativeElement.querySelectorAll('[data-connect]')).toHaveLength(0);
+    // Its resize handles — the actual way to reshape it — are still there.
+    expect(fixture.nativeElement.querySelectorAll('[data-resize-dir]').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the connect anchors on every other shape', () => {
+    fixture.componentRef.setInput('selected', true);
+    setCard({ content: 'rect|#112233|none|1|0' });
+
+    expect(fixture.nativeElement.querySelectorAll('[data-connect]')).toHaveLength(4);
+  });
+
   it('renders a rect SHAPE as the default (@default) svg case', () => {
     setCard({ content: 'rect|#112233|none|1|0' });
     const rect = fixture.nativeElement.querySelector('.wb-card__svg rect');
