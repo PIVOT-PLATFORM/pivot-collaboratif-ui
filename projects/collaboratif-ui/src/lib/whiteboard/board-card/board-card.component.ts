@@ -122,6 +122,15 @@ export class BoardCardComponent {
   private readonly cellInput = viewChild<ElementRef<HTMLInputElement>>('cellInput');
 
   protected readonly resizeDirs = RESIZE_DIRS;
+  /**
+   * Handles to render. A line is two points, not a box: only its **endpoints** may move. The eight
+   * box handles were mostly meaningless on it — the side ones (`t`/`b`/`l`/`r`) stretch an axis of
+   * a shape that has none, and two of the four corners are not even on the line. Which two corners
+   * *are* its endpoints depends on the diagonal it runs along.
+   */
+  protected readonly handleDirs = computed<readonly string[]>(() =>
+    this.isLine() ? (this.shape().diag === 'bltr' ? ['bl', 'tr'] : ['tl', 'br']) : RESIZE_DIRS,
+  );
   protected readonly editing = signal(false);
   protected readonly editValue = signal('');
 

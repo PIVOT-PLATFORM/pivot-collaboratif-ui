@@ -27,7 +27,7 @@ import {
   looksLikeImageFilename,
   readAsDataUrl,
 } from '../model/image-card';
-import { parseShape, serializeShape, type ShapeKind } from '../model/shape';
+import { parseShape, serializeShape, type ShapeDiag, type ShapeKind } from '../model/shape';
 import { serializeTable } from '../model/table';
 import { decideTablePaste } from '../model/table-clipboard';
 import type { ToolMode } from '../model/tools';
@@ -66,7 +66,7 @@ type Gesture =
   | { kind: 'pan'; startX: number; startY: number; vpX: number; vpY: number }
   | { kind: 'marquee'; startX: number; startY: number }
   | { kind: 'drag-card'; id: string; startX: number; startY: number; startPos: { x: number; y: number } }
-  | { kind: 'resize-card'; id: string; dir: string; start: Rect; startX: number; startY: number }
+  | { kind: 'resize-card'; id: string; dir: string; start: Rect; startX: number; startY: number; lineDiag?: ShapeDiag }
   | { kind: 'drag-frame'; id: string; startX: number; startY: number; startPos: { x: number; y: number }; captured: string[] }
   | { kind: 'resize-frame'; id: string; dir: string; start: Rect; startX: number; startY: number }
   | { kind: 'connect'; fromId: string; fromSide: EdgeSide | null; x: number; y: number }
@@ -378,7 +378,17 @@ export class StructuredCanvasComponent {
       const card = this.store.cards().find((c) => c.id === id);
       if (card) {
         this.store.startResizeCard(id);
-        this.gesture = { kind: 'resize-card', id, dir: resizeEl.getAttribute('data-resize-dir') ?? 'br', start: cardRect(card), startX: pt.x, startY: pt.y };
+        const spec = card.type === 'SHAPE' ? parseShape(card.content) : null;
+        this.gesture = {
+          kind: 'resize-card',
+          id,
+          dir: resizeEl.getAttribute('data-resize-dir') ?? 'br',
+          start: cardRect(card),
+          startX: pt.x,
+          startY: pt.y,
+          // Present only for a line — that is what routes the gesture to the endpoint logic.
+          lineDiag: spec?.kind === 'line' ? spec.diag : undefined,
+        };
       }
       return;
     }
@@ -516,6 +526,7 @@ export class StructuredCanvasComponent {
         this.store.commitDragCard();
         break;
       case 'resize-card':
+        this.commitLineDiag(g);
         this.store.commitResizeCard(g.id);
         break;
       case 'drag-frame':
@@ -603,9 +614,39 @@ export class StructuredCanvasComponent {
     return card?.type === 'SHAPE' && parseShape(card.content).kind === 'line' ? LINE_MIN : SHAPE_MIN;
   }
   private applyCardResize(g: Extract<Gesture, { kind: 'resize-card' }>, x: number, y: number, opts: ResizeOpts = {}): void {
+    if (g.lineDiag) {
+      this.applyLineResize(g, x, y, opts);
+      return;
+    }
     const min = this.minSizeFor(g.id);
     const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, min, min, opts);
     this.store.resizeCardBox(g.id, { posX: box.x, posY: box.y, width: box.width, height: box.height });
+  }
+
+  /**
+   * Resizes a line by moving the endpoint being dragged, the other staying put — a line is two
+   * points, so box semantics do not apply to it. Dragging one end past the other is a normal
+   * gesture and simply flips the diagonal; going through {@link resizeRect} instead would clamp at
+   * the minimum and the line would refuse to turn over.
+   *
+   * The new diagonal is kept on the gesture and written to `content` once, on release
+   * ({@link onPointerUp}) — rewriting it on every move would emit a `card:update` per pixel.
+   */
+  private applyLineResize(g: Extract<Gesture, { kind: 'resize-card' }>, x: number, y: number, opts: ResizeOpts = {}): void {
+    // The fixed end is the corner opposite the handle being dragged.
+    const fx = g.dir.includes('l') ? g.start.x + g.start.width : g.start.x;
+    const fy = g.dir.includes('t') ? g.start.y + g.start.height : g.start.y;
+    const end = opts.ratio ? this.snapAngle(fx, fy, x, y) : { x, y };
+    const box = this.normRect(fx, fy, end.x, end.y);
+    // Both signs together → top-left→bottom-right; crossed → the other diagonal.
+    this.gesture = { ...g, lineDiag: (end.x - fx) * (end.y - fy) >= 0 ? 'tlbr' : 'bltr' };
+    this.store.resizeCardBox(g.id, {
+      posX: box.x,
+      posY: box.y,
+      // Never zero on either axis: a flat box renders nothing at all (see LINE_MIN).
+      width: Math.max(LINE_MIN, box.width),
+      height: Math.max(LINE_MIN, box.height),
+    });
   }
   private applyFrameResize(g: Extract<Gesture, { kind: 'resize-frame' }>, x: number, y: number, opts: ResizeOpts = {}): void {
     const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, MIN_W, MIN_H, opts);
@@ -772,6 +813,21 @@ export class StructuredCanvasComponent {
         endCap: this.connectorEndCap(),
         lineStyle: this.connectorLineStyle(),
       });
+    }
+  }
+
+  /**
+   * Writes back a line's diagonal if the gesture turned it over. Once, on release — the box itself
+   * is what moved during the drag; this is the one bit the box cannot carry.
+   */
+  private commitLineDiag(g: Extract<Gesture, { kind: 'resize-card' }>): void {
+    const card = this.store.cards().find((c) => c.id === g.id);
+    if (!g.lineDiag || !card) {
+      return;
+    }
+    const spec = parseShape(card.content);
+    if (spec.diag !== g.lineDiag) {
+      this.store.updateCard(g.id, serializeShape({ ...spec, diag: g.lineDiag }));
     }
   }
 

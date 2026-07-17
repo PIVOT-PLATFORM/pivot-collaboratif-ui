@@ -1322,6 +1322,7 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
   let component: StructuredCanvasComponent;
   let resizeCardBox: ReturnType<typeof vi.fn>;
   let resizeFrameBox: ReturnType<typeof vi.fn>;
+  let updateCard: ReturnType<typeof vi.fn>;
 
   /** A 200×100 card (ratio 2) — a non-square start box makes a broken ratio visible. */
   const CARD = { id: 'A', posX: 100, posY: 100, width: 200, height: 100, type: 'STICKY', text: '', color: '#FFF' } as unknown as Card;
@@ -1332,6 +1333,7 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
   beforeEach(async () => {
     resizeCardBox = vi.fn();
     resizeFrameBox = vi.fn();
+    updateCard = vi.fn();
     const storeStub = {
       isReadonly: () => false,
       frames: () => [FRAME],
@@ -1351,6 +1353,9 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
       uncastVote: vi.fn(),
       startResizeCard: vi.fn(),
       startResizeFrame: vi.fn(),
+      commitResizeCard: vi.fn(),
+      commitResizeFrame: vi.fn(),
+      updateCard,
       resizeCardBox,
       resizeFrameBox,
     };
@@ -1464,20 +1469,69 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
   });
 
   /**
-   * A line is the diagonal of its box, so it must be allowed to go flat on an axis to stay
-   * straight. `SHAPE_MIN` (80) on both axes made a horizontal or vertical line structurally
-   * impossible — the floor is per-type now.
+   * A line is two points, not a box: dragging an endpoint moves that point, the other staying put.
+   * Recette: « j'aimerai vraiment que les lignes soit vraiment une ligne et qu'il soit uniquement
+   * possible de modifier les extrémités. »
    */
-  it('lets a line flatten to a straight horizontal, below the shape minimum', () => {
+  it('moves the dragged endpoint of a line, keeping the other one fixed', () => {
     const el = surface();
     const handle = document.createElement('span');
-    handle.setAttribute('data-resize-dir', 'b');
+    handle.setAttribute('data-resize-dir', 'br');
     handle.setAttribute('data-card-id', 'L');
     component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
-    component['onPointerMove']({ clientX: 0, clientY: -1000, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+    // LINE spans (100,100)→(300,200); the fixed end is its top-left corner.
+    component['onPointerMove']({ clientX: 500, clientY: 400, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
 
-    // Flat box → a genuinely horizontal line, which the 80px floor would have forbidden.
-    expect(resizeCardBox).toHaveBeenLastCalledWith('L', { posX: 100, posY: 100, width: 200, height: 1 });
+    // The box now runs from the fixed end to the pointer — not a box-relative delta.
+    expect(resizeCardBox).toHaveBeenLastCalledWith('L', { posX: 100, posY: 100, width: 400, height: 300 });
+  });
+
+  /**
+   * Dragging one end past the other is a normal gesture — it simply turns the line over. Going
+   * through the box resize instead would clamp at the minimum and the line would refuse to flip.
+   */
+  it('flips the diagonal when an endpoint is dragged past the other', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    // Drag the bottom-right end above-right of the fixed top-left end: the line now runs bottom-
+    // left → top-right.
+    component['onPointerMove']({ clientX: 400, clientY: 20, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+    component['onPointerUp']({ target: el, currentTarget: el, clientX: 400, clientY: 20, pointerId: 1 } as unknown as PointerEvent);
+
+    expect(updateCard).toHaveBeenCalledTimes(1);
+    expect(parseShape(updateCard.mock.calls[0][1]).diag).toBe('bltr');
+  });
+
+  /** Nothing to rewrite when the gesture kept the same orientation — no needless card:update. */
+  it('leaves the content alone when the diagonal did not change', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: 500, clientY: 400, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+    component['onPointerUp']({ target: el, currentTarget: el, clientX: 500, clientY: 400, pointerId: 1 } as unknown as PointerEvent);
+
+    expect(updateCard).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A line must be allowed to go flat on an axis to stay straight — a 0px-high box renders nothing
+   * at all, so the endpoint logic keeps a 1px floor rather than letting it collapse.
+   */
+  it('lets a line endpoint land on a straight horizontal without collapsing the box', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    // Dead level with the fixed end (y = 100): a truly horizontal line.
+    component['onPointerMove']({ clientX: 400, clientY: 100, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+
+    expect(resizeCardBox).toHaveBeenLastCalledWith('L', { posX: 100, posY: 100, width: 300, height: LINE_MIN });
   });
 
   it('still holds every other shape to the 80px minimum', () => {

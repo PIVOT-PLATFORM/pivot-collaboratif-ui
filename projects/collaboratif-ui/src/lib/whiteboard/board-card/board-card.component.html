@@ -250,7 +250,7 @@
     keyboard on a locked card (US08.6.3/US08.6.4 A11y AC), on top of the pre-existing
     readOnly/editing guards.
   -->
-  @for (dir of resizeDirs; track dir) {
+  @for (dir of handleDirs(); track dir) {
     <span
       class="wb-card__resize wb-card__resize--{{ dir }}"
       [attr.data-resize-dir]="dir"
