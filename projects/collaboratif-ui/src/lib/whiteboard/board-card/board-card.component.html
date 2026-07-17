@@ -6,6 +6,7 @@
 <div
   class="wb-card__body"
   [class.wb-card__body--shape]="card().type === 'SHAPE' || card().type === 'DRAW'"
+  [class.wb-card__body--line]="isLine()"
   [class.wb-card__body--editing]="editing()"
   [style.background]="card().type === 'TEXT' ? card().color : null"
   [style.outlineColor]="card().groupColor || null"
@@ -86,6 +87,18 @@
             <!-- The line IS the diagonal of its box (`diag` picks which one), so any angle is
                  reachable by sizing the box. The SVG is `preserveAspectRatio="none"`, so these
                  corner-to-corner coordinates land exactly on the box's corners. -->
+            <!-- Invisible hit path first: a 2px line — often on a box that is flat on one axis —
+                 is far too thin to aim at. Same trick as the connectors' own hit path. -->
+            <line
+              class="wb-card__line-hit"
+              x1="0"
+              [attr.y1]="shape().diag === 'bltr' ? 100 : 0"
+              x2="100"
+              [attr.y2]="shape().diag === 'bltr' ? 0 : 100"
+              stroke="transparent"
+              [attr.stroke-width]="lineHitWidth"
+              vector-effect="non-scaling-stroke"
+            />
             <line
               x1="0"
               [attr.y1]="shape().diag === 'bltr' ? 100 : 0"

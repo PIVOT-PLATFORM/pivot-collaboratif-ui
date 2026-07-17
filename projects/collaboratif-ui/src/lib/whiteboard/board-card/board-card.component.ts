@@ -21,6 +21,7 @@ import {
   TEXT_DEFAULT_COLOR,
 } from '../model/card-format';
 import { parseShape, type ShapeKind } from '../model/shape';
+import { LINE_HIT_WIDTH } from '../model/board-constants';
 import { parseTableContent, serializeTable } from '../model/table';
 import { headerTint, accessibleTextColorFor } from '../model/colors';
 import { linkDisplayLabel, safeLinkHref, safeLinkImage } from '../model/link-preview';
@@ -64,6 +65,7 @@ const RESIZE_DIRS = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'] as const;
     '[style.zIndex]': 'card().layer',
     '[class.wb-card--selected]': 'selected()',
     '[class.wb-card--locked]': 'card().locked',
+    '[class.wb-card--line]': 'isLine()',
     '[attr.data-card-id]': 'card().id',
     // A11y (US08.6.1/US08.6.2): TEXT/LABEL cards are keyboard-focusable — Enter/F2 while
     // focused opens inline edit, mirroring the existing dblclick path.
@@ -131,6 +133,14 @@ export class BoardCardComponent {
   protected readonly textFmt = computed(() => parseTextFmt(this.card().content));
   protected readonly labelFmt = computed(() => parseLabelFmt(this.card().content));
   protected readonly shape = computed(() => parseShape(this.card().content));
+  /**
+   * A `line` SHAPE. Its box is flat on one axis when the line is horizontal or vertical, so the
+   * card must not clip what overflows it — otherwise the stroke, which straddles the box edge, is
+   * cut in half or disappears entirely.
+   */
+  protected readonly isLine = computed(() => this.card().type === 'SHAPE' && this.shape().kind === 'line');
+  /** Width of the invisible band that makes a line clickable — see {@link LINE_HIT_WIDTH}. */
+  protected readonly lineHitWidth = LINE_HIT_WIDTH;
   protected readonly table = computed(() => parseTableContent(this.card().content));
   protected readonly headerColor = computed(() => headerTint(this.card().color));
   /**
