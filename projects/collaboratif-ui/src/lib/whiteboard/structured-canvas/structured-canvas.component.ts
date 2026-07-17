@@ -356,16 +356,18 @@ export class StructuredCanvasComponent {
     if (target.closest('button, input, textarea, select, [contenteditable="true"]')) {
       return;
     }
-    // Two targets must not have the pointer captured away from them:
-    //  - the frame title, which doubles as the frame's drag handle *and* as the rename target
-    //    (double-click);
-    //  - a connector, which emits its selection on `click`.
-    // Capturing routes every subsequent mouse event to the surface, so their `click`/`dblclick`
-    // never fires — measured on the title: the span saw two `pointerdown` and no `click` at all.
-    // Without the capture the gestures still work, since the surface spans the whole board and
-    // keeps receiving the moves; only a drag continued *outside the window* is lost, which is not
-    // worth an unrenamable frame and an unselectable connector.
-    if (!target.closest('[data-frame-title], [data-connection-hit]')) {
+    // A connector owns its own pointer story: selection on `click`, label edit on `dblclick`. No
+    // canvas gesture may start here — a marquee born on the second `pointerdown` of a double-click
+    // ends with a degenerate rect that clears the selection right before the `dblclick` fires.
+    if (target.closest('[data-connection-hit], [data-connection-label]')) {
+      return;
+    }
+    // The frame title doubles as the frame's drag handle *and* as the rename target (double-click).
+    // Capturing routes every subsequent mouse event to the surface, so its `dblclick` never fires —
+    // measured: the span saw two `pointerdown` and no `click` at all. Dragging still works without
+    // the capture, since the surface spans the whole board and keeps receiving the moves; only a
+    // drag continued *outside the window* is lost, which is not worth an unrenamable frame.
+    if (!target.closest('[data-frame-title]')) {
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     }
     const pt = this.toCanvas(event.clientX, event.clientY);

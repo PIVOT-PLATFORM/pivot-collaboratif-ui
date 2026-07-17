@@ -441,7 +441,7 @@ describe('StructuredCanvasComponent — frame selection on header pointer-down',
    * bar never appeared, which is where its style now lives (recette 2026-07-17). Same cause as the
    * frame header below.
    */
-  it('does not capture the pointer when it lands on a connector, whose selection rides on click', () => {
+  it('starts no gesture at all when the pointer lands on a connector', () => {
     const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
     const capture = vi.fn();
     (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = capture;
@@ -458,6 +458,10 @@ describe('StructuredCanvasComponent — frame selection on header pointer-down',
     } as unknown as PointerEvent);
 
     expect(capture).not.toHaveBeenCalled();
+    // And no marquee either: the second pointerdown of a double-click would otherwise end with a
+    // degenerate rect that clears the selection before the dblclick fires.
+    expect(selectCards).not.toHaveBeenCalled();
+    expect(component['marquee']()).toBeNull();
   });
 
   /**
