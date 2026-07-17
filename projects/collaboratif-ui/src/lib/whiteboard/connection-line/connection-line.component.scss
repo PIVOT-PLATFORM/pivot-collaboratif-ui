@@ -46,3 +46,26 @@
   user-select: none;
   pointer-events: none;
 }
+
+// Champ d'édition de l'étiquette, posé dans le calque SVG via un `foreignObject` : il hérite donc
+// du zoom du tableau, ce qui est le comportement voulu (il grossit avec le reste).
+.wb-connection__label-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border: 1px solid var(--wb-accent);
+  border-radius: 6px;
+  background: var(--wb-surface);
+  color: var(--wb-ink);
+  font: inherit;
+  font-size: 11px;
+  pointer-events: auto;
+}
+
+// Le double-clic ouvre l'éditeur ; sans ceci il surligne aussi le texte SVG en dessous, ce qui
+// donne une sélection bleue parasite par-dessus le champ.
+.wb-connection__label-text,
+.wb-connection__label {
+  user-select: none;
+}

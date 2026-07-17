@@ -12,7 +12,13 @@
       "duplicate": "Duplicate (Ctrl+D)",
       "lock": "Lock",
       "unlock": "Unlock",
-      "delete": "Delete (Del)"
+      "delete": "Delete (Del)",
+      "fill": "Fill colour",
+      "align": {
+        "left": "Align left",
+        "center": "Center",
+        "right": "Align right"
+      }
     },
     "layer": {
       "bringToFront": "Bring to front",
@@ -307,7 +313,6 @@
       "draw": "Freehand",
       "table": "Table",
       "frame": "Frame",
-      "link": "Link cards",
       "colorGroup": "Colours",
       "pickColor": "Colour {{color}}",
       "fillColorGroup": "Fill colour",
@@ -322,26 +327,25 @@
       "hint": {
         "draw": "Drag to draw freehand.",
         "frame": "Drag to draw a frame.",
-        "link-cards": "Drag from one card to another to link them.",
         "pan": "Drag to move the board.",
         "shape": "Drag to draw the shape.",
         "sticky": "Click to drop a note.",
         "table": "Click to drop a table.",
         "text": "Click to write some text."
       },
-      "connectorStyle": "Link style (arrow, dashed)",
-      "arrowGroup": "Arrow",
-      "lineGroup": "Line",
-      "arrow": {
-        "none": "No arrow",
-        "end": "Arrow at the end",
-        "both": "Arrow at both ends"
-      },
       "lineStyle": {
         "dashed": "Dashed",
         "dotted": "Dotted",
         "solid": "Solid"
-      }
+      },
+      "arrowDir": {
+        "none": "No arrow",
+        "end": "Arrow at the end",
+        "start": "Arrow at the start",
+        "both": "Arrows at both ends"
+      },
+      "labelAdd": "Add a label",
+      "labelEdit": "Edit the label"
     },
     "card": {
       "editText": "Edit text",
@@ -378,7 +382,8 @@
       "table": {
         "aria": "Table",
         "editCell": "Edit cell"
-      }
+      },
+      "labelPlaceholder": "Text…"
     },
     "frame": {
       "titleLabel": "Frame title",
@@ -397,21 +402,16 @@
     },
     "connector": {
       "style": {
-        "title": "Connector style",
-        "shapeLabel": "Shape",
         "shape": {
           "straight": "Straight",
           "curved": "Curved",
           "orthogonal": "Orthogonal"
         },
-        "lineStyleLabel": "Line style",
         "lineStyle": {
           "solid": "Solid",
           "dashed": "Dashed",
           "dotted": "Dotted"
         },
-        "startCapLabel": "Head (start)",
-        "endCapLabel": "Tail (end)",
         "cap": {
           "none": "None",
           "arrow": "Arrow",
@@ -419,8 +419,6 @@
           "circle": "Circle",
           "diamond": "Diamond"
         },
-        "widthLabel": "Width",
-        "colorLabel": "Colour",
         "labelFieldLabel": "Label",
         "labelPlaceholder": "Connector text"
       }

@@ -802,8 +802,9 @@ describe('StructuredCanvasComponent — connect gesture (BUG 6)', () => {
 
     (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
     expect(addConnection).toHaveBeenCalledTimes(1);
-    // The toolbar presets ride along with the creation — defaults here, since none was picked.
-    expect(addConnection).toHaveBeenCalledWith('A', 'B', { startCap: 'none', endCap: 'none', lineStyle: 'solid' });
+    // Born with the server's defaults: the style is picked afterwards, in the selection bar. The
+    // pre-draw presets went with the link tool, which did nothing else (recette 2026-07-17).
+    expect(addConnection).toHaveBeenCalledWith('A', 'B');
   });
 
   it('highlights the anchor the connector actually attaches to, not the one under the cursor (ITEM anchor)', () => {

@@ -162,3 +162,103 @@
     animation: none;
   }
 }
+
+// ── Fill swatch (SHAPE only) ────────────────────────────────────────────────
+// A ring rather than a solid dot, so it reads as "fill" next to the stroke swatch.
+.wb-selbar__swatch--fill {
+  border: 2px solid var(--wb-border-strong);
+}
+
+// "No fill" — the SHAPE default. Diagonal bar, the usual sign for "none".
+.wb-selbar__swatch--none,
+.wb-selbar__palette-swatch--none {
+  background:
+    linear-gradient(to top right, transparent calc(50% - 1px), var(--wb-danger, #e5484d) 50%, transparent calc(50% + 1px)),
+    var(--wb-surface);
+}
+
+// ── Link style menu ─────────────────────────────────────────────────────────
+.wb-selbar__link-menu {
+  position: absolute;
+  bottom: calc(100% + var(--wb-space-2));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-1);
+  padding: var(--wb-space-2);
+  border-radius: var(--wb-radius-panel);
+  background: var(--wb-surface);
+  box-shadow: var(--wb-elev-2);
+}
+
+.wb-selbar__link-row {
+  display: flex;
+  gap: var(--wb-space-1);
+}
+
+.wb-selbar__preset {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius-chip);
+  background: var(--wb-surface);
+  color: var(--wb-ink-muted);
+  cursor: pointer;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--wb-border-strong);
+    color: var(--wb-ink);
+  }
+
+  &--on {
+    border-color: var(--wb-accent);
+    background: var(--wb-surface-sunken);
+    color: var(--wb-ink);
+  }
+}
+
+// Le bouton cycle porte 4 états, pas un choix parmi n : il mérite plus de place.
+.wb-selbar__preset--cycle {
+  width: 44px;
+}
+
+// Bouton pleine largeur — « Ajouter une étiquette ».
+.wb-selbar__link-action {
+  width: 100%;
+  padding: var(--wb-space-2);
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius-control);
+  background: var(--wb-surface);
+  color: var(--wb-ink);
+  font-size: var(--wb-text-sm);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--wb-border-strong);
+    background: var(--wb-surface-sunken);
+  }
+}
+
+// Rejoue l'état du cycle pour les lecteurs d'écran — sans lui, cliquer n'annonce rien.
+.wb-selbar__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

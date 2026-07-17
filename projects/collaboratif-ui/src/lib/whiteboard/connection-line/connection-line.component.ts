@@ -1,5 +1,17 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { TranslocoService } from '@jsverse/transloco';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import type { ConnAnchor, ConnCap, ConnLineStyle, Connection, ConnShape } from '../model/board.types';
 import { type EdgeSide, type Rect, edgeAnchor, edgeAnchorPoint } from '../model/board-geometry';
 
@@ -196,6 +208,7 @@ function capMarker(cap: ConnCap, tip: Point, dir: Point, size: number): CapMarke
   selector: '[wbConnectionLine]',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [TranslocoPipe],
   templateUrl: './connection-line.component.html',
   styleUrl: './connection-line.component.scss',
 })
@@ -210,6 +223,9 @@ export class ConnectionLineComponent {
   readonly toRect = input.required<Rect>();
   /** Whether this connection is currently selected (draws a highlight halo). */
   readonly selected = input<boolean>(false);
+  /** Read-only board: the label cannot be edited. The component did not know about it until now —
+   *  nothing it offered was editable. */
+  readonly readOnly = input<boolean>(false);
   /** Short display name of the source card, used to compose the descriptive {@link ariaLabel}. */
   readonly fromLabel = input<string>('');
   /** Short display name of the target card, used to compose the descriptive {@link ariaLabel}. */
@@ -217,6 +233,8 @@ export class ConnectionLineComponent {
 
   /** Emits the connection id when the hit-area is clicked or activated by keyboard. */
   readonly select = output<string>();
+  /** Emits the label committed inline — `null` clears it. */
+  readonly labelCommit = output<string | null>();
 
   /** The two edge anchors and the routed path derived from the current rects/shape. */
   private readonly routed = computed<RoutedPath>(() => {
@@ -282,6 +300,10 @@ export class ConnectionLineComponent {
 
   /** Label text (null when the connection has no label). */
   protected readonly label = computed<string | null>(() => this.connection().label);
+  /** Whether the label is being edited inline (double-click on the line or its label). */
+  protected readonly editing = signal(false);
+  private readonly labelInput = viewChild<ElementRef<HTMLInputElement>>('labelInput');
+  private readonly injector = inject(Injector);
 
   /** Geometry of the label background box, centered on the path midpoint. */
   protected readonly labelBox = computed(() => {
@@ -329,6 +351,58 @@ export class ConnectionLineComponent {
   });
 
   /** Emits {@link select} with the connection id. */
+  /** Opens the label editor — mirrors `BoardCardComponent.startEdit`, the board's own precedent. */
+  onLabelEdit(): void {
+    if (this.readOnly()) {
+      return;
+    }
+    this.editing.set(true);
+    // Focus once the input exists — same `queueMicrotask` as the card editor. Without it the input
+    // shows but the focus stays on the document, so `Suppr` reaches the board's own handler and
+    // deletes the whole connector instead of typing in the field (recette 2026-07-17).
+    // `afterNextRender`, not `queueMicrotask`: the field is created by `@if (editing())`, so it
+    // does not exist until Angular has rendered — a microtask runs before that and found nothing to
+    // focus. Measured: the input showed, the focus stayed on the document, and `Suppr` reached the
+    // board's handler and deleted the whole connector (recette 2026-07-17).
+    afterNextRender(
+      () => {
+        const el = this.labelInput()?.nativeElement;
+        if (!el) {
+          return;
+        }
+        // Seeded here rather than through a binding — see the template.
+        el.value = this.connection().label ?? '';
+        el.focus();
+        // Select the existing label: typing replaces it, which is what a double-click implies.
+        el.select();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  protected onLabelDblClick(event: Event): void {
+    event.stopPropagation();
+    this.onLabelEdit();
+  }
+
+  /**
+   * A blank field clears the label: emits an explicit `null`, distinct from the field simply not
+   * being touched (US08.7.2 AC3 — `undefined` vs `null`).
+   */
+  protected commitLabel(): void {
+    if (!this.editing()) {
+      return;
+    }
+    const value = (this.labelInput()?.nativeElement.value ?? '').trim();
+    this.editing.set(false);
+    this.labelCommit.emit(value === '' ? null : value);
+  }
+
+  protected cancelLabel(event: Event): void {
+    event.stopPropagation();
+    this.editing.set(false);
+  }
+
   protected onSelect(event: Event): void {
     event.stopPropagation();
     this.select.emit(this.connection().id);

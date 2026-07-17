@@ -139,15 +139,10 @@
         [tool]="tool()"
         [color]="color()"
         [fillColor]="fillColor()"
-        [connectorStartCap]="connectorStartCap()"
-        [connectorEndCap]="connectorEndCap()"
-        [connectorLineStyle]="connectorLineStyle()"
         [disabled]="store.isReadonly()"
         (toolChange)="tool.set($event)"
         (colorChange)="onColorChange($event)"
         (fillColorChange)="fillColor.set($event)"
-        (connectorCapsChange)="onConnectorCaps($event)"
-        (connectorLineStyleChange)="connectorLineStyle.set($event)"
         (insertImage)="onInsertImage($event)"
       ></wb-floating-toolbar>
     </div>
@@ -155,9 +150,6 @@
     <!-- (openDetail) → card-detail modal is WIP; not yet wired. -->
     <wb-structured-canvas
       class="wb-page__canvas"
-      [connectorStartCap]="connectorStartCap()"
-      [connectorEndCap]="connectorEndCap()"
-      [connectorLineStyle]="connectorLineStyle()"
       [tool]="tool()"
       [color]="color()"
       [colorPicked]="colorPicked()"
@@ -195,14 +187,7 @@
       </aside>
     }
 
-    @if (selectedConnection(); as conn) {
-      <aside class="wb-page__panel wb-page__panel--connector-style" [attr.aria-label]="'whiteboard.connector.style.title' | transloco">
-        <wb-connector-style-panel
-          [connection]="conn"
-          (styleChange)="onConnectorStyleChange(conn.id, $event)"
-        ></wb-connector-style-panel>
-      </aside>
-    }
+
 
     @if (selectedCard(); as card) {
       @if (store.fields().length > 0) {
@@ -243,10 +228,17 @@
     <wb-selection-toolbar
       [count]="selectionCount()"
       [color]="selectionColor()"
+      [fillColor]="selectionFill()"
+      [textAlign]="selectionAlign()"
+      [connection]="selectedConnection()"
       [allLocked]="allSelectedLocked()"
       [readOnly]="store.isReadonly()"
       (duplicate)="store.duplicateSelected()"
       (recolor)="onColorChange($event)"
+      (refill)="store.fillSelectedShapes($event)"
+      (realign)="store.alignSelectedText($event)"
+      (connectionStyleChange)="onConnectorStyleChange(selectedConnection()!.id, $event)"
+      (editLabel)="onEditConnectionLabel()"
       (toggleLock)="store.lockSelected($event)"
       (bringToFront)="store.setLayerSelected(store.frontLayer())"
       (sendToBack)="store.setLayerSelected(store.backLayer())"

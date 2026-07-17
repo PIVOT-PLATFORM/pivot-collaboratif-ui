@@ -21,7 +21,6 @@ import { StructuredCanvasComponent } from '../structured-canvas/structured-canva
 import { GroupsPanelComponent } from '../groups-panel/groups-panel.component';
 import { BoardFieldsPanelComponent } from '../board-fields-panel/board-fields-panel.component';
 import { CardFieldValuesPanelComponent } from '../card-field-values-panel/card-field-values-panel.component';
-import { ConnectorStylePanelComponent } from '../connector-style-panel/connector-style-panel.component';
 import { VoteResultsPanelComponent } from '../vote-results-panel/vote-results-panel.component';
 import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component';
 import { SharePanelComponent } from '../share-panel/share-panel.component';
@@ -33,9 +32,11 @@ import { ShortcutsPanelComponent } from '../shortcuts-panel/shortcuts-panel.comp
 import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import { ImportKlaxoonModalComponent } from '../import-klaxoon-modal/import-klaxoon-modal.component';
 import type { Board } from '../../core/whiteboard/board.model';
-import type { Card, Connection, ConnectionPatch, ConnCap, ConnLineStyle } from '../model/board.types';
+import type { Card, Connection, ConnectionPatch } from '../model/board.types';
 import { TOOL_SHORTCUTS, isShapeTool, type ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
+import { parseShape } from '../model/shape';
+import { parseLabelFmt, parseTextFmt, type TextAlign } from '../model/card-format';
 
 /** Delay (ms) within which a second click on the Reset button confirms the action (US08.2.4). */
 const RESET_CONFIRM_WINDOW_MS = 2000;
@@ -66,7 +67,6 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     GroupsPanelComponent,
     BoardFieldsPanelComponent,
     CardFieldValuesPanelComponent,
-    ConnectorStylePanelComponent,
     VoteResultsPanelComponent,
     TimerOverlayComponent,
     SharePanelComponent,
@@ -105,17 +105,7 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly fillColor = signal<string | null>(null);
   /** Whether the keyboard shortcut cheat-sheet is open (toggled by `?`). */
   protected readonly showShortcuts = signal(false);
-  /** Caps applied to the next connector drawn (US08.7.2 — chosen before drawing, not after). */
-  protected readonly connectorStartCap = signal<ConnCap>('none');
-  protected readonly connectorEndCap = signal<ConnCap>('none');
-  /** Line style applied to the next connector drawn. */
-  protected readonly connectorLineStyle = signal<ConnLineStyle>('solid');
 
-  /** Applies an arrow preset picked in the toolbar to the next connector. */
-  protected onConnectorCaps(caps: { startCap: ConnCap; endCap: ConnCap }): void {
-    this.connectorStartCap.set(caps.startCap);
-    this.connectorEndCap.set(caps.endCap);
-  }
   protected readonly showGroups = signal(false);
   /** US08.10.1 — board custom-fields definition panel visibility. */
   protected readonly showFields = signal(false);
@@ -147,13 +137,44 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     return `whiteboard.toolbar.hint.${isShapeTool(current) ? 'shape' : current}`;
   });
 
+  /**
+   * Fill of the selected SHAPEs, or `undefined` when the selection holds none — which hides the
+   * fill swatch. Reads the first selected shape: with a mixed selection the swatch shows one of
+   * them, and picking a colour applies to all, like the existing colour swatch.
+   */
+  /**
+   * Alignment of the selected text cards, or `undefined` when there is none — which hides the
+   * control. Reads the first one: with a mixed selection the control shows one of them and picking
+   * an alignment applies to all, like the colour swatch.
+   */
+  protected readonly selectionAlign = computed<TextAlign | undefined>(() => {
+    const ids = this.store.selectedIds();
+    const card = this.store.cards().find((c) => ids.has(c.id) && (c.type === 'TEXT' || c.type === 'LABEL'));
+    if (!card) {
+      return undefined;
+    }
+    return card.type === 'LABEL' ? parseLabelFmt(card.content).align : parseTextFmt(card.content).align;
+  });
+
+  protected readonly selectionFill = computed<string | null | undefined>(() => {
+    const ids = this.store.selectedIds();
+    const shape = this.store.cards().find((c) => ids.has(c.id) && c.type === 'SHAPE');
+    return shape ? parseShape(shape.content).fill ?? null : undefined;
+  });
+
   /** Count of selected items (cards + connections) — drives the floating selection toolbar. */
   protected readonly selectionCount = computed(() => this.store.selectedIds().size);
   /** Colour shown on the selection toolbar's swatch — the first selected card's colour, or the
    *  board's active colour when the selection holds no card (connections only). */
   protected readonly selectionColor = computed(() => {
     const ids = this.store.selectedIds();
-    return this.store.cards().find((c) => ids.has(c.id))?.color ?? this.color();
+    const card = this.store.cards().find((c) => ids.has(c.id));
+    if (card) {
+      return card.color;
+    }
+    // No card selected: fall back to the connector's own colour rather than the tool colour, which
+    // would show a swatch that has nothing to do with what is selected.
+    return this.selectedConnection()?.color ?? this.color();
   });
   /** True when every selected *card* is locked — flips the toolbar's lock toggle to "unlock". */
   protected readonly allSelectedLocked = computed(() => {
@@ -324,6 +345,17 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     this.showSettings.set(false);
   }
 
+  /**
+   * Routes the bar's "Add a label" button to the connector's own inline editor — the same one the
+   * double-click opens, so there is one editor and not two.
+   */
+  protected onEditConnectionLabel(): void {
+    const conn = this.selectedConnection();
+    if (conn) {
+      this.canvas()?.editConnectionLabel(conn.id);
+    }
+  }
+
   protected onToolConsumed(): void {
     this.tool.set('select');
   }
@@ -388,6 +420,13 @@ export class BoardPageComponent implements OnInit, OnDestroy {
     // whatever is created next, whatever its type.
     this.colorPicked.set(true);
     this.store.recolorSelected(color);
+    // `recolorSelected` walks cards only — a connector's colour lives on the connection, not on a
+    // card, so the swatch never reached it. Until now the style panel was the only thing that
+    // could; routing it here is what lets that panel go away without losing the feature.
+    const conn = this.selectedConnection();
+    if (conn) {
+      this.store.updateConnection(conn.id, { color });
+    }
   }
   protected onDissolveGroup(groupId: string): void {
     this.store.ungroupById(groupId);

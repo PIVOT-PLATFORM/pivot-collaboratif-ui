@@ -12,7 +12,13 @@
       "duplicate": "Dupliquer (Ctrl+D)",
       "lock": "Verrouiller",
       "unlock": "Déverrouiller",
-      "delete": "Supprimer (Suppr)"
+      "delete": "Supprimer (Suppr)",
+      "fill": "Couleur de remplissage",
+      "align": {
+        "left": "Aligner à gauche",
+        "center": "Centrer",
+        "right": "Aligner à droite"
+      }
     },
     "layer": {
       "bringToFront": "Passer au premier plan",
@@ -307,7 +313,6 @@
       "draw": "Dessin libre",
       "table": "Tableau",
       "frame": "Cadre",
-      "link": "Relier des cartes",
       "colorGroup": "Couleurs",
       "pickColor": "Couleur {{color}}",
       "fillColorGroup": "Couleur de remplissage",
@@ -322,26 +327,25 @@
       "hint": {
         "draw": "Glissez pour dessiner à main levée.",
         "frame": "Glissez pour tracer un cadre.",
-        "link-cards": "Glissez d'une carte à une autre pour les relier.",
         "pan": "Glissez pour déplacer le tableau.",
         "shape": "Glissez pour tracer la forme.",
         "sticky": "Cliquez pour poser une note.",
         "table": "Cliquez pour poser un tableau.",
         "text": "Cliquez pour écrire un texte."
       },
-      "connectorStyle": "Style du lien (flèche, pointillés)",
-      "arrowGroup": "Flèche",
-      "lineGroup": "Trait",
-      "arrow": {
-        "none": "Aucune flèche",
-        "end": "Flèche à l'arrivée",
-        "both": "Flèche aux deux bouts"
-      },
       "lineStyle": {
         "dashed": "Tirets",
         "dotted": "Pointillés",
         "solid": "Trait plein"
-      }
+      },
+      "arrowDir": {
+        "none": "Aucune flèche",
+        "end": "Flèche vers l'arrivée",
+        "start": "Flèche vers le départ",
+        "both": "Flèches aux deux bouts"
+      },
+      "labelAdd": "Ajouter une étiquette",
+      "labelEdit": "Modifier l'étiquette"
     },
     "card": {
       "editText": "Modifier le texte",
@@ -378,7 +382,8 @@
       "table": {
         "aria": "Tableau",
         "editCell": "Modifier la cellule"
-      }
+      },
+      "labelPlaceholder": "Texte…"
     },
     "frame": {
       "titleLabel": "Titre du cadre",
@@ -397,21 +402,16 @@
     },
     "connector": {
       "style": {
-        "title": "Style du connecteur",
-        "shapeLabel": "Forme",
         "shape": {
           "straight": "Droit",
           "curved": "Courbe",
           "orthogonal": "Orthogonal"
         },
-        "lineStyleLabel": "Style de trait",
         "lineStyle": {
           "solid": "Plein",
           "dashed": "Tirets",
           "dotted": "Pointillé"
         },
-        "startCapLabel": "Tête (départ)",
-        "endCapLabel": "Queue (arrivée)",
         "cap": {
           "none": "Aucune",
           "arrow": "Flèche",
@@ -419,8 +419,6 @@
           "circle": "Cercle",
           "diamond": "Losange"
         },
-        "widthLabel": "Épaisseur",
-        "colorLabel": "Couleur",
         "labelFieldLabel": "Étiquette",
         "labelPlaceholder": "Texte du connecteur"
       }

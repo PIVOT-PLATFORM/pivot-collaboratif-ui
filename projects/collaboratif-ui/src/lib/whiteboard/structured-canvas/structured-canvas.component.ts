@@ -9,13 +9,14 @@ import {
   output,
   signal,
   viewChild,
+  viewChildren,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { BoardStore } from '../../core/whiteboard/board.store';
 import { BoardCardComponent } from '../board-card/board-card.component';
 import { FrameItemComponent } from '../frame-item/frame-item.component';
 import { ConnectionLineComponent } from '../connection-line/connection-line.component';
-import type { Card, Connection, ConnCap, ConnLineStyle } from '../model/board.types';
+import type { Card, Connection } from '../model/board.types';
 import { DEFAULT_CARD_COLOR, DEFAULT_SHAPE_COLOR } from '../model/colors';
 import { cardDisplayText } from '../model/card-format';
 import { isUrlOnlyPaste } from '../model/link-preview';
@@ -169,11 +170,6 @@ export class StructuredCanvasComponent {
   readonly colorPicked = input<boolean>(false);
   /** Active SHAPE fill colour, or `null` for no fill (US08.6.3). */
   readonly fillColor = input<string | null>(null);
-  /** Caps picked in the toolbar, applied to the next connector drawn (US08.7.2). */
-  readonly connectorStartCap = input<ConnCap>('none');
-  readonly connectorEndCap = input<ConnCap>('none');
-  /** Line style picked in the toolbar, applied to the next connector drawn. */
-  readonly connectorLineStyle = input<ConnLineStyle>('solid');
 
   /** Emitted after a placement tool creates a card, so the container can reset to select. */
   readonly toolConsumed = output<void>();
@@ -181,6 +177,7 @@ export class StructuredCanvasComponent {
   readonly openDetail = output<string>();
 
   private readonly surface = viewChild.required<ElementRef<HTMLDivElement>>('surface');
+  private readonly connectionLines = viewChildren(ConnectionLineComponent);
 
   protected readonly viewport = signal<Viewport>({ x: 0, y: 0, zoom: 1 });
   protected readonly marquee = signal<Rect | null>(null);
@@ -831,13 +828,9 @@ export class StructuredCanvasComponent {
     const target = dropEl instanceof Element ? dropEl.closest<HTMLElement>('[data-card-id]') : null;
     const toId = target?.getAttribute('data-card-id') ?? null;
     if (toId && toId !== g.fromId) {
-      // The style is chosen before the connector is drawn, like a card's colour — so it must be
-      // carried by the creation itself, not patched in once the connector already exists.
-      this.store.addConnection(g.fromId, toId, {
-        startCap: this.connectorStartCap(),
-        endCap: this.connectorEndCap(),
-        lineStyle: this.connectorLineStyle(),
-      });
+      // Born with the server's defaults: the style is picked afterwards, in the selection bar.
+      // The pre-draw presets went away with the link tool, which did nothing else.
+      this.store.addConnection(g.fromId, toId);
     }
   }
 
@@ -1212,5 +1205,15 @@ export class StructuredCanvasComponent {
   }
   protected onConnectionSelect(id: string): void {
     this.store.selectCards(new Set([id]));
+  }
+
+  /**
+   * Opens the inline label editor of a connector — the bottom bar's "Add a label" button routes
+   * here, so the button and the double-click end up in the same editor rather than two.
+   */
+  editConnectionLabel(id: string): void {
+    this.connectionLines()
+      .find((line) => line.connection().id === id)
+      ?.onLabelEdit();
   }
 }

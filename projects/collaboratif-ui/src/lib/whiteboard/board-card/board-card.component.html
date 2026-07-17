@@ -7,6 +7,7 @@
   class="wb-card__body"
   [class.wb-card__body--shape]="card().type === 'SHAPE' || card().type === 'DRAW'"
   [class.wb-card__body--line]="isLine()"
+  [class.wb-card__body--label]="isLabel()"
   [class.wb-card__body--editing]="editing()"
   [style.background]="card().type === 'TEXT' ? card().color : null"
   [style.outlineColor]="card().groupColor || null"
@@ -63,12 +64,15 @@
       } @else {
         <span
           class="wb-card__label"
+          [class.wb-card__label--empty]="labelEmpty()"
+          [style.justifyContent]="labelJustify()"
+          [style.textAlign]="labelFmt().align"
           [style.fontSize.px]="labelFmt().size"
           [style.fontWeight]="labelFmt().bold ? '700' : '400'"
           [style.fontStyle]="labelFmt().italic ? 'italic' : 'normal'"
-          [style.color]="labelFmt().color"
+          [style.color]="labelEmpty() ? null : labelFmt().color"
           [style.textDecoration]="(labelFmt().underline ? 'underline ' : '') + (labelFmt().strike ? 'line-through' : '')"
-        >{{ labelFmt().text }}</span>
+        >{{ labelEmpty() ? ('whiteboard.card.labelPlaceholder' | transloco) : labelFmt().text }}</span>
       }
     }
     @case ('SHAPE') {

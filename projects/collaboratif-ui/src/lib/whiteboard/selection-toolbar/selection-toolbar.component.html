@@ -26,6 +26,120 @@
       }
     </div>
 
+    <!-- Fill — SHAPE only. A shape's fill lives in its encoded `content`, not in `card.color`, so
+         the swatch above (which drives `card.color`) could never change it. -->
+    @if (hasShape()) {
+      <div class="wb-selbar__color-wrap">
+        <button type="button" class="wb-selbar__btn wb-selbar__color-btn" (click)="fillOpen.set(!fillOpen())"
+          [attr.aria-expanded]="fillOpen()"
+          [attr.aria-label]="'whiteboard.selection.fill' | transloco"
+          [wbTooltip]="'whiteboard.selection.fill' | transloco">
+          <span class="wb-selbar__swatch wb-selbar__swatch--fill"
+            [class.wb-selbar__swatch--none]="fillColor() === null"
+            [style.background]="fillColor() ?? 'transparent'"></span>
+        </button>
+
+        @if (fillOpen()) {
+          <div class="wb-selbar__palette" role="menu" [attr.aria-label]="'whiteboard.selection.fill' | transloco">
+            <button type="button" class="wb-selbar__palette-swatch wb-selbar__palette-swatch--none" role="menuitemradio"
+              [class.wb-selbar__palette-swatch--on]="fillColor() === null"
+              [attr.aria-checked]="fillColor() === null"
+              [attr.aria-label]="'whiteboard.toolbar.noFill' | transloco"
+              (click)="chooseFill(null)"></button>
+            @for (c of palette; track c) {
+              <button type="button" class="wb-selbar__palette-swatch" role="menuitemradio"
+                [class.wb-selbar__palette-swatch--on]="c === fillColor()"
+                [attr.aria-checked]="c === fillColor()"
+                [style.background]="c"
+                [attr.aria-label]="c"
+                (click)="chooseFill(c)"></button>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Link controls — three cycles, straight in the bar. One button per property, the icon is
+         the state: a popover of radio rows for three properties was more chrome than choice. -->
+    @if (connection(); as conn) {
+      <div class="wb-selbar__group" role="group" [attr.aria-label]="'whiteboard.toolbar.connectorStyle' | transloco">
+        <button
+          type="button"
+          class="wb-selbar__btn"
+          [attr.aria-label]="('whiteboard.toolbar.lineStyle.' + conn.lineStyle) | transloco"
+          [wbTooltip]="('whiteboard.toolbar.lineStyle.' + conn.lineStyle) | transloco"
+          (click)="cycleLineStyle()"
+        >
+          <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+            <path [attr.stroke-dasharray]="dashArrayFor(conn.lineStyle)" d="M4 12h16" />
+          </svg>
+        </button>
+
+        <!-- No `aria-pressed`: it is binary and would lie about a four-state cycle. The label names
+             the state, and the live region replays it — otherwise nothing is announced on click. -->
+        <button
+          type="button"
+          class="wb-selbar__btn"
+          [attr.aria-label]="('whiteboard.toolbar.arrowDir.' + arrowDir()) | transloco"
+          [wbTooltip]="('whiteboard.toolbar.arrowDir.' + arrowDir()) | transloco"
+          (click)="cycleArrow()"
+        >
+          <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M4 12h16" />
+            @if (arrowDir() === 'end' || arrowDir() === 'both') { <path d="M15 8l4 4-4 4" /> }
+            @if (arrowDir() === 'start' || arrowDir() === 'both') { <path d="M9 8l-4 4 4 4" /> }
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          class="wb-selbar__btn"
+          [attr.aria-label]="('whiteboard.connector.style.shape.' + conn.shape) | transloco"
+          [wbTooltip]="('whiteboard.connector.style.shape.' + conn.shape) | transloco"
+          (click)="cycleShape()"
+        >
+          <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+            @switch (conn.shape) {
+              @case ('straight') { <path d="M4 18L20 6" /> }
+              @case ('curved') { <path d="M4 18C10 18 14 6 20 6" /> }
+              @case ('orthogonal') { <path d="M4 18h8V6h8" /> }
+            }
+          </svg>
+        </button>
+
+        <span class="wb-selbar__sr-only" aria-live="polite">
+          {{ ('whiteboard.toolbar.arrowDir.' + arrowDir()) | transloco }}
+        </span>
+      </div>
+    }
+
+    <!-- Text alignment    <!-- Text alignment — TEXT/LABEL only. The field existed and was rendered; no control ever
+         drove it (recette 2026-07-17). -->
+    @if (hasText()) {
+      <div class="wb-selbar__group" role="group" [attr.aria-label]="'whiteboard.selection.align' | transloco">
+        @for (a of aligns; track a) {
+          <button
+            type="button"
+            class="wb-selbar__btn"
+            [class.wb-selbar__btn--on]="textAlign() === a"
+            [attr.aria-pressed]="textAlign() === a"
+            [attr.aria-label]="('whiteboard.selection.align.' + a) | transloco"
+            [wbTooltip]="('whiteboard.selection.align.' + a) | transloco"
+            (click)="chooseAlign(a)"
+          >
+            <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+              <path d="M4 6h16" />
+              @switch (a) {
+                @case ('left') { <path d="M4 12h10M4 18h13" /> }
+                @case ('center') { <path d="M7 12h10M5 18h14" /> }
+                @case ('right') { <path d="M10 12h10M7 18h13" /> }
+              }
+            </svg>
+          </button>
+        }
+      </div>
+    }
+
     <button type="button" class="wb-selbar__btn" (click)="duplicate.emit()"
       [attr.aria-label]="'whiteboard.selection.duplicate' | transloco" [title]="'whiteboard.selection.duplicate' | transloco">
       <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">

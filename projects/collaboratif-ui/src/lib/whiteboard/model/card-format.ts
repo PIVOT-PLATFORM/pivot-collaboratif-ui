@@ -15,6 +15,8 @@ export interface LabelFmt {
   underline: boolean;
   strike: boolean;
   color: string;
+  /** Horizontal alignment — same set as a TEXT card, which already had it. */
+  align: TextAlign;
 }
 
 const LABEL_DEFAULTS: LabelFmt = {
@@ -25,6 +27,7 @@ const LABEL_DEFAULTS: LabelFmt = {
   underline: false,
   strike: false,
   color: '#374151',
+  align: 'left',
 };
 
 /** Parses a label's stored content, falling back to plain text. */
@@ -42,14 +45,17 @@ export function parseLabelFmt(raw: string): LabelFmt {
 
 /** Serializes a label's formatting (plain text when unstyled, JSON otherwise). */
 export function serializeLabelFmt(fmt: LabelFmt): string {
-  const { text, size, bold, italic, underline, strike, color } = fmt;
+  const { text, size, bold, italic, underline, strike, color, align } = fmt;
+  // `align` counts as styling: leaving it out of this test would store a centred label as plain
+  // text and lose the alignment on the next read.
   const isDefault =
     size === LABEL_DEFAULTS.size &&
     !bold &&
     !italic &&
     !underline &&
     !strike &&
-    color === LABEL_DEFAULTS.color;
+    color === LABEL_DEFAULTS.color &&
+    align === LABEL_DEFAULTS.align;
   return isDefault ? text : JSON.stringify(fmt);
 }
 
