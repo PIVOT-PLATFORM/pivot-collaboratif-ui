@@ -31,6 +31,7 @@ import { VoteConfigDialogComponent, type VoteConfig } from '../vote-config-dialo
 import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
 import { ShortcutsPanelComponent } from '../shortcuts-panel/shortcuts-panel.component';
 import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
+import { ImportKlaxoonModalComponent } from '../import-klaxoon-modal/import-klaxoon-modal.component';
 import type { Board } from '../../core/whiteboard/board.model';
 import type { Card, Connection, ConnectionPatch, ConnArrow } from '../model/board.types';
 import { TOOL_SHORTCUTS, type ToolMode } from '../model/tools';
@@ -49,8 +50,10 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
  * overlays and the (previously orphaned) share panel.
  *
  * The shared timer and dot-vote (US08.12.1/2) are wired end-to-end to the store's STOMP
- * actions. ⚠️ WIP: the fields panel and Klaxoon import/export still depend on backend actions
- * not yet implemented in `pivot-collaboratif-core` — see the port EPIC.
+ * actions. Klaxoon import (US08.13.1) is wired here as trigger + `<dialog>` host for
+ * {@link ImportKlaxoonModalComponent}; the imported content itself renders through the
+ * `board:imported` STOMP broadcast the store already merges (`board.store.ts`), not through
+ * this component's state.
  */
 @Component({
   selector: 'wb-board-page',
@@ -73,6 +76,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     BoardSettingsModalComponent,
     ShortcutsPanelComponent,
     SelectionToolbarComponent,
+    ImportKlaxoonModalComponent,
   ],
   providers: [BoardStore, { provide: BoardTransport, useClass: StompBoardTransport }],
   templateUrl: './board-page.component.html',
@@ -116,6 +120,8 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   /** US08.12.2 — dot-vote configuration picker visibility (opened from the activities panel). */
   protected readonly showVoteConfig = signal(false);
   protected readonly showSettings = signal(false);
+  /** US08.13.1 — Klaxoon import modal visibility. */
+  protected readonly showImportKlaxoon = signal(false);
   protected readonly highlightedGroup = signal<string | null>(null);
 
   protected readonly isOwner = computed(() => this.store.userRole() === 'OWNER');

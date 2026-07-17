@@ -39,7 +39,8 @@
               "src/styles.scss"
             ],
             "allowedCommonJsDependencies": [
-              "@stomp/stompjs"
+              "@stomp/stompjs",
+              "jszip"
             ]
           },
           "configurations": {

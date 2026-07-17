@@ -93,6 +93,15 @@
         </span>
       }
 
+      @if (!store.isReadonly()) {
+        <button type="button" class="wb-page__btn wb-page__btn--icon" (click)="showImportKlaxoon.set(true)"
+          [attr.aria-label]="'whiteboard.import.trigger' | transloco" [title]="'whiteboard.import.trigger' | transloco">
+          <svg class="wb-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+        </button>
+      }
+
       <span class="wb-page__sep" aria-hidden="true"></span>
 
       <button type="button" class="wb-page__btn wb-page__btn--icon" (click)="showShare.set(true)"
@@ -258,6 +267,12 @@
   @if (showShare()) {
     <dialog class="wb-page__modal" open [attr.aria-label]="'whiteboard.share.panel.title' | transloco">
       <app-share-panel [boardId]="boardId" (closed)="showShare.set(false)"></app-share-panel>
+    </dialog>
+  }
+
+  @if (showImportKlaxoon()) {
+    <dialog class="wb-page__modal" open [attr.aria-label]="'whiteboard.import.title' | transloco">
+      <wb-import-klaxoon-modal [boardId]="boardId" (closed)="showImportKlaxoon.set(false)"></wb-import-klaxoon-modal>
     </dialog>
   }
 

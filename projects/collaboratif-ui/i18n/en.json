@@ -600,6 +600,43 @@
         "space": "Space",
         "wheel": "wheel"
       }
+    },
+    "import": {
+      "trigger": "Import from Klaxoon",
+      "title": "Import from Klaxoon",
+      "close": "Close",
+      "pickHint": "Drop your Klaxoon export (.klx) as-is — it is decompressed automatically and the right files are located for you.",
+      "dropzone": "Drag the .klx file here, or click to choose it",
+      "reading": "Unpacking and reading files…",
+      "chooseHint": "This archive contains several boards. Which one do you want to import?",
+      "cancel": "Cancel",
+      "previewTitle": "Import preview",
+      "stats": {
+        "postits": "Notes (sticky notes)",
+        "texts": "Text boxes",
+        "draws": "Drawings",
+        "shapes": "Shapes",
+        "images": "Images",
+        "zones": "Frames (zones)",
+        "links": "Connections",
+        "groups": "Groups",
+        "fields": "Fields (category, dimensions)",
+        "skipped": "Skipped (inactive…)"
+      },
+      "confirm": "Import",
+      "importing": "Importing…",
+      "doneMessage": "{{count}} element(s) imported.",
+      "closeAction": "Close",
+      "undo": "Undo import",
+      "undoing": "Undoing…",
+      "retry": "Retry",
+      "error": {
+        "notKlx": "This file is not a .klx archive.",
+        "noBrainstormData": "Invalid .klx archive: _brainstorm_data.json not found inside.",
+        "corrupted": "Unable to read the .klx archive. Check that the file is not corrupted.",
+        "importFailed": "Import failed.",
+        "undoFailed": "Unable to undo the import."
+      }
     }
   }
 }

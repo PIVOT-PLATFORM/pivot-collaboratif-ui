@@ -1,0 +1,191 @@
+<div
+  class="klx-import"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'whiteboard.import.title' | transloco"
+  tabindex="-1"
+>
+  <div class="klx-import__header">
+    <h2 class="klx-import__heading">{{ 'whiteboard.import.title' | transloco }}</h2>
+    <button
+      class="klx-import__close-btn"
+      type="button"
+      [attr.aria-label]="'whiteboard.import.close' | transloco"
+      (click)="close()"
+      autofocus
+    >
+      &times;
+    </button>
+  </div>
+
+  @switch (step()) {
+    @case ('pick') {
+      <div class="klx-import__body">
+        <p class="klx-import__hint">{{ 'whiteboard.import.pickHint' | transloco }}</p>
+        <input
+          #fileInput
+          type="file"
+          accept=".klx,application/zip"
+          class="klx-import__file-input"
+          (change)="onFileInputChange($event)"
+        />
+        <div
+          class="klx-import__dropzone"
+          [class.klx-import__dropzone--active]="dragging()"
+          role="button"
+          tabindex="0"
+          [attr.aria-label]="'whiteboard.import.dropzone' | transloco"
+          (click)="pickFile()"
+          (keydown.enter)="pickFile()"
+          (keydown.space)="pickFile()"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave()"
+          (drop)="onDrop($event)"
+        >
+          {{ 'whiteboard.import.dropzone' | transloco }}
+        </div>
+      </div>
+    }
+
+    @case ('reading') {
+      <div class="klx-import__loading" aria-busy="true" aria-live="polite">
+        <span class="klx-import__spinner" aria-hidden="true"></span>
+        <p>{{ 'whiteboard.import.reading' | transloco }}</p>
+      </div>
+    }
+
+    @case ('choose') {
+      <div class="klx-import__body">
+        <p class="klx-import__hint">{{ 'whiteboard.import.chooseHint' | transloco }}</p>
+        <ul class="klx-import__activities">
+          @for (activity of activities(); track activity.brainstormPath) {
+            <li>
+              <button
+                type="button"
+                class="klx-import__activity-btn"
+                (click)="chooseActivity(activity)"
+              >
+                {{ activity.label }}
+              </button>
+            </li>
+          }
+        </ul>
+        <div class="klx-import__actions">
+          <button type="button" class="klx-import__btn klx-import__btn--cancel" (click)="close()">
+            {{ 'whiteboard.import.cancel' | transloco }}
+          </button>
+        </div>
+      </div>
+    }
+
+    @case ('preview') {
+      @if (stats(); as s) {
+        <div class="klx-import__body">
+          <div class="klx-import__stats">
+            <p class="klx-import__stats-title">{{ 'whiteboard.import.previewTitle' | transloco }}</p>
+            <dl class="klx-import__stats-list">
+              <div class="klx-import__stat">
+                <dt>{{ 'whiteboard.import.stats.postits' | transloco }}</dt>
+                <dd>{{ s.postits }}</dd>
+              </div>
+              <div class="klx-import__stat">
+                <dt>{{ 'whiteboard.import.stats.texts' | transloco }}</dt>
+                <dd>{{ s.texts }}</dd>
+              </div>
+              <div class="klx-import__stat">
+                <dt>{{ 'whiteboard.import.stats.draws' | transloco }}</dt>
+                <dd>{{ s.draws }}</dd>
+              </div>
+              <div class="klx-import__stat">
+                <dt>{{ 'whiteboard.import.stats.shapes' | transloco }}</dt>
+                <dd>{{ s.shapes }}</dd>
+              </div>
+              <div class="klx-import__stat">
+                <dt>{{ 'whiteboard.import.stats.images' | transloco }}</dt>
+                <dd>{{ s.images }}</dd>
+              </div>
+              <div class="klx-import__stat">
+                <dt>{{ 'whiteboard.import.stats.zones' | transloco }}</dt>
+                <dd>{{ s.zones }}</dd>
+              </div>
+              <div class="klx-import__stat">
+                <dt>{{ 'whiteboard.import.stats.links' | transloco }}</dt>
+                <dd>{{ s.links }}</dd>
+              </div>
+              <div class="klx-import__stat">
+                <dt>{{ 'whiteboard.import.stats.groups' | transloco }}</dt>
+                <dd>{{ s.groups }}</dd>
+              </div>
+              @if (s.fields > 0) {
+                <div class="klx-import__stat">
+                  <dt>{{ 'whiteboard.import.stats.fields' | transloco }}</dt>
+                  <dd>{{ s.fields }}</dd>
+                </div>
+              }
+              @if (s.skipped > 0) {
+                <div class="klx-import__stat klx-import__stat--muted">
+                  <dt>{{ 'whiteboard.import.stats.skipped' | transloco }}</dt>
+                  <dd>{{ s.skipped }}</dd>
+                </div>
+              }
+            </dl>
+          </div>
+          <div class="klx-import__actions">
+            <button type="button" class="klx-import__btn klx-import__btn--cancel" (click)="close()">
+              {{ 'whiteboard.import.cancel' | transloco }}
+            </button>
+            <button type="button" class="klx-import__btn klx-import__btn--primary" (click)="runImport()">
+              {{ 'whiteboard.import.confirm' | transloco }}
+            </button>
+          </div>
+        </div>
+      }
+    }
+
+    @case ('importing') {
+      <div class="klx-import__loading" aria-busy="true" aria-live="polite">
+        <span class="klx-import__spinner" aria-hidden="true"></span>
+        <p>{{ 'whiteboard.import.importing' | transloco }}</p>
+      </div>
+    }
+
+    @case ('done') {
+      @if (result(); as res) {
+        <div class="klx-import__body">
+          <p class="klx-import__done-icon" aria-hidden="true">&#10003;</p>
+          <p class="klx-import__done-message" role="status" aria-live="polite">
+            {{ 'whiteboard.import.doneMessage' | transloco: { count: importedCount() } }}
+          </p>
+          <div class="klx-import__actions klx-import__actions--stacked">
+            <button type="button" class="klx-import__btn klx-import__btn--primary" (click)="close()">
+              {{ 'whiteboard.import.closeAction' | transloco }}
+            </button>
+            <button
+              type="button"
+              class="klx-import__btn klx-import__btn--danger"
+              [disabled]="undoing()"
+              [attr.aria-label]="'whiteboard.import.undo' | transloco"
+              (click)="undoImport()"
+            >
+              {{ undoing() ? ('whiteboard.import.undoing' | transloco) : ('whiteboard.import.undo' | transloco) }}
+            </button>
+          </div>
+        </div>
+      }
+    }
+
+    @case ('error') {
+      <div class="klx-import__body">
+        <p class="klx-import__error" role="alert">{{ errorKey() | transloco }}</p>
+        <div class="klx-import__actions">
+          <button type="button" class="klx-import__btn klx-import__btn--cancel" (click)="close()">
+            {{ 'whiteboard.import.closeAction' | transloco }}
+          </button>
+          <button type="button" class="klx-import__btn klx-import__btn--primary" (click)="retry()">
+            {{ 'whiteboard.import.retry' | transloco }}
+          </button>
+        </div>
+      </div>
+    }
+  }
+</div>
