@@ -48,15 +48,28 @@ function decodeHtmlEntities(text: string): string {
   return text.replace(/&lt;|&gt;|&amp;|&#39;|&quot;/g, (entity) => HTML_ENTITIES[entity]);
 }
 
+// Strips every "<...>"-shaped substring, re-applying the regex to a fixed point (CodeQL
+// js/incomplete-multi-character-sanitization's own documented remediation) rather than a single
+// pass -- removing one match can in principle expose a new adjacent "<"/">" pair that a
+// single-pass replace would miss.
+function stripTags(text: string): string {
+  let current = text;
+  let previous: string;
+  do {
+    previous = current;
+    current = current.replace(/<[^>]+>/g, '');
+  } while (current !== previous);
+  return current;
+}
+
 function stripHtml(html: string): string {
   const withoutBreaks = html.replace(/<br\s*\/?>/gi, '\n');
   // Decode entities *before* stripping tags (not after): an encoded tag like "&lt;script&gt;"
-  // must become a real "<script>" first so the tag-strip below actually removes it. Decoding
-  // after stripping would let an encoded tag survive the strip and only turn into a real
-  // tag-shaped string afterward, with nothing left to remove it. The strip below is the final
-  // content-mutating step of this function -- only a whitespace-only `.trim()` follows it.
+  // must become a real "<script>" first so stripTags() below actually removes it. Decoding after
+  // stripping would let an encoded tag survive the strip and only turn into a real tag-shaped
+  // string afterward, with nothing left to remove it.
   const decoded = decodeHtmlEntities(withoutBreaks);
-  return decoded.replace(/<[^>]+>/g, '').trim();
+  return stripTags(decoded).trim();
 }
 
 // The effective font-size / weight / color of a Klaxoon text live as inline
