@@ -21,6 +21,71 @@
     </button>
   </div>
 
+  <!-- ── Invite by e-mail section (US08.2.5) ──────────────────────────── -->
+  <section class="share-panel__section" aria-labelledby="share-invite-heading">
+    <h3 id="share-invite-heading" class="share-panel__section-heading">
+      {{ 'whiteboard.share.invite.section' | transloco }}
+    </h3>
+
+    <form class="share-panel__invite-form" (submit)="submitInvite($event)">
+      <div class="share-panel__invite-row">
+        <label class="share-panel__label" for="share-invite-email">
+          {{ 'whiteboard.share.invite.emailLabel' | transloco }}
+        </label>
+        <input
+          id="share-invite-email"
+          class="share-panel__invite-email"
+          type="email"
+          autocomplete="off"
+          [value]="inviteEmail()"
+          [attr.placeholder]="'whiteboard.share.invite.emailPlaceholder' | transloco"
+          [attr.aria-invalid]="inviteErrorKey() ? 'true' : null"
+          [attr.aria-describedby]="inviteErrorKey() ? 'share-invite-error' : null"
+          [disabled]="inviteStatus() === 'submitting'"
+          (input)="setInviteEmail($event)"
+        />
+      </div>
+
+      <div class="share-panel__invite-row">
+        <label class="share-panel__label" for="share-invite-role">
+          {{ 'whiteboard.share.invite.roleLabel' | transloco }}
+        </label>
+        <select
+          id="share-invite-role"
+          class="share-panel__select"
+          [value]="inviteRole()"
+          [disabled]="inviteStatus() === 'submitting'"
+          (change)="setInviteRole($event)"
+        >
+          @for (role of inviteRoleOptions(); track role) {
+            <option [value]="role">
+              {{ 'whiteboard.presence.role.' + role.toLowerCase() | transloco }}
+            </option>
+          }
+        </select>
+      </div>
+
+      <button
+        class="share-panel__invite-btn"
+        type="submit"
+        [disabled]="inviteStatus() === 'submitting'"
+      >
+        @if (inviteStatus() === 'submitting') {
+          <span class="share-panel__spinner" aria-hidden="true"></span>
+          {{ 'whiteboard.share.invite.submitting' | transloco }}
+        } @else {
+          {{ 'whiteboard.share.invite.submit' | transloco }}
+        }
+      </button>
+
+      @if (inviteErrorKey(); as errorKey) {
+        <p id="share-invite-error" class="share-panel__error" role="alert">
+          {{ errorKey | transloco }}
+        </p>
+      }
+    </form>
+  </section>
+
   <!-- ── Link section ────────────────────────────────────────────────── -->
   <section class="share-panel__section" aria-labelledby="share-link-heading">
     <h3 id="share-link-heading" class="share-panel__section-heading">

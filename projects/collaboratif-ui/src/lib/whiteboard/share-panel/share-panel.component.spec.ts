@@ -46,6 +46,23 @@ const FR: Record<string, unknown> = {
           cancel: 'Annuler',
         },
       },
+      invite: {
+        section: 'Inviter par email',
+        emailLabel: 'Adresse email',
+        emailPlaceholder: 'personne@exemple.fr',
+        roleLabel: 'Rôle',
+        submit: 'Inviter',
+        submitting: 'Invitation…',
+        success: 'Invitation envoyée.',
+      },
+      error: {
+        invalidEmail: 'Adresse email invalide.',
+        unknownEmail: 'Aucun utilisateur ne correspond à cette adresse email.',
+        selfInvite: 'Vous ne pouvez pas vous inviter vous-même.',
+        creatorInvite: 'Cet utilisateur est déjà propriétaire du tableau.',
+        forbiddenRole: 'Un éditeur ne peut pas attribuer le rôle propriétaire.',
+        generic: 'L\'invitation a échoué. Réessayez.',
+      },
     },
   },
 };
@@ -372,5 +389,138 @@ describe('SharePanelComponent', () => {
     const panel = fixture.nativeElement.querySelector('.share-panel') as HTMLElement;
     panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(emitted).toBe(true);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Invite by e-mail (US08.2.5)
+  // ─────────────────────────────────────────────────────────────────────
+
+  const INVITE_URL = `${TEST_API_URL}/whiteboard/boards/${BOARD_ID}/shares/invite`;
+
+  function initPanel(managerRole?: 'OWNER' | 'EDITOR' | 'VIEWER'): void {
+    if (managerRole) {
+      fixture.componentRef.setInput('managerRole', managerRole);
+    }
+    fixture.detectChanges();
+    httpMock.expectOne(MEMBERS_URL).flush([OWNER]);
+    fixture.detectChanges();
+  }
+
+  function setEmail(value: string): void {
+    const input = fixture.nativeElement.querySelector('#share-invite-email') as HTMLInputElement;
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  function submitForm(): void {
+    const form = fixture.nativeElement.querySelector('.share-panel__invite-form') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    fixture.detectChanges();
+  }
+
+  it('renders the invite form with an e-mail input and a role select', () => {
+    initPanel();
+    expect(fixture.nativeElement.querySelector('#share-invite-email')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#share-invite-role')).toBeTruthy();
+  });
+
+  it('EDITOR manager role select never exposes OWNER', () => {
+    initPanel('EDITOR');
+    const options = Array.from(
+      fixture.nativeElement.querySelectorAll('#share-invite-role option'),
+    ).map(o => (o as HTMLOptionElement).value);
+    expect(options).toEqual(['VIEWER', 'EDITOR']);
+  });
+
+  it('OWNER manager role select exposes OWNER', () => {
+    initPanel('OWNER');
+    const options = Array.from(
+      fixture.nativeElement.querySelectorAll('#share-invite-role option'),
+    ).map(o => (o as HTMLOptionElement).value);
+    expect(options).toContain('OWNER');
+  });
+
+  it('submitting a valid invite POSTs to /shares/invite and shows a success toast', () => {
+    const toastSpy = vi.spyOn(toastService, 'show');
+    initPanel('OWNER');
+    setEmail('invitee@example.com');
+    submitForm();
+
+    const req = httpMock.expectOne(r => r.url === INVITE_URL && r.method === 'POST');
+    expect(req.request.body).toEqual({ email: 'invitee@example.com', role: 'VIEWER' });
+    req.flush({ shareId: 's1', userId: 'u1', role: 'VIEWER', joinedAt: '2026-07-17T00:00:00Z' });
+    fixture.detectChanges();
+
+    // Success reloads the members list.
+    httpMock.expectOne(MEMBERS_URL).flush([OWNER]);
+    expect(toastSpy).toHaveBeenCalledWith('whiteboard.share.invite.success', 'success');
+  });
+
+  it('empty e-mail shows a validation error without any HTTP call', () => {
+    initPanel();
+    setEmail('   ');
+    submitForm();
+    const alert = fixture.nativeElement.querySelector('[role="alert"]');
+    expect(alert.textContent).toContain('Adresse email invalide.');
+  });
+
+  it('unknown e-mail (404) announces the unknown-email error via role="alert"', () => {
+    initPanel();
+    setEmail('nobody@example.com');
+    submitForm();
+    httpMock.expectOne(INVITE_URL).flush(
+      { code: 'INVITEE_NOT_FOUND' },
+      { status: 404, statusText: 'Not Found' },
+    );
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent)
+      .toContain('Aucun utilisateur');
+  });
+
+  it('self-invitation (400 SELF_INVITE) announces the self-invite error', () => {
+    initPanel();
+    setEmail('me@example.com');
+    submitForm();
+    httpMock.expectOne(INVITE_URL).flush(
+      { code: 'SELF_INVITE' },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent)
+      .toContain('vous inviter vous-même');
+  });
+
+  it('creator invitation (400 ALREADY_OWNER) announces the creator error', () => {
+    initPanel();
+    setEmail('owner@example.com');
+    submitForm();
+    httpMock.expectOne(INVITE_URL).flush(
+      { code: 'ALREADY_OWNER' },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent)
+      .toContain('déjà propriétaire');
+  });
+
+  it('forbidden role (403) announces the forbidden-role error', () => {
+    initPanel('EDITOR');
+    setEmail('someone@example.com');
+    submitForm();
+    httpMock.expectOne(INVITE_URL).flush('', { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent)
+      .toContain('éditeur ne peut pas attribuer');
+  });
+
+  it('network/server error (500) announces the generic error', () => {
+    initPanel();
+    setEmail('someone@example.com');
+    submitForm();
+    httpMock.expectOne(INVITE_URL).flush('', { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent)
+      .toContain('invitation a échoué');
   });
 });

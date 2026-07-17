@@ -9,10 +9,14 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe, SlicePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { BoardService } from '../../core/whiteboard/board.service';
 import { ToastService } from '../../core/toast/toast.service';
 import { BoardMember, ShareToken } from '../../core/whiteboard/board.model';
+
+/** Role a share may be granted through the invite form. */
+type InviteRole = 'OWNER' | 'EDITOR' | 'VIEWER';
 
 /**
  * Panel component for board sharing and member management (US08.2.3).
@@ -36,11 +40,30 @@ export class SharePanelComponent implements OnInit {
   /** Board whose members and share links are managed by this panel. */
   readonly boardId = input.required<string>();
 
+  /**
+   * Role of the current user managing this panel (US08.2.5). Bounds the invite role select:
+   * only an OWNER may grant OWNER; an EDITOR never sees the OWNER option. Defaults to the safe
+   * `EDITOR` subset. The backend remains the sole authority (defense in depth).
+   */
+  readonly managerRole = input<'OWNER' | 'EDITOR' | 'VIEWER'>('EDITOR');
+
   /** Emitted when the user closes the panel (Escape or close button). */
   readonly closed = output<void>();
 
   private readonly boardService = inject(BoardService);
   private readonly toast = inject(ToastService);
+
+  /** Invite form state (US08.2.5). */
+  protected readonly inviteEmail = signal('');
+  protected readonly inviteRole = signal<InviteRole>('VIEWER');
+  protected readonly inviteStatus = signal<'idle' | 'submitting'>('idle');
+  /** i18n key of the current invite error announced via `role="alert"`, or `null`. */
+  protected readonly inviteErrorKey = signal<string | null>(null);
+
+  /** Role options the manager may grant — OWNER only when the manager is an OWNER. */
+  protected readonly inviteRoleOptions = computed<InviteRole[]>(() =>
+    this.managerRole() === 'OWNER' ? ['VIEWER', 'EDITOR', 'OWNER'] : ['VIEWER', 'EDITOR'],
+  );
 
   protected readonly members = signal<BoardMember[]>([]);
   protected readonly membersStatus = signal<'loading' | 'loaded' | 'error'>('loading');
@@ -142,6 +165,73 @@ export class SharePanelComponent implements OnInit {
         this.toast.show('whiteboard.share.panel.removeError', 'error');
       },
     });
+  }
+
+  protected setInviteEmail(event: Event): void {
+    this.inviteEmail.set((event.target as HTMLInputElement).value);
+    if (this.inviteErrorKey()) {
+      this.inviteErrorKey.set(null);
+    }
+  }
+
+  protected setInviteRole(event: Event): void {
+    this.inviteRole.set((event.target as HTMLSelectElement).value as InviteRole);
+  }
+
+  /**
+   * Submits the invite form. Guards against an OWNER role the manager cannot grant (the backend
+   * is authoritative too), then calls the invite endpoint and maps any error to a localized key
+   * announced via `role="alert"`. On success the members list is refreshed and the form reset.
+   */
+  protected submitInvite(event?: Event): void {
+    event?.preventDefault();
+    const email = this.inviteEmail().trim();
+    if (!email) {
+      this.inviteErrorKey.set('whiteboard.share.error.invalidEmail');
+      return;
+    }
+    const role = this.inviteRole();
+    if (role === 'OWNER' && this.managerRole() !== 'OWNER') {
+      this.inviteErrorKey.set('whiteboard.share.error.forbiddenRole');
+      return;
+    }
+
+    this.inviteStatus.set('submitting');
+    this.inviteErrorKey.set(null);
+    this.boardService.inviteByEmail(this.boardId(), email, role).subscribe({
+      next: () => {
+        this.inviteStatus.set('idle');
+        this.inviteEmail.set('');
+        this.inviteRole.set('VIEWER');
+        this.toast.show('whiteboard.share.invite.success', 'success');
+        this.loadMembers();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.inviteStatus.set('idle');
+        this.inviteErrorKey.set(this.mapInviteError(err));
+      },
+    });
+  }
+
+  /** Maps an invite HTTP error to the i18n key of the message to announce. */
+  private mapInviteError(err: HttpErrorResponse): string {
+    const code = (err.error as { code?: string } | null)?.code;
+    if (err.status === 404) {
+      return 'whiteboard.share.error.unknownEmail';
+    }
+    if (err.status === 403) {
+      return 'whiteboard.share.error.forbiddenRole';
+    }
+    if (err.status === 400) {
+      if (code === 'SELF_INVITE') {
+        return 'whiteboard.share.error.selfInvite';
+      }
+      if (code === 'ALREADY_OWNER') {
+        return 'whiteboard.share.error.creatorInvite';
+      }
+      return 'whiteboard.share.error.invalidEmail';
+    }
+    return 'whiteboard.share.error.generic';
   }
 
   private loadMembers(): void {
