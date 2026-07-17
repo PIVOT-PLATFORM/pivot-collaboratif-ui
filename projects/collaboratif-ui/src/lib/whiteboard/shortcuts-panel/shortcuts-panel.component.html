@@ -1,0 +1,48 @@
+<!-- One group of shortcut rows — the table structure is identical for tools, editing and gestures. -->
+<ng-template #group let-titleKey="titleKey" let-rows="rows">
+  <section class="wb-shortcuts__group">
+    <h3 class="wb-shortcuts__group-title">{{ titleKey | transloco }}</h3>
+    <dl class="wb-shortcuts__list">
+      @for (row of rows; track row.labelKey) {
+        <div class="wb-shortcuts__row">
+          <dt class="wb-shortcuts__label">{{ row.labelKey | transloco }}</dt>
+          <dd class="wb-shortcuts__keys">
+            @for (k of row.keys; track $index) {
+              <kbd class="wb-shortcuts__key">{{ i18nKey(k) ? (i18nKey(k)! | transloco) : k }}</kbd>
+            }
+          </dd>
+        </div>
+      }
+    </dl>
+  </section>
+</ng-template>
+
+<div class="wb-shortcuts__backdrop" (click)="onBackdrop($event)">
+  <div
+    class="wb-shortcuts"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'whiteboard.shortcuts.title' | transloco"
+  >
+    <header class="wb-shortcuts__header">
+      <h2 class="wb-shortcuts__title">{{ 'whiteboard.shortcuts.title' | transloco }}</h2>
+      <button
+        #closeBtn
+        type="button"
+        class="wb-shortcuts__close"
+        [attr.aria-label]="'whiteboard.shortcuts.close' | transloco"
+        (click)="dismiss()"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="wb-shortcuts__body">
+      <ng-container [ngTemplateOutlet]="group" [ngTemplateOutletContext]="{ titleKey: 'whiteboard.shortcuts.groupTools', rows: toolRows }" />
+      <ng-container [ngTemplateOutlet]="group" [ngTemplateOutletContext]="{ titleKey: 'whiteboard.shortcuts.groupEdit', rows: editRows }" />
+      <ng-container [ngTemplateOutlet]="group" [ngTemplateOutletContext]="{ titleKey: 'whiteboard.shortcuts.groupCanvas', rows: canvasRows }" />
+    </div>
+  </div>
+</div>

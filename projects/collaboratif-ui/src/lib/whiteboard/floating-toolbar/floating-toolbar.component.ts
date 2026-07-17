@@ -13,8 +13,9 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { SHAPE_TOOLS, type ToolMode } from '../model/tools';
+import { SHAPE_TOOLS, SHORTCUT_BY_TOOL, type ToolMode } from '../model/tools';
 import { BASE_COLORS } from '../model/colors';
+import { WbTooltipDirective } from '../tooltip/wb-tooltip.directive';
 
 /** A single-tool button (non-shape) in the palette. */
 interface ToolButton {
@@ -82,7 +83,7 @@ function readCollapsed(): boolean {
   selector: 'wb-floating-toolbar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, TranslocoPipe],
+  imports: [NgTemplateOutlet, TranslocoPipe, WbTooltipDirective],
   templateUrl: './floating-toolbar.component.html',
   styleUrl: './floating-toolbar.component.scss',
 })
@@ -129,6 +130,24 @@ export class FloatingToolbarComponent {
   protected readonly shapeGlyph = computed<ShapeMode>(() => {
     const current = this.tool();
     return isShapeMode(current) ? current : this.lastShape();
+  });
+
+  /** The keyboard shortcut to advertise on a tool's tooltip, or `null` if it has none. */
+  protected shortcutFor(mode: ToolMode): string | null {
+    return SHORTCUT_BY_TOOL[mode] ?? null;
+  }
+
+  /**
+   * i18n key of the contextual hint under the bar: what the *active* tool does, falling back to
+   * the generic "Échap" reminder. Previously the bar only ever showed "Échap", which told the user
+   * how to leave a tool but never what the tool they had just picked would do.
+   */
+  protected readonly hintKey = computed<string | null>(() => {
+    const current = this.tool();
+    if (current === 'select') {
+      return null;
+    }
+    return `whiteboard.toolbar.hint.${isShapeMode(current) ? 'shape' : current}`;
   });
 
   private readonly imageInput = viewChild<ElementRef<HTMLInputElement>>('imageInput');
