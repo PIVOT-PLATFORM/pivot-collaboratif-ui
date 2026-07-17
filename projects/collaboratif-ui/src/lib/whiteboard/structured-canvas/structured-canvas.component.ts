@@ -340,7 +340,22 @@ export class StructuredCanvasComponent {
       return;
     }
     const target = event.target as HTMLElement;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    // A control is not a canvas gesture. The frame header carries `data-frame-drag`, and its
+    // buttons (z-order, magnet, delete) and title live inside it — starting a drag here captures
+    // the pointer on the surface, so the `click`/`dblclick` never reaches the control and it looks
+    // dead. Bail out before any gesture so the control gets its event.
+    if (target.closest('button, input, textarea, select, [contenteditable="true"]')) {
+      return;
+    }
+    // The frame title doubles as the frame's drag handle *and* as the rename target
+    // (double-click). Capturing the pointer would route every subsequent mouse event to the
+    // surface, and the title's `dblclick` would never fire — measured: the span saw two
+    // `pointerdown` and no `click` at all. Dragging still works without the capture: the surface
+    // spans the whole board, so it keeps receiving the moves. The only thing lost is a drag that
+    // continues outside the window, which is not worth an unrenamable frame.
+    if (!target.closest('[data-frame-title]')) {
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    }
     const pt = this.toCanvas(event.clientX, event.clientY);
 
     const resizeEl = target.closest<HTMLElement>('[data-resize-dir]');

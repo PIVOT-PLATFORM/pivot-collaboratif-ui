@@ -87,8 +87,23 @@
             <!-- The line IS the diagonal of its box (`diag` picks which one), so any angle is
                  reachable by sizing the box. The SVG is `preserveAspectRatio="none"`, so these
                  corner-to-corner coordinates land exactly on the box's corners. -->
-            <!-- Invisible hit path first: a 2px line — often on a box that is flat on one axis —
-                 is far too thin to aim at. Same trick as the connectors' own hit path. -->
+            <!-- Selection halo along the line itself. The card's rectangular halo would draw a box
+                 around a diagonal, telling the user the whole rectangle is the object — they would
+                 then try to grab it anywhere inside and nothing would move, since only the line
+                 catches pointers. What you see is now what you can grab. -->
+            @if (selected()) {
+              <line
+                class="wb-card__line-halo"
+                x1="0"
+                [attr.y1]="shape().diag === 'bltr' ? 100 : 0"
+                x2="100"
+                [attr.y2]="shape().diag === 'bltr' ? 0 : 100"
+                [attr.stroke-width]="lineHitWidth"
+                vector-effect="non-scaling-stroke"
+              />
+            }
+            <!-- Invisible hit path: a 2px line — often on a box that is flat on one axis — is far
+                 too thin to aim at. Same trick as the connectors' own hit path. -->
             <line
               class="wb-card__line-hit"
               x1="0"

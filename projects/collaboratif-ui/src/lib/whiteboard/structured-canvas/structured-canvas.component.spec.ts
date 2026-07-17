@@ -435,6 +435,35 @@ describe('StructuredCanvasComponent — frame selection on header pointer-down',
     component = fixture.componentInstance;
   });
 
+  /**
+   * The frame header is a drag zone, and its buttons (z-order, magnet, delete) and title live
+   * inside it. Starting a gesture on them captured the pointer on the surface, so their
+   * `click`/`dblclick` never fired — the delete button did nothing and the title could not be
+   * renamed (recette 2026-07-17). Both symptoms, one cause.
+   */
+  it('does not start a gesture when the pointer lands on a control inside the frame header', () => {
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    const capture = vi.fn();
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = capture;
+    const headerEl = fixture.nativeElement.querySelector('[data-frame-drag]') as HTMLElement;
+    const button = document.createElement('button');
+    headerEl.appendChild(button);
+
+    component['onPointerDown']({
+      button: 0,
+      target: button,
+      currentTarget: surfaceEl,
+      clientX: 40,
+      clientY: 10,
+      pointerId: 1,
+    } as unknown as PointerEvent);
+
+    // No pointer capture, no drag, no selection — the click is left to the button.
+    expect(capture).not.toHaveBeenCalled();
+    expect(startDragFrame).not.toHaveBeenCalled();
+    expect(selectCards).not.toHaveBeenCalled();
+  });
+
   /** Builds a pointer-down landing on the frame header (`[data-frame-drag]`). */
   function headerPointerDown(shiftKey = false): PointerEvent {
     const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
