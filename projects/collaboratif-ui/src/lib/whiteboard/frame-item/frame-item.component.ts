@@ -48,6 +48,12 @@ export class FrameItemComponent {
   readonly bringToFront = output<void>();
   /** US08.9.3 — request to drop this frame beneath every other item (z-order). */
   readonly sendToBack = output<void>();
+  /**
+   * Requests deletion of this frame (US08.8.1). The `Suppr` key already removes a selected frame;
+   * this button is the visible affordance for it — nothing else on the frame hinted that deleting
+   * one was possible. Deleting never touches the cards the frame visually contains.
+   */
+  readonly remove = output<void>();
 
   private readonly titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
 

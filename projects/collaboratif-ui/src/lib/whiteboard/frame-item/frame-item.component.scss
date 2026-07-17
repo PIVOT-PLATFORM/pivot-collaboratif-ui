@@ -70,6 +70,12 @@
   &:focus-visible {
     outline: 2px solid var(--wb-focus);
   }
+
+  // Destructive action — only reads as danger on hover/focus, so the header stays calm at rest.
+  &--danger:hover,
+  &--danger:focus-visible {
+    color: var(--wb-danger, #e5484d);
+  }
 }
 
 .wb-frame__btn-icon {
