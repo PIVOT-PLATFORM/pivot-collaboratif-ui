@@ -436,6 +436,31 @@ describe('StructuredCanvasComponent — frame selection on header pointer-down',
   });
 
   /**
+   * A connector emits its selection on `click`. Capturing the pointer on the surface routed the
+   * click there, so clicking a connector selected nothing — and with nothing selected the bottom
+   * bar never appeared, which is where its style now lives (recette 2026-07-17). Same cause as the
+   * frame header below.
+   */
+  it('does not capture the pointer when it lands on a connector, whose selection rides on click', () => {
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    const capture = vi.fn();
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = capture;
+    const hit = document.createElement('span');
+    hit.setAttribute('data-connection-hit', '');
+
+    component['onPointerDown']({
+      button: 0,
+      target: hit,
+      currentTarget: surfaceEl,
+      clientX: 40,
+      clientY: 40,
+      pointerId: 1,
+    } as unknown as PointerEvent);
+
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  /**
    * The frame header is a drag zone, and its buttons (z-order, magnet, delete) and title live
    * inside it. Starting a gesture on them captured the pointer on the surface, so their
    * `click`/`dblclick` never fired — the delete button did nothing and the title could not be

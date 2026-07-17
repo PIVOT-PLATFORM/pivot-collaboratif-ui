@@ -356,13 +356,16 @@ export class StructuredCanvasComponent {
     if (target.closest('button, input, textarea, select, [contenteditable="true"]')) {
       return;
     }
-    // The frame title doubles as the frame's drag handle *and* as the rename target
-    // (double-click). Capturing the pointer would route every subsequent mouse event to the
-    // surface, and the title's `dblclick` would never fire — measured: the span saw two
-    // `pointerdown` and no `click` at all. Dragging still works without the capture: the surface
-    // spans the whole board, so it keeps receiving the moves. The only thing lost is a drag that
-    // continues outside the window, which is not worth an unrenamable frame.
-    if (!target.closest('[data-frame-title]')) {
+    // Two targets must not have the pointer captured away from them:
+    //  - the frame title, which doubles as the frame's drag handle *and* as the rename target
+    //    (double-click);
+    //  - a connector, which emits its selection on `click`.
+    // Capturing routes every subsequent mouse event to the surface, so their `click`/`dblclick`
+    // never fires — measured on the title: the span saw two `pointerdown` and no `click` at all.
+    // Without the capture the gestures still work, since the surface spans the whole board and
+    // keeps receiving the moves; only a drag continued *outside the window* is lost, which is not
+    // worth an unrenamable frame and an unselectable connector.
+    if (!target.closest('[data-frame-title], [data-connection-hit]')) {
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     }
     const pt = this.toCanvas(event.clientX, event.clientY);
