@@ -51,12 +51,14 @@ function decodeHtmlEntities(text: string): string {
 }
 
 function stripHtml(html: string): string {
-  const withoutTags = html.replace(/<br\s*\/?>/gi, '\n').replace(HTML_TAG_RE, '');
-  const decoded = decodeHtmlEntities(withoutTags);
-  // Decoding can reconstitute literal '<'/'>' characters (e.g. a postit whose visible text was
-  // "<script>", HTML-escaped by Klaxoon as "&lt;script&gt;") — strip tag-shaped substrings again
-  // so the returned plain text can never look like markup, however it decoded.
-  return decoded.replace(HTML_TAG_RE, '').trim();
+  const withoutBreaks = html.replace(/<br\s*\/?>/gi, '\n');
+  // Decode entities *before* stripping tags (not after): an encoded tag like "&lt;script&gt;"
+  // must become a real "<script>" first so the single tag-strip pass below actually removes it.
+  // Decoding after stripping would let an encoded tag survive the strip and only turn into a
+  // real tag-shaped string afterward, with nothing left to remove it.
+  const decoded = decodeHtmlEntities(withoutBreaks);
+  const withoutTags = decoded.replace(HTML_TAG_RE, '');
+  return withoutTags.trim();
 }
 
 // The effective font-size / weight / color of a Klaxoon text live as inline
