@@ -12,7 +12,8 @@
       "duplicate": "Dupliquer (Ctrl+D)",
       "lock": "Verrouiller",
       "unlock": "Déverrouiller",
-      "delete": "Supprimer (Suppr)"
+      "delete": "Supprimer (Suppr)",
+      "fill": "Couleur de remplissage"
     },
     "layer": {
       "bringToFront": "Passer au premier plan",
@@ -378,7 +379,8 @@
       "table": {
         "aria": "Tableau",
         "editCell": "Modifier la cellule"
-      }
+      },
+      "labelPlaceholder": "Texte…"
     },
     "frame": {
       "titleLabel": "Titre du cadre",

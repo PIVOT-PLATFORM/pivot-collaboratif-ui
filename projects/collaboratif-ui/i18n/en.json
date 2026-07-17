@@ -12,7 +12,8 @@
       "duplicate": "Duplicate (Ctrl+D)",
       "lock": "Lock",
       "unlock": "Unlock",
-      "delete": "Delete (Del)"
+      "delete": "Delete (Del)",
+      "fill": "Fill colour"
     },
     "layer": {
       "bringToFront": "Bring to front",
@@ -378,7 +379,8 @@
       "table": {
         "aria": "Table",
         "editCell": "Edit cell"
-      }
+      },
+      "labelPlaceholder": "Text…"
     },
     "frame": {
       "titleLabel": "Frame title",

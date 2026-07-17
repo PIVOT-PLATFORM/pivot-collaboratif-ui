@@ -66,6 +66,7 @@ const RESIZE_DIRS = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'] as const;
     '[class.wb-card--selected]': 'selected()',
     '[class.wb-card--locked]': 'card().locked',
     '[class.wb-card--line]': 'isLine()',
+    '[class.wb-card--label]': 'isLabel()',
     '[attr.data-card-id]': 'card().id',
     // A11y (US08.6.1/US08.6.2): TEXT/LABEL cards are keyboard-focusable — Enter/F2 while
     // focused opens inline edit, mirroring the existing dblclick path.
@@ -141,6 +142,10 @@ export class BoardCardComponent {
 
   protected readonly textFmt = computed(() => parseTextFmt(this.card().content));
   protected readonly labelFmt = computed(() => parseLabelFmt(this.card().content));
+  /** A LABEL — free text on the board, not a card. Drives the plain, box-less rendering. */
+  protected readonly isLabel = computed(() => this.card().type === 'LABEL');
+  /** An empty LABEL has nothing to draw: without a placeholder it is an invisible, unclickable box. */
+  protected readonly labelEmpty = computed(() => this.isLabel() && this.labelFmt().text.trim() === '');
   protected readonly shape = computed(() => parseShape(this.card().content));
   /**
    * A `line` SHAPE. Its box is flat on one axis when the line is horizontal or vertical, so the

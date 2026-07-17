@@ -508,12 +508,29 @@ describe('BoardCardComponent — LABEL (US08.6.2)', () => {
     expect(fixture.nativeElement.querySelector('.wb-card__label')).not.toBeNull();
   });
 
-  it('an empty LABEL renders (no server-side minimum length) and stays editable at double-click', () => {
+  /**
+   * An empty LABEL has a transparent background and nothing to draw — it used to be an invisible
+   * rectangle that still swallowed clicks. It now shows a placeholder, so it can be seen and
+   * grabbed; the underlying content stays empty (no server-side minimum length).
+   */
+  it('an empty LABEL shows a placeholder and stays editable at double-click', () => {
     setCard({ content: '' });
-    expect(fixture.nativeElement.querySelector('.wb-card__label').textContent.trim()).toBe('');
+    const label = fixture.nativeElement.querySelector('.wb-card__label');
+    expect(label.textContent.trim()).toBe('whiteboard.card.labelPlaceholder');
+    expect(label.classList.contains('wb-card__label--empty')).toBe(true);
+
     component['onDoubleClick']();
     fixture.detectChanges();
     expect(component['editing']()).toBe(true);
+    // The placeholder is chrome, never content: the edit box opens empty.
+    expect(component['editValue']()).toBe('');
+  });
+
+  /** A label is free text on the board — the card shadow around a transparent box read as a bug. */
+  it('renders a LABEL without the card box (no shadow, no background)', () => {
+    setCard({ content: 'Étiquette' });
+    const body = fixture.nativeElement.querySelector('.wb-card__body');
+    expect(body.classList.contains('wb-card__body--label')).toBe(true);
   });
 
   // ── Inline edit round-trip — LABEL uses its own format codec, distinct from TEXT ───

@@ -6,6 +6,7 @@ import { COLLABORATIF_API_URL, COLLABORATIF_CURRENT_USER } from './config/tokens
 import { BoardTransport } from './board-transport';
 import { ToastService } from '../toast/toast.service';
 import { DEFAULT_CARD_COLOR } from '../../whiteboard/model/colors';
+import { parseShape, serializeShape } from '../../whiteboard/model/shape';
 import {
   HISTORY_LIMIT,
   CURSOR_THROTTLE_MS,
@@ -1266,6 +1267,41 @@ export class BoardStore {
    */
   previewCardContent(id: string, content: string): void {
     this.cards.update((prev) => prev.map((c) => (c.id === id ? { ...c, content } : c)));
+  }
+
+  /**
+   * Aligns the text of every selected TEXT/LABEL card.
+   *
+   * `align` already existed on a TEXT card's format and was already rendered — nothing ever let a
+   * user change it. LABEL gained the same field so both types answer to one control.
+   */
+  alignSelectedText(align: TextAlign): void {
+    const cards = this.cards();
+    this.unlockedSelectedIds()
+      .map((id) => cards.find((c) => c.id === id))
+      .filter((c): c is Card => !!c && (c.type === 'TEXT' || c.type === 'LABEL'))
+      .forEach((card) => {
+        const content =
+          card.type === 'LABEL'
+            ? serializeLabelFmt({ ...parseLabelFmt(card.content), align })
+            : serializeTextFmt({ ...parseTextFmt(card.content), align });
+        this.updateCard(card.id, content);
+      });
+  }
+
+  /**
+   * Repaints the fill of every selected SHAPE. A shape's fill lives inside its encoded `content`
+   * (`kind|stroke|fill|…`), not in `card.color` — which is why the selection toolbar's colour
+   * swatch, which drives `card.color`, could never change it.
+   *
+   * @param fill Hex colour, or `null` for no fill (outline only — the SHAPE default).
+   */
+  fillSelectedShapes(fill: string | null): void {
+    const cards = this.cards();
+    this.unlockedSelectedIds()
+      .map((id) => cards.find((c) => c.id === id))
+      .filter((c): c is Card => !!c && c.type === 'SHAPE')
+      .forEach((card) => this.updateCard(card.id, serializeShape({ ...parseShape(card.content), fill })));
   }
 
   /**

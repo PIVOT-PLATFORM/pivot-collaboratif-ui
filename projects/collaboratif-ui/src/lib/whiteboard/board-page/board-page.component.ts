@@ -36,6 +36,7 @@ import type { Board } from '../../core/whiteboard/board.model';
 import type { Card, Connection, ConnectionPatch, ConnCap, ConnLineStyle } from '../model/board.types';
 import { TOOL_SHORTCUTS, isShapeTool, type ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
+import { parseShape } from '../model/shape';
 
 /** Delay (ms) within which a second click on the Reset button confirms the action (US08.2.4). */
 const RESET_CONFIRM_WINDOW_MS = 2000;
@@ -145,6 +146,17 @@ export class BoardPageComponent implements OnInit, OnDestroy {
       return null;
     }
     return `whiteboard.toolbar.hint.${isShapeTool(current) ? 'shape' : current}`;
+  });
+
+  /**
+   * Fill of the selected SHAPEs, or `undefined` when the selection holds none — which hides the
+   * fill swatch. Reads the first selected shape: with a mixed selection the swatch shows one of
+   * them, and picking a colour applies to all, like the existing colour swatch.
+   */
+  protected readonly selectionFill = computed<string | null | undefined>(() => {
+    const ids = this.store.selectedIds();
+    const shape = this.store.cards().find((c) => ids.has(c.id) && c.type === 'SHAPE');
+    return shape ? parseShape(shape.content).fill ?? null : undefined;
   });
 
   /** Count of selected items (cards + connections) — drives the floating selection toolbar. */
