@@ -7,6 +7,17 @@ export interface BoardMember {
   joinedAt: string;
 }
 
+/**
+ * A named share (board member row) as returned by the /shares governance API (US08.2.5):
+ * POST /whiteboard/boards/{boardId}/shares/invite and PATCH /shares/{shareId}.
+ */
+export interface ShareResponse {
+  shareId: string;
+  userId: string;
+  role: 'OWNER' | 'EDITOR' | 'VIEWER';
+  joinedAt: string;
+}
+
 /** Share token response from POST /whiteboard/boards/{boardId}/share. */
 export interface ShareToken {
   id: string;

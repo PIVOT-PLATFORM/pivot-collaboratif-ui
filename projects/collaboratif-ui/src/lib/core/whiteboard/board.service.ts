@@ -13,6 +13,7 @@ import {
   KlaxoonUndoRequest,
   KlaxoonUndoResponse,
   SaveAsTemplateRequest,
+  ShareResponse,
   ShareToken,
   TemplateResponse,
 } from './board.model';
@@ -190,6 +191,23 @@ export class BoardService {
   revokeShareToken(boardId: string, tokenId: string): Observable<void> {
     return this.http.delete<void>(
       `${this.apiUrl}/whiteboard/boards/${boardId}/share/${tokenId}`,
+    );
+  }
+
+  /**
+   * Invites a user by e-mail with a role, upserting the share (US08.2.5).
+   * OWNER or EDITOR (canManageShares); an EDITOR may not grant OWNER. `role` defaults to VIEWER
+   * server-side when omitted. Errors surface as HTTP status + ProblemDetail `code`
+   * (`INVITEE_NOT_FOUND` 404, `SELF_INVITE`/`ALREADY_OWNER` 400).
+   */
+  inviteByEmail(
+    boardId: string,
+    email: string,
+    role: 'OWNER' | 'EDITOR' | 'VIEWER',
+  ): Observable<ShareResponse> {
+    return this.http.post<ShareResponse>(
+      `${this.apiUrl}/whiteboard/boards/${boardId}/shares/invite`,
+      { email, role },
     );
   }
 
