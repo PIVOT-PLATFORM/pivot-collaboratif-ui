@@ -313,7 +313,6 @@
       "draw": "Dessin libre",
       "table": "Tableau",
       "frame": "Cadre",
-      "link": "Relier des cartes",
       "colorGroup": "Couleurs",
       "pickColor": "Couleur {{color}}",
       "fillColorGroup": "Couleur de remplissage",
@@ -328,16 +327,12 @@
       "hint": {
         "draw": "Glissez pour dessiner à main levée.",
         "frame": "Glissez pour tracer un cadre.",
-        "link-cards": "Glissez d'une carte à une autre pour les relier.",
         "pan": "Glissez pour déplacer le tableau.",
         "shape": "Glissez pour tracer la forme.",
         "sticky": "Cliquez pour poser une note.",
         "table": "Cliquez pour poser un tableau.",
         "text": "Cliquez pour écrire un texte."
       },
-      "connectorStyle": "Style du lien (flèche, pointillés)",
-      "arrowGroup": "Flèche",
-      "lineGroup": "Trait",
       "lineStyle": {
         "dashed": "Tirets",
         "dotted": "Pointillés",
@@ -349,8 +344,6 @@
         "start": "Flèche vers le départ",
         "both": "Flèches aux deux bouts"
       },
-      "shapeGroup": "Courbe",
-      "capGroup": "Forme de la flèche",
       "labelAdd": "Ajouter une étiquette",
       "labelEdit": "Modifier l'étiquette"
     },

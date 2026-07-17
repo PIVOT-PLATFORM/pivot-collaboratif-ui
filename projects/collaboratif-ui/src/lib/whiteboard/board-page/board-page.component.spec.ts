@@ -780,7 +780,6 @@ describe('BoardPageComponent — tool keyboard shortcuts', () => {
     ['o', 'circle'],
     ['l', 'line'],
     ['p', 'draw'],
-    ['f', 'link-cards'],
   ])('«%s» activates the %s tool', (pressed, expected) => {
     const { cmp } = create();
     cmp.tool.set('select');

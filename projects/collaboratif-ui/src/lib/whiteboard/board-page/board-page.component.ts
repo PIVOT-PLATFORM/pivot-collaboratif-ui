@@ -32,7 +32,7 @@ import { ShortcutsPanelComponent } from '../shortcuts-panel/shortcuts-panel.comp
 import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import { ImportKlaxoonModalComponent } from '../import-klaxoon-modal/import-klaxoon-modal.component';
 import type { Board } from '../../core/whiteboard/board.model';
-import type { Card, Connection, ConnectionPatch, ConnCap, ConnLineStyle } from '../model/board.types';
+import type { Card, Connection, ConnectionPatch } from '../model/board.types';
 import { TOOL_SHORTCUTS, isShapeTool, type ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
 import { parseShape } from '../model/shape';
@@ -105,17 +105,7 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly fillColor = signal<string | null>(null);
   /** Whether the keyboard shortcut cheat-sheet is open (toggled by `?`). */
   protected readonly showShortcuts = signal(false);
-  /** Caps applied to the next connector drawn (US08.7.2 — chosen before drawing, not after). */
-  protected readonly connectorStartCap = signal<ConnCap>('none');
-  protected readonly connectorEndCap = signal<ConnCap>('none');
-  /** Line style applied to the next connector drawn. */
-  protected readonly connectorLineStyle = signal<ConnLineStyle>('solid');
 
-  /** Applies an arrow preset picked in the toolbar to the next connector. */
-  protected onConnectorCaps(caps: { startCap: ConnCap; endCap: ConnCap }): void {
-    this.connectorStartCap.set(caps.startCap);
-    this.connectorEndCap.set(caps.endCap);
-  }
   protected readonly showGroups = signal(false);
   /** US08.10.1 — board custom-fields definition panel visibility. */
   protected readonly showFields = signal(false);

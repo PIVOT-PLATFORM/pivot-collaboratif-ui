@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { TranslocoPipe } from '@jsverse/transloco';
 import { BASE_COLORS } from '../model/colors';
 import { WbTooltipDirective } from '../tooltip/wb-tooltip.directive';
-import type { Connection, ConnectionPatch, ConnCap, ConnLineStyle, ConnShape } from '../model/board.types';
+import type { Connection, ConnectionPatch, ConnLineStyle, ConnShape } from '../model/board.types';
 import type { TextAlign } from '../model/card-format';
 
 /** Which ends of a connector carry a cap. */

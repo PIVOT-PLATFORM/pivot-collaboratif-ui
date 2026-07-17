@@ -15,8 +15,7 @@ export type ToolMode =
   | 'line'
   | 'star'
   | 'draw'
-  | 'link'
-  | 'link-cards';
+  | 'link';
 
 export type StrokeSize = 'thin' | 'medium' | 'thick';
 
@@ -52,7 +51,6 @@ export const TOOL_SHORTCUTS: Readonly<Record<string, ToolMode>> = {
   l: 'line',
   s: 'star',
   p: 'draw',
-  f: 'link-cards',
 };
 
 /** Reverse of {@link TOOL_SHORTCUTS} — the key to advertise for a tool, uppercased for display. */

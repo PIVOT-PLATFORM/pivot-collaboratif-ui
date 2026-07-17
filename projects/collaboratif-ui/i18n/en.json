@@ -313,7 +313,6 @@
       "draw": "Freehand",
       "table": "Table",
       "frame": "Frame",
-      "link": "Link cards",
       "colorGroup": "Colours",
       "pickColor": "Colour {{color}}",
       "fillColorGroup": "Fill colour",
@@ -328,16 +327,12 @@
       "hint": {
         "draw": "Drag to draw freehand.",
         "frame": "Drag to draw a frame.",
-        "link-cards": "Drag from one card to another to link them.",
         "pan": "Drag to move the board.",
         "shape": "Drag to draw the shape.",
         "sticky": "Click to drop a note.",
         "table": "Click to drop a table.",
         "text": "Click to write some text."
       },
-      "connectorStyle": "Link style (arrow, dashed)",
-      "arrowGroup": "Arrow",
-      "lineGroup": "Line",
       "lineStyle": {
         "dashed": "Dashed",
         "dotted": "Dotted",
@@ -349,8 +344,6 @@
         "start": "Arrow at the start",
         "both": "Arrows at both ends"
       },
-      "shapeGroup": "Curve",
-      "capGroup": "Arrow shape",
       "labelAdd": "Add a label",
       "labelEdit": "Edit the label"
     },

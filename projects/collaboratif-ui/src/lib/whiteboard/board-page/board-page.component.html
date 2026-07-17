@@ -139,15 +139,10 @@
         [tool]="tool()"
         [color]="color()"
         [fillColor]="fillColor()"
-        [connectorStartCap]="connectorStartCap()"
-        [connectorEndCap]="connectorEndCap()"
-        [connectorLineStyle]="connectorLineStyle()"
         [disabled]="store.isReadonly()"
         (toolChange)="tool.set($event)"
         (colorChange)="onColorChange($event)"
         (fillColorChange)="fillColor.set($event)"
-        (connectorCapsChange)="onConnectorCaps($event)"
-        (connectorLineStyleChange)="connectorLineStyle.set($event)"
         (insertImage)="onInsertImage($event)"
       ></wb-floating-toolbar>
     </div>
@@ -155,9 +150,6 @@
     <!-- (openDetail) → card-detail modal is WIP; not yet wired. -->
     <wb-structured-canvas
       class="wb-page__canvas"
-      [connectorStartCap]="connectorStartCap()"
-      [connectorEndCap]="connectorEndCap()"
-      [connectorLineStyle]="connectorLineStyle()"
       [tool]="tool()"
       [color]="color()"
       [colorPicked]="colorPicked()"

@@ -39,7 +39,6 @@ const TOOL_ROWS: readonly ShortcutRow[] = [
   { labelKey: 'whiteboard.toolbar.line', keys: [SHORTCUT_BY_TOOL['line'] ?? ''] },
   { labelKey: 'whiteboard.toolbar.star', keys: [SHORTCUT_BY_TOOL['star'] ?? ''] },
   { labelKey: 'whiteboard.toolbar.draw', keys: [SHORTCUT_BY_TOOL['draw'] ?? ''] },
-  { labelKey: 'whiteboard.toolbar.link', keys: [SHORTCUT_BY_TOOL['link-cards'] ?? ''] },
 ];
 
 const EDIT_ROWS: readonly ShortcutRow[] = [

@@ -15,7 +15,6 @@ import { NgTemplateOutlet } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { SHORTCUT_BY_TOOL, isShapeTool, type ToolMode } from '../model/tools';
 import { BASE_COLORS } from '../model/colors';
-import type { ConnCap, ConnLineStyle } from '../model/board.types';
 import { WbTooltipDirective } from '../tooltip/wb-tooltip.directive';
 
 /** A single-tool button (non-shape) in the palette. */
@@ -45,28 +44,10 @@ const CONTENT_TOOLS: readonly ToolButton[] = [
 /** Free-draw + connector tools — the last group. */
 const DRAW_TOOLS: readonly ToolButton[] = [
   { mode: 'draw', labelKey: 'whiteboard.toolbar.draw' },
-  { mode: 'link-cards', labelKey: 'whiteboard.toolbar.link' },
 ];
 
 /** Which transient fly-out / popover is open, if any. */
-type OpenMenu = 'shapes' | 'colors' | 'connector' | null;
-
-/**
- * Arrow presets offered before drawing a connector, as (startCap, endCap) pairs.
- *
- * Only the three arrow layouts people reach for constantly — the other cap shapes (triangle,
- * circle, diamond) stay in the style panel, which offers the full set once a connector is
- * selected. A pre-draw choice has to be readable at a glance in a narrow bar; the panel is where
- * you go when you want something specific.
- */
-const ARROW_PRESETS: readonly { id: string; startCap: ConnCap; endCap: ConnCap }[] = [
-  { id: 'none', startCap: 'none', endCap: 'none' },
-  { id: 'end', startCap: 'none', endCap: 'arrow' },
-  { id: 'both', startCap: 'arrow', endCap: 'arrow' },
-];
-
-/** Line-style presets offered before drawing — the full set, there are only three. */
-const LINE_STYLE_PRESETS: readonly ConnLineStyle[] = ['solid', 'dashed', 'dotted'];
+type OpenMenu = 'shapes' | 'colors' | null;
 
 const COLLAPSE_STORAGE_KEY = 'wb-toolbar-collapsed';
 
@@ -116,12 +97,6 @@ export class FloatingToolbarComponent {
    * non-SHAPE tool.
    */
   readonly fillColor = input<string | null>(null);
-  /** Cap applied to the start of the next connector drawn (US08.7.2 — chosen before drawing). */
-  readonly connectorStartCap = input<ConnCap>('none');
-  /** Cap applied to the end of the next connector drawn. */
-  readonly connectorEndCap = input<ConnCap>('none');
-  /** Line style applied to the next connector drawn. */
-  readonly connectorLineStyle = input<ConnLineStyle>('solid');
   /** Whether the palette is disabled (read-only board). */
   readonly disabled = input<boolean>(false);
 
@@ -131,10 +106,6 @@ export class FloatingToolbarComponent {
   readonly colorChange = output<string>();
   /** Emits when the user picks a fill colour, or `null` for "no fill". */
   readonly fillColorChange = output<string | null>();
-  /** Emits the (startCap, endCap) pair of the arrow preset the user picked. */
-  readonly connectorCapsChange = output<{ startCap: ConnCap; endCap: ConnCap }>();
-  /** Emits when the user picks a line style. */
-  readonly connectorLineStyleChange = output<ConnLineStyle>();
   /** Emits the selected file once the user picks one via the "insert image" button
    *  (US08.6.4 — accessible upload entry point, not only drag-and-drop/paste). */
   readonly insertImage = output<File>();
@@ -143,8 +114,6 @@ export class FloatingToolbarComponent {
   protected readonly contentTools = CONTENT_TOOLS;
   protected readonly drawTools = DRAW_TOOLS;
   protected readonly shapes = SHAPES;
-  protected readonly arrowPresets = ARROW_PRESETS;
-  protected readonly lineStylePresets = LINE_STYLE_PRESETS;
   protected readonly palette = BASE_COLORS;
 
   /** Whether the retractable bar is collapsed to just its expand handle (session-persisted). */
@@ -156,12 +125,6 @@ export class FloatingToolbarComponent {
 
   /** Whether the active tool places a SHAPE card — gates the fill colour picker's visibility. */
   protected readonly isShapeTool = computed(() => isShapeMode(this.tool()));
-  /**
-   * Whether the connector tool is active — gates the arrow/dashed presets, mirroring how
-   * {@link isShapeTool} gates the fill picker. Styling a connector was only reachable *after*
-   * drawing one and selecting it, so users never found it (recette).
-   */
-  protected readonly isConnectorTool = computed(() => this.tool() === 'link-cards');
   /** The glyph shown on the grouped "Formes" button (active shape, else last used). */
   protected readonly shapeGlyph = computed<ShapeMode>(() => {
     const current = this.tool();
@@ -232,34 +195,6 @@ export class FloatingToolbarComponent {
     }
     this.lastShape.set(shape);
     this.toolChange.emit(shape);
-  }
-
-  /** Toggles the connector presets popover. */
-  protected toggleConnector(): void {
-    if (!this.disabled()) {
-      this.openMenu.update((m) => (m === 'connector' ? null : 'connector'));
-    }
-  }
-
-  /** Whether `preset` is the arrow layout currently applied to the next connector. */
-  protected isArrowPreset(preset: { startCap: ConnCap; endCap: ConnCap }): boolean {
-    return this.connectorStartCap() === preset.startCap && this.connectorEndCap() === preset.endCap;
-  }
-
-  protected chooseArrow(preset: { startCap: ConnCap; endCap: ConnCap }): void {
-    this.connectorCapsChange.emit({ startCap: preset.startCap, endCap: preset.endCap });
-  }
-
-  protected chooseLineStyle(style: ConnLineStyle): void {
-    this.connectorLineStyleChange.emit(style);
-  }
-
-  /** SVG `stroke-dasharray` previewing a line style on the presets — `null` for a solid line. */
-  protected dashArrayFor(style: ConnLineStyle): string | null {
-    if (style === 'dashed') {
-      return '6 4';
-    }
-    return style === 'dotted' ? '2 3' : null;
   }
 
   /** Toggles the colour popover. */
