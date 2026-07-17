@@ -227,3 +227,38 @@
     color: var(--wb-ink);
   }
 }
+
+// Le bouton cycle porte 4 états, pas un choix parmi n : il mérite plus de place.
+.wb-selbar__preset--cycle {
+  width: 44px;
+}
+
+// Bouton pleine largeur — « Ajouter une étiquette ».
+.wb-selbar__link-action {
+  width: 100%;
+  padding: var(--wb-space-2);
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius-control);
+  background: var(--wb-surface);
+  color: var(--wb-ink);
+  font-size: var(--wb-text-sm);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--wb-border-strong);
+    background: var(--wb-surface-sunken);
+  }
+}
+
+// Rejoue l'état du cycle pour les lecteurs d'écran — sans lui, cliquer n'annonce rien.
+.wb-selbar__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

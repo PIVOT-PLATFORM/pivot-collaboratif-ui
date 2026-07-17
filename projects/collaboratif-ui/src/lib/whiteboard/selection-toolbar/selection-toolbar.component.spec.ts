@@ -20,13 +20,22 @@ const FR = {
       bringToFront: 'Passer au premier plan',
       sendToBack: "Envoyer à l'arrière-plan",
     },
+    connector: {
+      style: {
+        cap: { arrow: 'Flèche', triangle: 'Triangle', circle: 'Cercle', diamond: 'Losange' },
+        shape: { straight: 'Droit', curved: 'Courbe', orthogonal: 'Angle droit' },
+      },
+    },
     toolbar: {
       noFill: 'Aucun remplissage',
       connectorStyle: 'Style du lien',
       lineGroup: 'Trait',
       arrowGroup: 'Flèche',
       lineStyle: { solid: 'Trait plein', dashed: 'Tirets', dotted: 'Pointillés' },
-      arrow: { none: 'Aucune flèche', end: "Flèche à l'arrivée", both: 'Flèche aux deux bouts' },
+      labelAdd: 'Ajouter une étiquette',
+      labelEdit: "Modifier l'étiquette",
+      arrowDir: { none: 'Aucune flèche', end: "Vers l'arrivée", start: 'Vers le départ', both: 'Les deux bouts' },
+      shapeGroup: 'Courbe',
     },
   },
 };
@@ -249,8 +258,11 @@ describe('SelectionToolbarComponent — fill and link style', () => {
     expect(emitted).toEqual([{ lineStyle: 'dotted' }]);
   });
 
-  /** Both ends at once — the patch carries the pair, as the model makes them independent. */
-  it('emits both caps for an arrow preset', () => {
+  /**
+   * One button, four states — asked for as « une seule fleche, si on reclique sur le btn ca change
+   * le sens ». Cycle: none → end → start → both → none.
+   */
+  it('cycles the arrow direction on each click of the one arrow button', () => {
     const emitted: unknown[] = [];
     fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p));
     fixture.componentRef.setInput('connection', makeConnection());
@@ -258,20 +270,100 @@ describe('SelectionToolbarComponent — fill and link style', () => {
     btn(fixture, 'Style du lien')!.click();
     fixture.detectChanges();
 
-    btn(fixture, 'Flèche aux deux bouts')!.click();
+    // none → end
+    btn(fixture, 'Aucune flèche')!.click();
+    expect(emitted[0]).toEqual({ startCap: 'none', endCap: 'arrow' });
 
-    expect(emitted).toEqual([{ startCap: 'arrow', endCap: 'arrow' }]);
+    // end → start
+    fixture.componentRef.setInput('connection', makeConnection({ startCap: 'none', endCap: 'arrow' }));
+    fixture.detectChanges();
+    btn(fixture, "Vers l'arrivée")!.click();
+    expect(emitted[1]).toEqual({ startCap: 'arrow', endCap: 'none' });
+
+    // start → both
+    fixture.componentRef.setInput('connection', makeConnection({ startCap: 'arrow', endCap: 'none' }));
+    fixture.detectChanges();
+    btn(fixture, 'Vers le départ')!.click();
+    expect(emitted[2]).toEqual({ startCap: 'arrow', endCap: 'arrow' });
+
+    // both → none
+    fixture.componentRef.setInput('connection', makeConnection({ startCap: 'arrow', endCap: 'arrow' }));
+    fixture.detectChanges();
+    btn(fixture, 'Les deux bouts')!.click();
+    expect(emitted[3]).toEqual({ startCap: 'none', endCap: 'none' });
   });
 
-  it('reflects the connector current style as pressed', () => {
-    fixture.componentRef.setInput('connection', makeConnection({ lineStyle: 'dashed', startCap: 'none', endCap: 'arrow' }));
+  /** The cycle keeps the shape: turning the arrow off and on again must not lose the diamond. */
+  it('restores the last shape when the cycle comes back from "no arrow"', () => {
+    const emitted: { startCap: string; endCap: string }[] = [];
+    fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p as never));
+    fixture.componentRef.setInput('connection', makeConnection({ startCap: 'none', endCap: 'diamond' }));
+    fixture.detectChanges();
+    btn(fixture, 'Style du lien')!.click();
+    fixture.detectChanges();
+
+    // end → start keeps the diamond, it does not fall back to a plain arrow.
+    btn(fixture, "Vers l'arrivée")!.click();
+
+    expect(emitted[0]).toEqual({ startCap: 'diamond', endCap: 'none' });
+  });
+
+  /** Picking a shape on an arrow-less connector creates the arrow rather than doing nothing. */
+  it('creates an end arrow when a shape is picked on a connector that has none', () => {
+    const emitted: unknown[] = [];
+    fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p));
+    fixture.componentRef.setInput('connection', makeConnection());
+    fixture.detectChanges();
+    btn(fixture, 'Style du lien')!.click();
+    fixture.detectChanges();
+
+    btn(fixture, 'Triangle')!.click();
+
+    expect(emitted).toEqual([{ startCap: 'none', endCap: 'triangle' }]);
+  });
+
+  it('emits the curve shape picked', () => {
+    const emitted: unknown[] = [];
+    fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p));
+    fixture.componentRef.setInput('connection', makeConnection());
+    fixture.detectChanges();
+    btn(fixture, 'Style du lien')!.click();
+    fixture.detectChanges();
+
+    btn(fixture, 'Angle droit')!.click();
+
+    expect(emitted).toEqual([{ shape: 'orthogonal' }]);
+  });
+
+  /** The label button says what it will do, and hands off to the connector's own inline editor. */
+  it('offers to add a label, or to edit it when the connector already has one', () => {
+    const asked = vi.fn();
+    fixture.componentInstance.editLabel.subscribe(asked);
+    fixture.componentRef.setInput('connection', makeConnection());
+    fixture.detectChanges();
+    btn(fixture, 'Style du lien')!.click();
+    fixture.detectChanges();
+    const action = fixture.nativeElement.querySelector('.wb-selbar__link-action') as HTMLButtonElement;
+    expect(action.textContent?.trim()).toBe('Ajouter une étiquette');
+
+    action.click();
+    expect(asked).toHaveBeenCalledTimes(1);
+
+    fixture.componentRef.setInput('connection', makeConnection({ label: 'dépend de' }));
+    fixture.detectChanges();
+    expect((fixture.nativeElement.querySelector('.wb-selbar__link-action') as HTMLElement).textContent?.trim()).toBe(
+      "Modifier l'étiquette",
+    );
+  });
+
+  it('reflects the connector current line style as pressed', () => {
+    fixture.componentRef.setInput('connection', makeConnection({ lineStyle: 'dashed' }));
     fixture.detectChanges();
     btn(fixture, 'Style du lien')!.click();
     fixture.detectChanges();
 
     expect(btn(fixture, 'Tirets')!.getAttribute('aria-pressed')).toBe('true');
-    expect(btn(fixture, "Flèche à l'arrivée")!.getAttribute('aria-pressed')).toBe('true');
-    expect(btn(fixture, 'Aucune flèche')!.getAttribute('aria-pressed')).toBe('false');
+    expect(btn(fixture, 'Trait plein')!.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('offers nothing on a read-only board', () => {

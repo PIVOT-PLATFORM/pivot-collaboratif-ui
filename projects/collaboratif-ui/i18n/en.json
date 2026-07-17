@@ -333,16 +333,21 @@
       "connectorStyle": "Link style (arrow, dashed)",
       "arrowGroup": "Arrow",
       "lineGroup": "Line",
-      "arrow": {
-        "none": "No arrow",
-        "end": "Arrow at the end",
-        "both": "Arrow at both ends"
-      },
       "lineStyle": {
         "dashed": "Dashed",
         "dotted": "Dotted",
         "solid": "Solid"
-      }
+      },
+      "arrowDir": {
+        "none": "No arrow",
+        "end": "Arrow at the end",
+        "start": "Arrow at the start",
+        "both": "Arrows at both ends"
+      },
+      "shapeGroup": "Curve",
+      "capGroup": "Arrow shape",
+      "labelAdd": "Add a label",
+      "labelEdit": "Edit the label"
     },
     "card": {
       "editText": "Edit text",
@@ -399,21 +404,16 @@
     },
     "connector": {
       "style": {
-        "title": "Connector style",
-        "shapeLabel": "Shape",
         "shape": {
           "straight": "Straight",
           "curved": "Curved",
           "orthogonal": "Orthogonal"
         },
-        "lineStyleLabel": "Line style",
         "lineStyle": {
           "solid": "Solid",
           "dashed": "Dashed",
           "dotted": "Dotted"
         },
-        "startCapLabel": "Head (start)",
-        "endCapLabel": "Tail (end)",
         "cap": {
           "none": "None",
           "arrow": "Arrow",
@@ -421,8 +421,6 @@
           "circle": "Circle",
           "diamond": "Diamond"
         },
-        "widthLabel": "Width",
-        "colorLabel": "Colour",
         "labelFieldLabel": "Label",
         "labelPlaceholder": "Connector text"
       }

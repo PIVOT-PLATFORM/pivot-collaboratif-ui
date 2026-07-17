@@ -9,6 +9,7 @@ import {
   output,
   signal,
   viewChild,
+  viewChildren,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { BoardStore } from '../../core/whiteboard/board.store';
@@ -181,6 +182,7 @@ export class StructuredCanvasComponent {
   readonly openDetail = output<string>();
 
   private readonly surface = viewChild.required<ElementRef<HTMLDivElement>>('surface');
+  private readonly connectionLines = viewChildren(ConnectionLineComponent);
 
   protected readonly viewport = signal<Viewport>({ x: 0, y: 0, zoom: 1 });
   protected readonly marquee = signal<Rect | null>(null);
@@ -1212,5 +1214,15 @@ export class StructuredCanvasComponent {
   }
   protected onConnectionSelect(id: string): void {
     this.store.selectCards(new Set([id]));
+  }
+
+  /**
+   * Opens the inline label editor of a connector — the bottom bar's "Add a label" button routes
+   * here, so the button and the double-click end up in the same editor rather than two.
+   */
+  editConnectionLabel(id: string): void {
+    this.connectionLines()
+      .find((line) => line.connection().id === id)
+      ?.onLabelEdit();
   }
 }

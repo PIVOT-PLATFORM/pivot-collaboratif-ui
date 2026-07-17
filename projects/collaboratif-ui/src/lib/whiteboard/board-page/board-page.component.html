@@ -195,14 +195,7 @@
       </aside>
     }
 
-    @if (selectedConnection(); as conn) {
-      <aside class="wb-page__panel wb-page__panel--connector-style" [attr.aria-label]="'whiteboard.connector.style.title' | transloco">
-        <wb-connector-style-panel
-          [connection]="conn"
-          (styleChange)="onConnectorStyleChange(conn.id, $event)"
-        ></wb-connector-style-panel>
-      </aside>
-    }
+
 
     @if (selectedCard(); as card) {
       @if (store.fields().length > 0) {
@@ -251,6 +244,7 @@
       (recolor)="onColorChange($event)"
       (refill)="store.fillSelectedShapes($event)"
       (connectionStyleChange)="onConnectorStyleChange(selectedConnection()!.id, $event)"
+      (editLabel)="onEditConnectionLabel()"
       (toggleLock)="store.lockSelected($event)"
       (bringToFront)="store.setLayerSelected(store.frontLayer())"
       (sendToBack)="store.setLayerSelected(store.backLayer())"

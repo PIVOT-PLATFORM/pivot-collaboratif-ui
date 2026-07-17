@@ -21,7 +21,6 @@ import { StructuredCanvasComponent } from '../structured-canvas/structured-canva
 import { GroupsPanelComponent } from '../groups-panel/groups-panel.component';
 import { BoardFieldsPanelComponent } from '../board-fields-panel/board-fields-panel.component';
 import { CardFieldValuesPanelComponent } from '../card-field-values-panel/card-field-values-panel.component';
-import { ConnectorStylePanelComponent } from '../connector-style-panel/connector-style-panel.component';
 import { VoteResultsPanelComponent } from '../vote-results-panel/vote-results-panel.component';
 import { TimerOverlayComponent } from '../timer-overlay/timer-overlay.component';
 import { SharePanelComponent } from '../share-panel/share-panel.component';
@@ -67,7 +66,6 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     GroupsPanelComponent,
     BoardFieldsPanelComponent,
     CardFieldValuesPanelComponent,
-    ConnectorStylePanelComponent,
     VoteResultsPanelComponent,
     TimerOverlayComponent,
     SharePanelComponent,
@@ -340,6 +338,17 @@ export class BoardPageComponent implements OnInit, OnDestroy {
       enabledActivities: updated.enabledActivities,
     });
     this.showSettings.set(false);
+  }
+
+  /**
+   * Routes the bar's "Add a label" button to the connector's own inline editor — the same one the
+   * double-click opens, so there is one editor and not two.
+   */
+  protected onEditConnectionLabel(): void {
+    const conn = this.selectedConnection();
+    if (conn) {
+      this.canvas()?.editConnectionLabel(conn.id);
+    }
   }
 
   protected onToolConsumed(): void {

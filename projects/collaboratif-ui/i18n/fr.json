@@ -333,16 +333,21 @@
       "connectorStyle": "Style du lien (flèche, pointillés)",
       "arrowGroup": "Flèche",
       "lineGroup": "Trait",
-      "arrow": {
-        "none": "Aucune flèche",
-        "end": "Flèche à l'arrivée",
-        "both": "Flèche aux deux bouts"
-      },
       "lineStyle": {
         "dashed": "Tirets",
         "dotted": "Pointillés",
         "solid": "Trait plein"
-      }
+      },
+      "arrowDir": {
+        "none": "Aucune flèche",
+        "end": "Flèche vers l'arrivée",
+        "start": "Flèche vers le départ",
+        "both": "Flèches aux deux bouts"
+      },
+      "shapeGroup": "Courbe",
+      "capGroup": "Forme de la flèche",
+      "labelAdd": "Ajouter une étiquette",
+      "labelEdit": "Modifier l'étiquette"
     },
     "card": {
       "editText": "Modifier le texte",
@@ -399,21 +404,16 @@
     },
     "connector": {
       "style": {
-        "title": "Style du connecteur",
-        "shapeLabel": "Forme",
         "shape": {
           "straight": "Droit",
           "curved": "Courbe",
           "orthogonal": "Orthogonal"
         },
-        "lineStyleLabel": "Style de trait",
         "lineStyle": {
           "solid": "Plein",
           "dashed": "Tirets",
           "dotted": "Pointillé"
         },
-        "startCapLabel": "Tête (départ)",
-        "endCapLabel": "Queue (arrivée)",
         "cap": {
           "none": "Aucune",
           "arrow": "Flèche",
@@ -421,8 +421,6 @@
           "circle": "Cercle",
           "diamond": "Losange"
         },
-        "widthLabel": "Épaisseur",
-        "colorLabel": "Couleur",
         "labelFieldLabel": "Étiquette",
         "labelPlaceholder": "Texte du connecteur"
       }

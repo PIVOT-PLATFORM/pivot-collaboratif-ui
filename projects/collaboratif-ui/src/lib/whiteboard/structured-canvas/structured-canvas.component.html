@@ -25,9 +25,11 @@
           [fromRect]="rc.fromRect"
           [toRect]="rc.toRect"
           [selected]="isSelected(rc.conn.id)"
+          [readOnly]="store.isReadonly()"
           [fromLabel]="rc.fromLabel"
           [toLabel]="rc.toLabel"
           (select)="onConnectionSelect($event)"
+          (labelCommit)="store.updateConnection(rc.conn.id, { label: $event })"
         ></svg:g>
       }
       <!-- Live free-draw stroke (US free-draw): renders in real time while the pointer is down -->

@@ -17,6 +17,7 @@
   tabindex="0"
   [attr.aria-label]="ariaLabel()"
   (click)="onSelect($event)"
+  (dblclick)="onLabelDblClick($event)"
   (keydown.enter)="onSelect($event)"
   (keydown.space)="onSelect($event)" />
 
@@ -45,8 +46,30 @@
   }
 }
 
-@if (label(); as text) {
-  <svg:g class="wb-connection__label" (click)="onSelect($event)">
+<!-- Inline label editing, on the board's own precedent (`BoardCardComponent`): double-click edits.
+     A `foreignObject` is what puts an HTML input inside the SVG layer, anchored on the label box
+     that is already computed for the text. -->
+@if (editing()) {
+  <svg:foreignObject
+    data-connection-label
+    [attr.x]="labelBox().x - 8"
+    [attr.y]="labelBox().y - 4"
+    [attr.width]="labelBox().width + 40"
+    [attr.height]="labelBox().height + 8"
+  >
+    <input
+      class="wb-connection__label-input"
+      [value]="editValue()"
+      [attr.aria-label]="'whiteboard.connector.style.labelFieldLabel' | transloco"
+      (input)="editValue.set($any($event.target).value)"
+      (blur)="commitLabel()"
+      (keydown.enter)="commitLabel()"
+      (keydown.escape)="cancelLabel($event)"
+      autofocus
+    />
+  </svg:foreignObject>
+} @else if (label(); as text) {
+  <svg:g class="wb-connection__label" data-connection-label (click)="onSelect($event)" (dblclick)="onLabelDblClick($event)">
     <svg:rect
       class="wb-connection__label-box"
       [attr.x]="labelBox().x"

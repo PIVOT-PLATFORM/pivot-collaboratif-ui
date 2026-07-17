@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, Router, provideRouter } from '@angular/router';
@@ -649,7 +649,12 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
     TestBed.resetTestingModule();
   });
 
-  it('shows the style panel when exactly one connector is selected', async () => {
+  /** `selectedConnection` is protected — read through a cast, like the other suites here. */
+  function cmpOf(fixture: ComponentFixture<BoardPageComponent>): { selectedConnection(): unknown } {
+    return fixture.componentInstance as unknown as { selectedConnection(): unknown };
+  }
+
+  it('offers the link style in the bottom bar when exactly one connector is selected', async () => {
     const { fixture, store } = create();
     fixture.detectChanges();
     await flushInitRequests();
@@ -659,13 +664,13 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
     store.selectCards(new Set(['conn-1']));
     fixture.detectChanges();
 
-    const panel = fixture.nativeElement.querySelector('wb-connector-style-panel');
-    expect(panel).toBeTruthy();
-    const aside = fixture.nativeElement.querySelector('[aria-label="Style du connecteur"]');
-    expect(aside).toBeTruthy();
+    // The style lives in the selection bar now — the corner panel is gone (recette 2026-07-17:
+    // « Je ne veux pas de la div wb-connector-style (…) tout dans le menu du bas »).
+    expect(fixture.nativeElement.querySelector('wb-selection-toolbar')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('wb-connector-style-panel')).toBeNull();
   });
 
-  it('hides the style panel when nothing, or more than one item, is selected', async () => {
+  it('offers no link style when nothing, or more than one item, is selected', async () => {
     const { fixture, store } = create();
     fixture.detectChanges();
     await flushInitRequests();
@@ -673,14 +678,14 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
       { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, lineStyle: 'solid', startCap: 'none', endCap: 'none', width: 2 },
     ]);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('wb-connector-style-panel')).toBeNull();
+    expect(cmpOf(fixture).selectedConnection()).toBeNull();
 
     store.selectCards(new Set(['conn-1', 'some-card']));
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('wb-connector-style-panel')).toBeNull();
+    expect(cmpOf(fixture).selectedConnection()).toBeNull();
   });
 
-  it('hides the style panel when the lone selected id is a card, not a connector', async () => {
+  it('offers no link style when the lone selected id is a card, not a connector', async () => {
     const { fixture, store } = create();
     fixture.detectChanges();
     await flushInitRequests();
@@ -690,10 +695,15 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
     store.selectCards(new Set(['card-a']));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('wb-connector-style-panel')).toBeNull();
+    expect(cmpOf(fixture).selectedConnection()).toBeNull();
   });
 
-  it('changing the shape select in the panel emits connection:update with only {shape} through the store', async () => {
+  /**
+   * The panel's `<select>` is gone (recette: everything moved to the bottom bar), but its contract
+   * has not: a style change emits a patch carrying *only* the field touched — never a whole
+   * connector — so two people restyling the same link cannot clobber each other's other fields.
+   */
+  it('emits connection:update with only the field that changed, through the store', async () => {
     const { fixture, store, transport } = create();
     fixture.detectChanges();
     await flushInitRequests();
@@ -703,9 +713,8 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
     store.selectCards(new Set(['conn-1']));
     fixture.detectChanges();
 
-    const select = fixture.nativeElement.querySelector('#wbConnStyleShape') as HTMLSelectElement;
-    select.value = 'orthogonal';
-    select.dispatchEvent(new Event('change'));
+    (fixture.componentInstance as unknown as { onConnectorStyleChange(id: string, p: unknown): void })
+      .onConnectorStyleChange('conn-1', { shape: 'orthogonal' });
     fixture.detectChanges();
 
     const emitted = transport.emitted.filter((e) => e.type === 'connection:update');
