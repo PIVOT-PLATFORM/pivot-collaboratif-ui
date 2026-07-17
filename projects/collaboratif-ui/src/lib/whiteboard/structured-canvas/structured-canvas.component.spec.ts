@@ -377,6 +377,97 @@ describe('StructuredCanvasComponent — frame placement tool', () => {
   });
 });
 
+/**
+ * US08.8.1/.2 — pointer-down on a frame's header must *select* the frame, not only start a drag.
+ * Selection is what reveals the frame's resize handles (`@if (selected())` in `frame-item`) and
+ * what lets Delete remove it: before this, no path ever put a frame id into `selectedIds`, so a
+ * frame could be neither resized nor deleted even though both mechanisms existed.
+ */
+describe('StructuredCanvasComponent — frame selection on header pointer-down', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let selectCards: ReturnType<typeof vi.fn>;
+  let startDragFrame: ReturnType<typeof vi.fn>;
+  let selected: Set<string>;
+
+  const FRAME = { id: 'frame-1', posX: 0, posY: 0, width: 400, height: 300, active: false };
+
+  beforeEach(async () => {
+    selectCards = vi.fn();
+    startDragFrame = vi.fn();
+    selected = new Set<string>();
+    const storeStub = {
+      isReadonly: () => false,
+      frames: () => [FRAME],
+      cards: () => [],
+      connections: () => [],
+      fields: () => [],
+      selectedIds: () => selected,
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      activeVoteSession: () => null,
+      voteTallyByCard: () => new Map<string, number>(),
+      myVoteTallyByCard: () => new Map<string, number>(),
+      voteBudgetRemaining: () => null,
+      emitCursor: vi.fn(),
+      selectCards,
+      startDragFrame,
+      castVote: vi.fn(),
+      uncastVote: vi.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: storeStub }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  /** Builds a pointer-down landing on the frame header (`[data-frame-drag]`). */
+  function headerPointerDown(shiftKey = false): PointerEvent {
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    surfaceEl.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof surfaceEl.getBoundingClientRect;
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+    const headerEl = fixture.nativeElement.querySelector('[data-frame-drag]') as HTMLElement;
+    return {
+      button: 0,
+      target: headerEl,
+      currentTarget: surfaceEl,
+      clientX: 40,
+      clientY: 10,
+      pointerId: 1,
+      shiftKey,
+    } as unknown as PointerEvent;
+  }
+
+  it('selects the frame alone on a plain header click', () => {
+    component['onPointerDown'](headerPointerDown());
+
+    expect(selectCards).toHaveBeenCalledTimes(1);
+    expect(selectCards.mock.calls[0][0]).toEqual(new Set(['frame-1']));
+    expect(startDragFrame).toHaveBeenCalledWith('frame-1', []);
+  });
+
+  it('Shift+click adds the frame to the current selection rather than replacing it', () => {
+    selected = new Set(['card-a']);
+    component['onPointerDown'](headerPointerDown(true));
+
+    expect(selectCards.mock.calls[0][0]).toEqual(new Set(['card-a', 'frame-1']));
+  });
+});
+
 /** Protected surface exercised by this suite (same pattern as `board-page.component.spec.ts`). */
 interface CanvasApi {
   insertImageFile(file: File): Promise<void>;

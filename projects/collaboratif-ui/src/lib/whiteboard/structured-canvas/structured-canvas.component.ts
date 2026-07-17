@@ -235,6 +235,28 @@ export class StructuredCanvasComponent {
   protected isSelected(id: string): boolean {
     return this.store.selectedIds().has(id);
   }
+
+  /**
+   * Selection on pointer-down, shared by cards and frames: `additive` (Shift held) toggles the
+   * item within the current selection, a plain click selects it alone — and leaves an existing
+   * multi-selection untouched when the item is already part of it, so dragging a group keeps it
+   * together.
+   */
+  private selectItem(id: string, additive: boolean): void {
+    if (additive) {
+      const next = new Set(this.store.selectedIds());
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      this.store.selectCards(next);
+      return;
+    }
+    if (!this.isSelected(id)) {
+      this.store.selectCards(new Set([id]));
+    }
+  }
   protected remoteEditorFor(id: string): string | null {
     return this.store.remoteEditors().get(id)?.name ?? null;
   }
@@ -332,6 +354,11 @@ export class StructuredCanvasComponent {
       const id = frameDragEl.getAttribute('data-frame-id') ?? '';
       const frame = this.store.frames().find((f) => f.id === id);
       if (frame) {
+        // Selecting the frame is what reveals its resize handles (`@if (selected())`) and lets
+        // Delete remove it — without this, a frame was never in `selectedIds`, so both were
+        // unreachable even though the machinery existed (US08.8.1/.2). Mirrors the card path:
+        // Shift toggles within the selection, a plain click selects the frame alone.
+        this.selectItem(id, event.shiftKey);
         const captured = frame.active
           ? this.store.cards().filter((c) => !c.locked && pointInRect(c.posX + c.width / 2, c.posY + c.height / 2, frameRect(frame))).map((c) => c.id)
           : [];
@@ -346,17 +373,7 @@ export class StructuredCanvasComponent {
       if (!card) {
         return;
       }
-      if (event.shiftKey) {
-        const next = new Set(this.store.selectedIds());
-        if (next.has(id)) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
-        this.store.selectCards(next);
-      } else if (!this.isSelected(id)) {
-        this.store.selectCards(new Set([id]));
-      }
+      this.selectItem(id, event.shiftKey);
       if (!readOnly && !card.locked) {
         this.store.startDragCard(id);
         this.gesture = { kind: 'drag-card', id, startX: pt.x, startY: pt.y, startPos: { x: card.posX, y: card.posY } };

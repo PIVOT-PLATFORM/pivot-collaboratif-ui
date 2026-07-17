@@ -729,6 +729,37 @@ describe('BoardStore — connections (US08.7.1)', () => {
     expect(transport.emitted).toHaveLength(emittedBefore);
   });
 
+  // US08.8.1 — a frame is selectable like a card, so Delete must remove it. Before this,
+  // `deleteSelected` only looked at cards and connections and silently ignored a selected frame
+  // (and `deleteFrame` was never called from anywhere), leaving frames undeletable.
+  it('deleteSelected deletes a selected frame', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.frames.set([{ id: 'frame-1', boardId: BOARD_ID, title: '', posX: 0, posY: 0, width: 400, height: 300, layer: 1 } as Frame]);
+    store.selectCards(new Set(['frame-1']));
+
+    store.deleteSelected();
+
+    const emitted = transport.emitted.filter((e) => e.type === 'frame:delete');
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].data).toEqual({ id: 'frame-1', boardId: BOARD_ID });
+    expect(store.selectedIds().size).toBe(0);
+  });
+
+  it('deleteSelected leaves the cards a deleted frame visually contains untouched', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.cards.set([makeCard('card-inside')]);
+    store.frames.set([{ id: 'frame-1', boardId: BOARD_ID, title: '', posX: 0, posY: 0, width: 400, height: 300, layer: 1 } as Frame]);
+    // Only the frame is selected — containment is geometric, never a parent link.
+    store.selectCards(new Set(['frame-1']));
+
+    store.deleteSelected();
+
+    expect(transport.emitted.some((e) => e.type === 'frame:delete')).toBe(true);
+    expect(transport.emitted.some((e) => e.type === 'card:delete')).toBe(false);
+  });
+
   // ── Restyle a connection (US08.7.2) ────────────────────────────────────────
 
   it('updateConnection emits connection:update with exactly the provided fields (AC1)', async () => {

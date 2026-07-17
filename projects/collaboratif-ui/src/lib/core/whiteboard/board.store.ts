@@ -1336,9 +1336,13 @@ export class BoardStore {
     const ids = this.unlockedSelectedIds();
     const cards = this.cards();
     const connections = this.connections();
+    const frames = this.frames();
     const savedCards = ids.map((id) => cards.find((c) => c.id === id)).filter((c): c is Card => !!c);
     const connectionIds = ids.filter((id) => connections.some((c) => c.id === id));
-    if (savedCards.length === 0 && connectionIds.length === 0) {
+    // Frames are selectable like cards (US08.8.1) — Delete must remove them too. Deleting a frame
+    // never touches the cards it visually contains: containment is geometric, not a parent link.
+    const frameIds = ids.filter((id) => frames.some((f) => f.id === id));
+    if (savedCards.length === 0 && connectionIds.length === 0 && frameIds.length === 0) {
       return;
     }
     if (savedCards.length > 0) {
@@ -1366,6 +1370,8 @@ export class BoardStore {
     // Each connection gets its own undo/redo history entry via deleteConnection — consistent
     // with how a lone connector delete (mouse-driven) already behaves.
     connectionIds.forEach((id) => this.deleteConnection(id));
+    // Same per-item history convention for frames, via the existing deleteFrame.
+    frameIds.forEach((id) => this.deleteFrame(id));
     this.selectedIds.set(new Set());
   }
 
