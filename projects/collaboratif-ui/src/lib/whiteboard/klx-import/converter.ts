@@ -39,26 +39,24 @@ function cColor(code: string): string {
 const HTML_ENTITIES: Record<string, string> = {
   '&lt;': '<', '&gt;': '>', '&amp;': '&', '&#39;': "'", '&quot;': '"',
 };
-const HTML_ENTITY_RE = /&lt;|&gt;|&amp;|&#39;|&quot;/g;
-const HTML_TAG_RE = /<[^>]+>/g;
 
 // Single-pass entity decode (one regex, one replacer call) — chaining separate sequential
 // `.replace()` calls per entity lets an earlier replacement's output feed the next pattern
 // (e.g. `&amp;#39;` -> `&#39;` -> `'`, silently double-unescaping input that should decode to
 // the literal text `&#39;` once, not twice).
 function decodeHtmlEntities(text: string): string {
-  return text.replace(HTML_ENTITY_RE, (entity) => HTML_ENTITIES[entity]);
+  return text.replace(/&lt;|&gt;|&amp;|&#39;|&quot;/g, (entity) => HTML_ENTITIES[entity]);
 }
 
 function stripHtml(html: string): string {
   const withoutBreaks = html.replace(/<br\s*\/?>/gi, '\n');
   // Decode entities *before* stripping tags (not after): an encoded tag like "&lt;script&gt;"
-  // must become a real "<script>" first so the single tag-strip pass below actually removes it.
-  // Decoding after stripping would let an encoded tag survive the strip and only turn into a
-  // real tag-shaped string afterward, with nothing left to remove it.
+  // must become a real "<script>" first so the tag-strip below actually removes it. Decoding
+  // after stripping would let an encoded tag survive the strip and only turn into a real
+  // tag-shaped string afterward, with nothing left to remove it. The strip below is the final
+  // content-mutating step of this function -- only a whitespace-only `.trim()` follows it.
   const decoded = decodeHtmlEntities(withoutBreaks);
-  const withoutTags = decoded.replace(HTML_TAG_RE, '');
-  return withoutTags.trim();
+  return decoded.replace(/<[^>]+>/g, '').trim();
 }
 
 // The effective font-size / weight / color of a Klaxoon text live as inline
