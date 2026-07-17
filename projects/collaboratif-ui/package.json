@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@stomp/rx-stomp": "^2.0.0",
+    "jszip": "^3.10.1",
     "tslib": "^2.3.0"
   },
   "sideEffects": false
