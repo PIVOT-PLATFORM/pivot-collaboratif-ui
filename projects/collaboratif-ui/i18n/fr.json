@@ -169,6 +169,23 @@
           "confirm": "Retirer",
           "cancel": "Annuler"
         }
+      },
+      "invite": {
+        "section": "Inviter par email",
+        "emailLabel": "Adresse email",
+        "emailPlaceholder": "personne@exemple.fr",
+        "roleLabel": "Rôle",
+        "submit": "Inviter",
+        "submitting": "Invitation…",
+        "success": "Invitation envoyée."
+      },
+      "error": {
+        "invalidEmail": "Adresse email invalide.",
+        "unknownEmail": "Aucun utilisateur ne correspond à cette adresse email.",
+        "selfInvite": "Vous ne pouvez pas vous inviter vous-même.",
+        "creatorInvite": "Cet utilisateur est déjà propriétaire du tableau.",
+        "forbiddenRole": "Un éditeur ne peut pas attribuer le rôle propriétaire.",
+        "generic": "L'invitation a échoué. Réessayez."
       }
     },
     "canvas": {

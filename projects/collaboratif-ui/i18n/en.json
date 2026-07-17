@@ -169,6 +169,23 @@
           "confirm": "Remove",
           "cancel": "Cancel"
         }
+      },
+      "invite": {
+        "section": "Invite by email",
+        "emailLabel": "Email address",
+        "emailPlaceholder": "person@example.com",
+        "roleLabel": "Role",
+        "submit": "Invite",
+        "submitting": "Inviting…",
+        "success": "Invitation sent."
+      },
+      "error": {
+        "invalidEmail": "Invalid email address.",
+        "unknownEmail": "No user matches this email address.",
+        "selfInvite": "You cannot invite yourself.",
+        "creatorInvite": "This user already owns the board.",
+        "forbiddenRole": "An editor cannot grant the owner role.",
+        "generic": "The invitation failed. Please try again."
       }
     },
     "canvas": {
