@@ -799,8 +799,11 @@ export class StructuredCanvasComponent {
       'SHAPE',
       content,
       this.color(),
-      Math.abs(dx),
-      Math.abs(dy),
+      // A perfectly horizontal or vertical line (Shift snap) is flat on one axis: its box would be
+      // 0px on that side and the card would render nothing at all. The floor keeps the box alive
+      // without moving the line — 1px is below what the 2px stroke already covers.
+      Math.max(LINE_MIN, Math.abs(dx)),
+      Math.max(LINE_MIN, Math.abs(dy)),
     );
     this.toolConsumed.emit();
   }

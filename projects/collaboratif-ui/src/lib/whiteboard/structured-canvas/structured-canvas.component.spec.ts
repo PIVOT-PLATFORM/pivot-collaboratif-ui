@@ -11,6 +11,7 @@ import { BoardTransport } from '../../core/whiteboard/board-transport';
 import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
 import type { Card } from '../model/board.types';
 import { parseShape } from '../model/shape';
+import { LINE_MIN } from '../model/board-constants';
 
 /** Inert transport — this suite never opens the realtime room (`store.init` is never called). */
 class NoopTransport extends BoardTransport {
@@ -1606,11 +1607,21 @@ describe('StructuredCanvasComponent — line tool', () => {
     dragLine(100, 100, 300, 108, true);
 
     const c = committed();
-    // The 8px of vertical slop is snapped away: a flat box, hence a truly horizontal line.
-    expect(c.height).toBe(0);
+    // The 8px of vertical slop is snapped away — but the box keeps a 1px floor rather than
+    // collapsing to 0. An earlier version of this test asserted `height === 0` and passed, while
+    // the line was invisible on screen: a card 0px high renders nothing at all. Geometry alone
+    // could not catch that; only opening the board did.
+    expect(c.height).toBe(LINE_MIN);
     // The snap rotates the gesture onto the nearest ray and keeps its length, so the width is the
     // drag's full length (hypot(200, 8) ≈ 200.16), not its horizontal component.
     expect(c.width).toBeCloseTo(Math.hypot(200, 8), 5);
+  });
+
+  /** Same floor on the other axis — a vertical line is the mirror case. */
+  it('keeps a vertical line from collapsing to a zero-width box', () => {
+    dragLine(100, 100, 108, 300, true);
+
+    expect(committed().width).toBe(LINE_MIN);
   });
 
   it('snaps to 45° with Shift when the drag is nearly diagonal', () => {

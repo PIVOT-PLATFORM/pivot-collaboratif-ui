@@ -39,6 +39,22 @@
     background: transparent;
   }
 
+  // A line's box is flat on one axis when it is horizontal or vertical (Shift snap), and its
+  // 2px stroke straddles the box edge. `overflow: hidden` would clip the stroke to nothing —
+  // the line would be stored correctly and still be invisible. Scoped to lines: every other
+  // shape keeps its own clipping.
+  &--line {
+    overflow: visible;
+
+    // The `<svg>` element clips to its own viewport by default (UA stylesheet), which on a 1px-high
+    // box would cut both the stroke and its hit band down to that single pixel — the line would
+    // look hairline-thin and be almost impossible to click. Lifting it on the card alone is not
+    // enough; the SVG has to stop clipping too.
+    .wb-card__svg {
+      overflow: visible;
+    }
+  }
+
   // Multi-line inline edit (fix/card-multiline-text): the edit textarea auto-grows past the
   // card's stored height (see BoardCardComponent.autosizeEditArea) — let it show in full while
   // editing instead of clipping it, mirroring PouetPouet's expanding edit box.
@@ -380,4 +396,23 @@
     outline: 2px solid var(--wb-focus, #7c5cff);
     outline-offset: 1px;
   }
+}
+
+// ── Line hit area ───────────────────────────────────────────────────────────
+// A line's box is a rectangle, but the line only occupies its diagonal. Letting that rectangle
+// catch pointers would make a diagonal line steal clicks across a large empty area — and would
+// make anything sitting behind it unreachable. So the card stops catching pointers entirely and
+// hands the job to a transparent stroke running *along the line itself* (`wb-card__line-hit`,
+// the same trick the connectors already use). The clickable area is therefore the line, not its
+// box — widen or narrow it with LINE_HIT_WIDTH (model/board-constants.ts).
+:host(.wb-card--line) {
+  pointer-events: none;
+}
+
+// …except the parts that must stay grabbable: the line itself, and the handles/anchors, which
+// live outside the body and are the only way to resize or connect it.
+:host(.wb-card--line) .wb-card__line-hit,
+:host(.wb-card--line) .wb-card__resize,
+:host(.wb-card--line) .wb-card__connect {
+  pointer-events: auto;
 }

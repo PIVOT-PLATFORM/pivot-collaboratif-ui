@@ -21,6 +21,12 @@ export const LINE_MIN = 1;
 export const LINE_SNAP_DEG = 15;
 /** Below this drag length (canvas px), a line gesture commits nothing: it reads as a click. */
 export const LINE_MIN_DRAG = 4;
+/**
+ * Width (px) of the invisible stroke that catches pointers along a line — the line's clickable
+ * area is this band around it, not its bounding box (see `board-card.component.scss`). Raise it to
+ * make lines easier to grab, lower it if they start stealing clicks from what sits behind them.
+ */
+export const LINE_HIT_WIDTH = 12;
 /** Minimum label width — deterministic box so resize handles stay aligned. */
 export const MIN_LABEL_W = 60;
 
