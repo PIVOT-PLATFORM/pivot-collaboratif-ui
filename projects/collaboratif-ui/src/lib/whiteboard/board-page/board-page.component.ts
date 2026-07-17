@@ -89,6 +89,12 @@ export class BoardPageComponent implements OnInit, OnDestroy {
 
   protected readonly tool = signal<ToolMode>('select');
   protected readonly color = signal<string>(DEFAULT_SHAPE_COLOR);
+  /**
+   * True once the user actively picked a colour (toolbar swatch or selection recolour). Until
+   * then a new card keeps its type's own default — {@link color} starts at the *shape* colour,
+   * so inheriting it unconditionally would turn fresh post-its indigo instead of soft yellow.
+   */
+  protected readonly colorPicked = signal(false);
   /** SHAPE fill colour (US08.6.3) — `null` means no fill (transparent), the SHAPE default. */
   protected readonly fillColor = signal<string | null>(null);
   protected readonly showGroups = signal(false);
@@ -343,6 +349,9 @@ export class BoardPageComponent implements OnInit, OnDestroy {
    */
   protected onColorChange(color: string): void {
     this.color.set(color);
+    // An explicit pick (toolbar swatch or selection recolour) becomes the colour applied to
+    // whatever is created next, whatever its type.
+    this.colorPicked.set(true);
     this.store.recolorSelected(color);
   }
   protected onDissolveGroup(groupId: string): void {
