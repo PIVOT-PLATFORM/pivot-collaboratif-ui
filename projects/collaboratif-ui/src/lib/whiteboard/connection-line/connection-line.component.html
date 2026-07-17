@@ -29,11 +29,19 @@
   stroke-linejoin="round"
   [attr.stroke-dasharray]="dashArray()" />
 
-@if (endArrow(); as points) {
-  <svg:polygon class="wb-connection__arrow" [attr.points]="points" [attr.fill]="strokeColor()" />
+@if (endCap(); as cap) {
+  @if (cap.kind === 'polygon') {
+    <svg:polygon class="wb-connection__cap" [attr.points]="cap.points" [attr.fill]="strokeColor()" />
+  } @else {
+    <svg:circle class="wb-connection__cap" [attr.cx]="cap.cx" [attr.cy]="cap.cy" [attr.r]="cap.r" [attr.fill]="strokeColor()" />
+  }
 }
-@if (startArrow(); as points) {
-  <svg:polygon class="wb-connection__arrow" [attr.points]="points" [attr.fill]="strokeColor()" />
+@if (startCap(); as cap) {
+  @if (cap.kind === 'polygon') {
+    <svg:polygon class="wb-connection__cap" [attr.points]="cap.points" [attr.fill]="strokeColor()" />
+  } @else {
+    <svg:circle class="wb-connection__cap" [attr.cx]="cap.cx" [attr.cy]="cap.cy" [attr.r]="cap.r" [attr.fill]="strokeColor()" />
+  }
 }
 
 @if (label(); as text) {

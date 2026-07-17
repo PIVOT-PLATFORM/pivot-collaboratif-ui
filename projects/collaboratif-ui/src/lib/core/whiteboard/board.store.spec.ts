@@ -580,6 +580,9 @@ function makeConnection(id: string, fromId: string, toId: string, overrides: Par
     shape: 'curved',
     arrow: 'none',
     dashed: false,
+    lineStyle: 'solid',
+    startCap: 'none',
+    endCap: 'none',
     width: 2,
     ...overrides,
   };
@@ -891,6 +894,28 @@ describe('BoardStore — connections (US08.7.1)', () => {
     const conn = store.connections().find((c) => c.id === 'conn-1');
     expect(conn?.dashed).toBe(true);
     expect(conn?.width).toBe(5);
+  });
+
+  it('updateConnection emits and applies the extended style fields (lineStyle/startCap/endCap, US08.7.2)', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+    store.connections.set([makeConnection('conn-1', 'card-a', 'card-b')]);
+
+    store.updateConnection('conn-1', { lineStyle: 'dotted', startCap: 'diamond', endCap: 'circle' });
+
+    const data = transport.emitted.find((e) => e.type === 'connection:update')?.data as Record<string, unknown>;
+    expect(data).toEqual({
+      id: 'conn-1',
+      boardId: BOARD_ID,
+      lineStyle: 'dotted',
+      startCap: 'diamond',
+      endCap: 'circle',
+    });
+
+    const conn = store.connections().find((c) => c.id === 'conn-1');
+    expect(conn?.lineStyle).toBe('dotted');
+    expect(conn?.startCap).toBe('diamond');
+    expect(conn?.endCap).toBe('circle');
   });
 
   it('reconciles connection:updated by fully replacing the connector state with the broadcast object (AC4)', async () => {

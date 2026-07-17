@@ -1462,6 +1462,9 @@ export class BoardStore {
         shape: conn.shape,
         arrow: conn.arrow,
         dashed: conn.dashed,
+        lineStyle: conn.lineStyle,
+        startCap: conn.startCap,
+        endCap: conn.endCap,
         width: conn.width,
       });
     });

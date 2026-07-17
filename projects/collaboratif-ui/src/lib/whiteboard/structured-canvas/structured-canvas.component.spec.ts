@@ -745,7 +745,7 @@ describe('StructuredCanvasComponent — connect gesture (BUG 6)', () => {
     (document as unknown as Record<string, unknown>)['elementFromPoint'] = efpOriginal;
     expect(addConnection).toHaveBeenCalledTimes(1);
     // The toolbar presets ride along with the creation — defaults here, since none was picked.
-    expect(addConnection).toHaveBeenCalledWith('A', 'B', { arrow: 'none', dashed: false });
+    expect(addConnection).toHaveBeenCalledWith('A', 'B', { startCap: 'none', endCap: 'none', lineStyle: 'solid' });
   });
 
   it('highlights the anchor the connector actually attaches to, not the one under the cursor (ITEM anchor)', () => {

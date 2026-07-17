@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
-import type { Connection, ConnectionPatch, ConnArrow, ConnShape } from '../model/board.types';
+import type { Connection, ConnectionPatch, ConnCap, ConnLineStyle, ConnShape } from '../model/board.types';
 
 /** Values offered by the shape `<select>` (US08.7.2) — a plain string contract, not a backend enum. */
 const SHAPES: readonly ConnShape[] = ['straight', 'curved', 'orthogonal'];
-/** Values offered by the arrow `<select>` (US08.7.2). */
-const ARROWS: readonly ConnArrow[] = ['none', 'start', 'end', 'both'];
+/** Values offered by the line-style `<select>` (US08.7.2 extended — supersedes the dashed checkbox). */
+const LINE_STYLES: readonly ConnLineStyle[] = ['solid', 'dashed', 'dotted'];
+/** Values offered by the start/end cap `<select>`s (US08.7.2 extended — supersedes the arrow select). */
+const CAPS: readonly ConnCap[] = ['none', 'arrow', 'triangle', 'circle', 'diamond'];
 
 /**
  * Style panel for an existing, selected connector (US08.7.2 — parity POC PouetPouet §1.8/§3.6).
@@ -34,21 +36,27 @@ export class ConnectorStylePanelComponent {
   readonly styleChange = output<ConnectionPatch>();
 
   protected readonly shapes = SHAPES;
-  protected readonly arrows = ARROWS;
+  protected readonly lineStyles = LINE_STYLES;
+  protected readonly caps = CAPS;
 
   protected onShapeChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value as ConnShape;
     this.styleChange.emit({ shape: value });
   }
 
-  protected onArrowChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value as ConnArrow;
-    this.styleChange.emit({ arrow: value });
+  protected onLineStyleChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as ConnLineStyle;
+    this.styleChange.emit({ lineStyle: value });
   }
 
-  protected onDashedChange(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.styleChange.emit({ dashed: checked });
+  protected onStartCapChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as ConnCap;
+    this.styleChange.emit({ startCap: value });
+  }
+
+  protected onEndCapChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as ConnCap;
+    this.styleChange.emit({ endCap: value });
   }
 
   protected onWidthChange(event: Event): void {

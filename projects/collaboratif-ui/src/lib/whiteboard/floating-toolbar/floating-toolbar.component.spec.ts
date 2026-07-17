@@ -440,7 +440,8 @@ describe('FloatingToolbarComponent — tooltips and contextual hint', () => {
  *
  * Styling a connector already existed (US08.7.2) but only *after* drawing one and selecting it —
  * so users never found it. These presets let the style be chosen before drawing, mirroring how the
- * SHAPE fill picker is gated on `isShapeTool()`.
+ * SHAPE fill picker is gated on `isShapeTool()`. They speak the extended model (lineStyle + caps),
+ * so the toolbar and the style panel cannot describe a connector differently.
  */
 describe('FloatingToolbarComponent — connector presets', () => {
   let fixture: ComponentFixture<FloatingToolbarComponent>;
@@ -466,43 +467,89 @@ describe('FloatingToolbarComponent — connector presets', () => {
     expect(byLabel(fixture, 'whiteboard.toolbar.connectorStyle')).toBeNull();
   });
 
-  it('emits the chosen arrowhead preset', () => {
-    const emitted: string[] = [];
-    fixture.componentInstance.connectorArrowChange.subscribe((a) => emitted.push(a));
+  /** An arrow preset is a (startCap, endCap) pair — the two ends are independent in the model. */
+  it('emits both caps for the "arrow at both ends" preset', () => {
+    const emitted: { startCap: string; endCap: string }[] = [];
+    fixture.componentInstance.connectorCapsChange.subscribe((c) => emitted.push(c));
     openPresets();
 
     byLabel(fixture, 'whiteboard.toolbar.arrow.both').click();
 
-    expect(emitted).toEqual(['both']);
+    expect(emitted).toEqual([{ startCap: 'arrow', endCap: 'arrow' }]);
   });
 
-  it('reflects the active arrowhead preset with aria-pressed', () => {
-    fixture.componentRef.setInput('connectorArrow', 'end');
+  it('emits an end-only arrow as a cap on the end alone', () => {
+    const emitted: { startCap: string; endCap: string }[] = [];
+    fixture.componentInstance.connectorCapsChange.subscribe((c) => emitted.push(c));
+    openPresets();
+
+    byLabel(fixture, 'whiteboard.toolbar.arrow.end').click();
+
+    expect(emitted).toEqual([{ startCap: 'none', endCap: 'arrow' }]);
+  });
+
+  /** The active preset is the one whose *pair* matches — not a single enum value. */
+  it('marks the arrow preset matching the current caps as pressed', () => {
+    fixture.componentRef.setInput('connectorStartCap', 'none');
+    fixture.componentRef.setInput('connectorEndCap', 'arrow');
     fixture.detectChanges();
     openPresets();
 
     expect(byLabel(fixture, 'whiteboard.toolbar.arrow.end').getAttribute('aria-pressed')).toBe('true');
+    expect(byLabel(fixture, 'whiteboard.toolbar.arrow.both').getAttribute('aria-pressed')).toBe('false');
     expect(byLabel(fixture, 'whiteboard.toolbar.arrow.none').getAttribute('aria-pressed')).toBe('false');
   });
 
-  /** The dashed preset is a toggle: it emits the opposite of what is currently applied. */
-  it('toggles the dashed preset off when it is already on', () => {
-    fixture.componentRef.setInput('connectorDashed', true);
+  /**
+   * A cap shape the presets do not offer (triangle, circle, diamond — style panel only) must not
+   * light up an unrelated preset: none of the three pairs matches.
+   */
+  it('marks no arrow preset as pressed when the caps come from the style panel', () => {
+    fixture.componentRef.setInput('connectorStartCap', 'diamond');
+    fixture.componentRef.setInput('connectorEndCap', 'circle');
     fixture.detectChanges();
-    const emitted: boolean[] = [];
-    fixture.componentInstance.connectorDashedChange.subscribe((d) => emitted.push(d));
     openPresets();
 
-    byLabel(fixture, 'whiteboard.toolbar.dashed').click();
+    for (const id of ['none', 'end', 'both']) {
+      expect(byLabel(fixture, `whiteboard.toolbar.arrow.${id}`).getAttribute('aria-pressed')).toBe('false');
+    }
+  });
 
-    expect(emitted).toEqual([false]);
+  it('offers the three line styles and emits the one picked', () => {
+    const emitted: string[] = [];
+    fixture.componentInstance.connectorLineStyleChange.subscribe((s) => emitted.push(s));
+    openPresets();
+
+    byLabel(fixture, 'whiteboard.toolbar.lineStyle.dotted').click();
+
+    expect(emitted).toEqual(['dotted']);
+  });
+
+  /** `dotted` was unreachable before: the old boolean `dashed` had no room for a third style. */
+  it('distinguishes dotted from dashed in the preview dash pattern', () => {
+    openPresets();
+    const dash = (id: string) =>
+      byLabel(fixture, `whiteboard.toolbar.lineStyle.${id}`).querySelector('path')?.getAttribute('stroke-dasharray');
+
+    expect(dash('solid')).toBeNull();
+    expect(dash('dashed')).not.toBeNull();
+    expect(dash('dotted')).not.toBe(dash('dashed'));
+  });
+
+  it('reflects the active line style with aria-pressed', () => {
+    fixture.componentRef.setInput('connectorLineStyle', 'dashed');
+    fixture.detectChanges();
+    openPresets();
+
+    expect(byLabel(fixture, 'whiteboard.toolbar.lineStyle.dashed').getAttribute('aria-pressed')).toBe('true');
+    expect(byLabel(fixture, 'whiteboard.toolbar.lineStyle.solid').getAttribute('aria-pressed')).toBe('false');
   });
 
   it('emits nothing on a read-only board', () => {
     fixture.componentRef.setInput('disabled', true);
     fixture.detectChanges();
-    const emitted: string[] = [];
-    fixture.componentInstance.connectorArrowChange.subscribe((a) => emitted.push(a));
+    const emitted: unknown[] = [];
+    fixture.componentInstance.connectorCapsChange.subscribe((c) => emitted.push(c));
 
     byLabel(fixture, 'whiteboard.toolbar.connectorStyle').click();
     fixture.detectChanges();

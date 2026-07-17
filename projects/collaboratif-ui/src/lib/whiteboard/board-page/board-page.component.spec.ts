@@ -495,7 +495,7 @@ describe('BoardPageComponent — US08.7.1 keyboard delete of a selected connecto
   it('Delete emits connection:delete for a selected connector, no card selected, no hover required', () => {
     const { cmp, store, transport } = create();
     store.connections.set([
-      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, lineStyle: 'solid', startCap: 'none', endCap: 'none', width: 2 },
     ]);
     store.selectCards(new Set(['conn-1']));
 
@@ -510,7 +510,7 @@ describe('BoardPageComponent — US08.7.1 keyboard delete of a selected connecto
   it('Backspace also emits connection:delete for a selected connector', () => {
     const { cmp, store, transport } = create();
     store.connections.set([
-      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, lineStyle: 'solid', startCap: 'none', endCap: 'none', width: 2 },
     ]);
     store.selectCards(new Set(['conn-1']));
 
@@ -654,7 +654,7 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
     fixture.detectChanges();
     await flushInitRequests();
     store.connections.set([
-      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, lineStyle: 'solid', startCap: 'none', endCap: 'none', width: 2 },
     ]);
     store.selectCards(new Set(['conn-1']));
     fixture.detectChanges();
@@ -670,7 +670,7 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
     fixture.detectChanges();
     await flushInitRequests();
     store.connections.set([
-      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, lineStyle: 'solid', startCap: 'none', endCap: 'none', width: 2 },
     ]);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('wb-connector-style-panel')).toBeNull();
@@ -698,7 +698,7 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
     fixture.detectChanges();
     await flushInitRequests();
     store.connections.set([
-      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, width: 2 },
+      { id: 'conn-1', boardId: 'board-1', fromId: 'c1', toId: 'c2', label: null, color: null, shape: 'curved', arrow: 'none', dashed: false, lineStyle: 'solid', startCap: 'none', endCap: 'none', width: 2 },
     ]);
     store.selectCards(new Set(['conn-1']));
     fixture.detectChanges();
