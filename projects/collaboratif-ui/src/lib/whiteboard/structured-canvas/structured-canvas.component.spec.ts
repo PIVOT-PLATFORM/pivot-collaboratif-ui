@@ -1276,3 +1276,172 @@ describe('StructuredCanvasComponent — free-draw tool', () => {
     expect(component['drawPreview']()).toBeNull();
   });
 });
+
+/**
+ * Resize modifiers — Shift keeps the start aspect ratio, Alt resizes from the start centre.
+ * Reported in recette: "les formes préexistantes: il n'est pas possible de garder le ratio".
+ *
+ * The gestures are driven through the real pointer state machine (`onPointerDown` on a synthetic
+ * handle, then `onPointerMove`) rather than by calling the geometry helper directly, so the tests
+ * also cover the wiring that reads `shiftKey`/`altKey` off the live event.
+ */
+describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = from centre)', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let resizeCardBox: ReturnType<typeof vi.fn>;
+  let resizeFrameBox: ReturnType<typeof vi.fn>;
+
+  /** A 200×100 card (ratio 2) — a non-square start box makes a broken ratio visible. */
+  const CARD = { id: 'A', posX: 100, posY: 100, width: 200, height: 100, type: 'STICKY', text: '', color: '#FFF' } as unknown as Card;
+  const FRAME = { id: 'F', posX: 0, posY: 0, width: 400, height: 200, active: false };
+
+  beforeEach(async () => {
+    resizeCardBox = vi.fn();
+    resizeFrameBox = vi.fn();
+    const storeStub = {
+      isReadonly: () => false,
+      frames: () => [FRAME],
+      cards: () => [CARD],
+      connections: () => [],
+      fields: () => [],
+      selectedIds: () => new Set<string>(['A']),
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      activeVoteSession: () => null,
+      voteTallyByCard: () => new Map<string, number>(),
+      myVoteTallyByCard: () => new Map<string, number>(),
+      voteBudgetRemaining: () => null,
+      emitCursor: vi.fn(),
+      selectCards: vi.fn(),
+      castVote: vi.fn(),
+      uncastVote: vi.fn(),
+      startResizeCard: vi.fn(),
+      startResizeFrame: vi.fn(),
+      resizeCardBox,
+      resizeFrameBox,
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: storeStub }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  function surface(): HTMLElement {
+    const el = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    el.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof el.getBoundingClientRect;
+    (el as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+    return el;
+  }
+
+  /**
+   * Starts a resize gesture on `dir`, then drags by (dx, dy) with the given modifiers.
+   * The handle is a detached element carrying the same data-attributes the templates render —
+   * `closest()` resolves it exactly as it does on the real DOM.
+   */
+  function resize(attr: string, id: string, dir: string, dx: number, dy: number, mods: { shiftKey?: boolean; altKey?: boolean } = {}): void {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute(attr, dir);
+    handle.setAttribute(attr === 'data-resize-dir' ? 'data-card-id' : 'data-frame-id', id);
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: dx, clientY: dy, pointerId: 1, shiftKey: false, altKey: false, ...mods } as unknown as PointerEvent);
+  }
+
+  const resizeCard = (dir: string, dx: number, dy: number, mods?: { shiftKey?: boolean; altKey?: boolean }) =>
+    resize('data-resize-dir', 'A', dir, dx, dy, mods);
+  const resizeFrame = (dir: string, dx: number, dy: number, mods?: { shiftKey?: boolean; altKey?: boolean }) =>
+    resize('data-frame-resize-dir', 'F', dir, dx, dy, mods);
+
+  it('without Shift, resizes each axis independently (ratio free)', () => {
+    resizeCard('br', 100, 0);
+
+    // Only the width follows the pointer — the height is untouched, so the ratio drifts to 3.
+    expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 100, posY: 100, width: 300, height: 100 });
+  });
+
+  it('with Shift on a corner handle, keeps the start ratio', () => {
+    resizeCard('br', 100, 0, { shiftKey: true });
+
+    // Width 200→300 is a ×1.5 scale; the height follows to hold the start ratio of 2.
+    expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 100, posY: 100, width: 300, height: 150 });
+  });
+
+  it('with Shift, the dominant drag axis drives the scale', () => {
+    // The pointer pushes the height much further (×2) than the width (×1.25) — the height wins.
+    resizeCard('br', 50, 100, { shiftKey: true });
+
+    expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 100, posY: 100, width: 400, height: 200 });
+  });
+
+  it('with Shift on a top-left corner, re-anchors on the opposite corner', () => {
+    // Dragging `tl` outwards grows the box; its bottom-right corner (300,200) must stay put.
+    resizeCard('tl', -100, 0, { shiftKey: true });
+
+    expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 0, posY: 50, width: 300, height: 150 });
+  });
+
+  it('ignores Shift on a side handle, where a locked ratio is undefined (as in Figma)', () => {
+    resizeCard('r', 100, 0, { shiftKey: true });
+
+    expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 100, posY: 100, width: 300, height: 100 });
+  });
+
+  it('with Alt, grows from the start centre — both sides move by the drag delta', () => {
+    resizeCard('br', 50, 0, { altKey: true });
+
+    // +50 on each side: width 200→300, and the centre (200,150) stays put.
+    expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 50, posY: 100, width: 300, height: 100 });
+  });
+
+  it('combines Shift and Alt — ratio kept, centre fixed', () => {
+    resizeCard('br', 50, 0, { shiftKey: true, altKey: true });
+
+    expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 50, posY: 75, width: 300, height: 150 });
+  });
+
+  it('freezes the ratio at the gesture start, so it cannot drift over successive moves', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'A');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: 40, clientY: 0, pointerId: 1, shiftKey: true } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: 100, clientY: 0, pointerId: 1, shiftKey: true } as unknown as PointerEvent);
+
+    // The second move is computed from the *start* box, not from the first move's result — so the
+    // ratio is still exactly 2 and the box matches a single 100px drag.
+    expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 100, posY: 100, width: 300, height: 150 });
+  });
+
+  it('never shrinks a card below the minimum, even while holding the ratio', () => {
+    resizeCard('br', -1000, -1000, { shiftKey: true });
+
+    const box = resizeCardBox.mock.lastCall?.[1] as { width: number; height: number };
+    expect(box.width).toBeGreaterThanOrEqual(80);
+    expect(box.height).toBeGreaterThanOrEqual(80);
+    expect(box.width / box.height).toBeCloseTo(2);
+  });
+
+  it('applies the same modifiers to frames', () => {
+    resizeFrame('br', 200, 0, { shiftKey: true });
+
+    // Frame ratio 400/200 = 2 — width 400→600 (×1.5) pulls the height to 300.
+    expect(resizeFrameBox).toHaveBeenLastCalledWith('F', 0, 0, 600, 300);
+  });
+});
