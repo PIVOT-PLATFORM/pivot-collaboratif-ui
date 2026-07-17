@@ -1,3 +1,5 @@
+import type { KlxCard, KlxConnection, KlxField, KlxFrame } from '../../whiteboard/klx-import/converter';
+
 /** A board member as returned by GET /whiteboard/boards/{boardId}/members. */
 export interface BoardMember {
   userId: string;
@@ -144,4 +146,46 @@ export interface WhiteboardTemplate {
   id: string;
   code: 'BRAINSTORM' | 'RETROSPECTIVE' | 'USER_STORY_MAP';
   thumbnailUrl: string;
+}
+
+/**
+ * Body accepted by `POST /whiteboard/boards/{boardId}/import/klaxoon` (US08.13.1) — the
+ * client-side-converted Klaxoon content (see `whiteboard/klx-import/converter.ts`), minus the
+ * preview-only `stats`. `frames`/`fields` are omitted entirely (not sent as empty arrays) when
+ * the conversion produced none.
+ */
+export interface KlaxoonImportRequest {
+  cards: KlxCard[];
+  connections: KlxConnection[];
+  frames?: KlxFrame[];
+  fields?: KlxField[];
+}
+
+/**
+ * Response from `POST /whiteboard/boards/{boardId}/import/klaxoon` — created-object counts plus
+ * the three id lists the client must memorize verbatim to drive `undoImport` (US08.13.1 AC: "ce
+ * sont ces listes qui font foi pour l'annulation").
+ */
+export interface KlaxoonImportResponse {
+  cards: number;
+  connections: number;
+  frames: number;
+  cardIds: string[];
+  connectionIds: string[];
+  frameIds: string[];
+}
+
+/** Body accepted by `POST /whiteboard/boards/{boardId}/import/undo` (US08.13.1) — the exact
+ *  three id lists returned by the preceding import. */
+export interface KlaxoonUndoRequest {
+  cardIds: string[];
+  connectionIds: string[];
+  frameIds: string[];
+}
+
+/** Response from `POST /whiteboard/boards/{boardId}/import/undo` — counts actually deleted. */
+export interface KlaxoonUndoResponse {
+  cards: number;
+  connections: number;
+  frames: number;
 }

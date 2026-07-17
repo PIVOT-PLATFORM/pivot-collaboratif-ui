@@ -600,6 +600,43 @@
         "space": "Espace",
         "wheel": "molette"
       }
+    },
+    "import": {
+      "trigger": "Importer depuis Klaxoon",
+      "title": "Importer depuis Klaxoon",
+      "close": "Fermer",
+      "pickHint": "Déposez votre export Klaxoon (.klx) tel quel — il est décompressé automatiquement et les bons fichiers sont retrouvés pour vous.",
+      "dropzone": "Glissez le fichier .klx ici, ou cliquez pour le choisir",
+      "reading": "Décompression et lecture des fichiers…",
+      "chooseHint": "Cette archive contient plusieurs tableaux. Lequel importer ?",
+      "cancel": "Annuler",
+      "previewTitle": "Aperçu de l’import",
+      "stats": {
+        "postits": "Notes (post-its)",
+        "texts": "Zones de texte",
+        "draws": "Dessins",
+        "shapes": "Formes",
+        "images": "Images",
+        "zones": "Cadres (zones)",
+        "links": "Liaisons",
+        "groups": "Groupes",
+        "fields": "Champs (catégorie, dimensions)",
+        "skipped": "Ignorés (inactifs…)"
+      },
+      "confirm": "Importer",
+      "importing": "Import en cours…",
+      "doneMessage": "{{count}} élément(s) importé(s).",
+      "closeAction": "Fermer",
+      "undo": "Annuler l’import",
+      "undoing": "Annulation…",
+      "retry": "Réessayer",
+      "error": {
+        "notKlx": "Ce fichier n’est pas une archive .klx.",
+        "noBrainstormData": "Archive .klx invalide : _brainstorm_data.json introuvable à l’intérieur.",
+        "corrupted": "Impossible de lire l’archive .klx. Vérifiez que le fichier n’est pas corrompu.",
+        "importFailed": "Erreur lors de l’import.",
+        "undoFailed": "Impossible d’annuler l’import."
+      }
     }
   }
 }

@@ -8,6 +8,10 @@ import {
   BoardPage,
   BoardSettingsPatch,
   JoinBoardResult,
+  KlaxoonImportRequest,
+  KlaxoonImportResponse,
+  KlaxoonUndoRequest,
+  KlaxoonUndoResponse,
   SaveAsTemplateRequest,
   ShareToken,
   TemplateResponse,
@@ -224,5 +228,33 @@ export class BoardService {
    */
   getPresence(): Observable<Record<string, number>> {
     return this.http.get<Record<string, number>>(`${this.apiUrl}/whiteboard/boards/presence`);
+  }
+
+  /**
+   * Imports a client-converted Klaxoon archive into the board (US08.13.1). OWNER or EDITOR only.
+   * The response's `cardIds`/`connectionIds`/`frameIds` must be memorized by the caller verbatim
+   * -- they are the sole source of truth for {@link undoImport} (no server-side import history).
+   * The created content itself is *not* applied from this response: it arrives via the
+   * `board:imported` STOMP broadcast the backend emits on successful persistence (`BoardStore`
+   * already merges it into the board signals), so this call only needs to be awaited for its
+   * id lists and counts.
+   */
+  importKlaxoon(boardId: string, body: KlaxoonImportRequest): Observable<KlaxoonImportResponse> {
+    return this.http.post<KlaxoonImportResponse>(
+      `${this.apiUrl}/whiteboard/boards/${boardId}/import/klaxoon`,
+      body,
+    );
+  }
+
+  /**
+   * Reverts a single Klaxoon import (US08.13.1) -- deletes exactly the cards/connections/frames
+   * whose ids were returned by the preceding {@link importKlaxoon} call. Board custom fields
+   * (`BoardField`) created by the import are intentionally never deleted by this call.
+   */
+  undoImport(boardId: string, ids: KlaxoonUndoRequest): Observable<KlaxoonUndoResponse> {
+    return this.http.post<KlaxoonUndoResponse>(
+      `${this.apiUrl}/whiteboard/boards/${boardId}/import/undo`,
+      ids,
+    );
   }
 }
