@@ -332,11 +332,15 @@
       "connectorStyle": "Style du lien (flèche, pointillés)",
       "arrowGroup": "Flèche",
       "lineGroup": "Trait",
-      "dashed": "Pointillés",
       "arrow": {
         "none": "Aucune flèche",
         "end": "Flèche à l'arrivée",
         "both": "Flèche aux deux bouts"
+      },
+      "lineStyle": {
+        "dashed": "Tirets",
+        "dotted": "Pointillés",
+        "solid": "Trait plein"
       }
     },
     "card": {

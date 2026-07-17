@@ -182,9 +182,9 @@
             (click)="toggleConnector()"
           >
             <svg class="wb-toolbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-              <path [attr.stroke-dasharray]="connectorDashed() ? '3 3' : null" d="M3 12h13" />
-              @if (connectorArrow() === 'end' || connectorArrow() === 'both') { <path d="M12 8l5 4-5 4" /> }
-              @if (connectorArrow() === 'both') { <path d="M8 8l-5 4 5 4" /> }
+              <path [attr.stroke-dasharray]="dashArrayFor(connectorLineStyle())" d="M3 12h13" />
+              @if (connectorEndCap() !== 'none') { <path d="M12 8l5 4-5 4" /> }
+              @if (connectorStartCap() !== 'none') { <path d="M8 8l-5 4 5 4" /> }
             </svg>
             <svg class="wb-toolbar__caret" viewBox="0 0 8 8" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 8H3l5-5z" /></svg>
           </button>
@@ -194,21 +194,21 @@
               <div class="wb-toolbar__swatch-group" role="group" [attr.aria-label]="'whiteboard.toolbar.arrowGroup' | transloco">
                 <span class="wb-toolbar__flyout-label">{{ 'whiteboard.toolbar.arrowGroup' | transloco }}</span>
                 <div class="wb-toolbar__preset-row">
-                  @for (a of arrowPresets; track a) {
+                  @for (a of arrowPresets; track a.id) {
                     <button
                       type="button"
                       class="wb-toolbar__preset"
-                      [class.wb-toolbar__preset--active]="connectorArrow() === a"
+                      [class.wb-toolbar__preset--active]="isArrowPreset(a)"
                       [disabled]="disabled()"
-                      [attr.aria-pressed]="connectorArrow() === a"
-                      [attr.aria-label]="('whiteboard.toolbar.arrow.' + a) | transloco"
-                      [wbTooltip]="('whiteboard.toolbar.arrow.' + a) | transloco"
+                      [attr.aria-pressed]="isArrowPreset(a)"
+                      [attr.aria-label]="('whiteboard.toolbar.arrow.' + a.id) | transloco"
+                      [wbTooltip]="('whiteboard.toolbar.arrow.' + a.id) | transloco"
                       (click)="chooseArrow(a)"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                         <path d="M3 12h13" />
-                        @if (a === 'end' || a === 'both') { <path d="M12 8l5 4-5 4" /> }
-                        @if (a === 'both') { <path d="M8 8l-5 4 5 4" /> }
+                        @if (a.endCap !== 'none') { <path d="M12 8l5 4-5 4" /> }
+                        @if (a.startCap !== 'none') { <path d="M8 8l-5 4 5 4" /> }
                       </svg>
                     </button>
                   }
@@ -218,20 +218,22 @@
               <div class="wb-toolbar__swatch-group" role="group" [attr.aria-label]="'whiteboard.toolbar.lineGroup' | transloco">
                 <span class="wb-toolbar__flyout-label">{{ 'whiteboard.toolbar.lineGroup' | transloco }}</span>
                 <div class="wb-toolbar__preset-row">
-                  <button
-                    type="button"
-                    class="wb-toolbar__preset"
-                    [class.wb-toolbar__preset--active]="connectorDashed()"
-                    [disabled]="disabled()"
-                    [attr.aria-pressed]="connectorDashed()"
-                    [attr.aria-label]="'whiteboard.toolbar.dashed' | transloco"
-                    [wbTooltip]="'whiteboard.toolbar.dashed' | transloco"
-                    (click)="toggleDashed()"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" focusable="false">
-                      <path stroke-dasharray="3 3" d="M3 12h18" />
-                    </svg>
-                  </button>
+                  @for (ls of lineStylePresets; track ls) {
+                    <button
+                      type="button"
+                      class="wb-toolbar__preset"
+                      [class.wb-toolbar__preset--active]="connectorLineStyle() === ls"
+                      [disabled]="disabled()"
+                      [attr.aria-pressed]="connectorLineStyle() === ls"
+                      [attr.aria-label]="('whiteboard.toolbar.lineStyle.' + ls) | transloco"
+                      [wbTooltip]="('whiteboard.toolbar.lineStyle.' + ls) | transloco"
+                      (click)="chooseLineStyle(ls)"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" focusable="false">
+                        <path [attr.stroke-dasharray]="dashArrayFor(ls)" d="M3 12h18" />
+                      </svg>
+                    </button>
+                  }
                 </div>
               </div>
             </div>

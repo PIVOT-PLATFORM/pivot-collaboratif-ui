@@ -332,11 +332,15 @@
       "connectorStyle": "Link style (arrow, dashed)",
       "arrowGroup": "Arrow",
       "lineGroup": "Line",
-      "dashed": "Dashed",
       "arrow": {
         "none": "No arrow",
         "end": "Arrow at the end",
         "both": "Arrow at both ends"
+      },
+      "lineStyle": {
+        "dashed": "Dashed",
+        "dotted": "Dotted",
+        "solid": "Solid"
       }
     },
     "card": {
