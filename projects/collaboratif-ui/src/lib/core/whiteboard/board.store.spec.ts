@@ -177,6 +177,27 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
     expect(store.fields().filter((f) => f.id === 'field-1')).toHaveLength(1);
   });
 
+  it('renders a frame:created frame once when its emitter-included echo replays (US08.8.1)', () => {
+    const frame = {
+      id: 'frame-1',
+      boardId: BOARD_ID,
+      title: '',
+      posX: 0,
+      posY: 0,
+      width: 400,
+      height: 300,
+      layer: 1,
+    } as Frame;
+    // Same emitter-included echo as `boardfield:created` (#134): the creating client receives its
+    // own `frame:created`, and a reconnect can replay it after `board:state` already carried the
+    // frame. Dispatching twice must not duplicate it (regression: a blind append rendered the
+    // frame twice on the creator until reload).
+    transport.dispatch('frame:created', frame);
+    transport.dispatch('frame:created', frame);
+
+    expect(store.frames().filter((f) => f.id === 'frame-1')).toHaveLength(1);
+  });
+
   it('never leaks senderSessionId into the stored card state', () => {
     transport.dispatch('card:moved', { ...baseCard(), posX: 10, posY: 20, senderSessionId: 'other-conn' });
 

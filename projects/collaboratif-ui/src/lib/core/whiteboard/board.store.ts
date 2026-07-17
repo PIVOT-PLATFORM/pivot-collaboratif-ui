@@ -671,7 +671,12 @@ export class BoardStore {
 
     this.on<Frame>('frame:created', (frame) => {
       this.pendingFrameHistory.shift()?.(frame);
-      this.frames.update((prev) => [...prev, frame]);
+      // Idempotent append: the `frame:created` broadcast is emitter-included, so the creator also
+      // receives its own echo — and a reconnect can replay it after `board:state` already carried
+      // the frame. Dedup by id (same convention as `connection:created`/`boardfield:created`) so a
+      // frame is never rendered twice; a blind append duplicated it on the creating client
+      // (US08.8.1).
+      this.frames.update((prev) => (prev.some((f) => f.id === frame.id) ? prev : [...prev, frame]));
     });
     this.on<Frame>('frame:moved', (frame) =>
       this.frames.update((prev) => prev.map((f) => (f.id === frame.id ? { ...f, ...frame } : f))),
