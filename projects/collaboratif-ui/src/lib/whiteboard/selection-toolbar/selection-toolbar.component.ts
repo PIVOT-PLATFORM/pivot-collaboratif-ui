@@ -7,15 +7,29 @@ import type { TextAlign } from '../model/card-format';
 
 /** Which ends of a connector carry a cap. */
 type ArrowDir = 'none' | 'end' | 'start' | 'both';
-/** A cap shape — `none` is not one: absence is a direction, not a shape. */
-type CapShape = Exclude<ConnCap, 'none'>;
 
-/** none → end → start → both → none. Four states, one button, the icon *is* the state. */
+/**
+ * Every link control is a cycle: one button per property, the icon *is* the state. Asked for as
+ * « un seul bouton (…) qui basculera de l'un a l'autre » — a popover holding radio rows for three
+ * properties was more chrome than choice.
+ */
 const ARROW_CYCLE: Readonly<Record<ArrowDir, ArrowDir>> = {
   none: 'end',
   end: 'start',
   start: 'both',
   both: 'none',
+};
+
+const LINE_STYLE_CYCLE: Readonly<Record<ConnLineStyle, ConnLineStyle>> = {
+  solid: 'dashed',
+  dashed: 'dotted',
+  dotted: 'solid',
+};
+
+const SHAPE_CYCLE: Readonly<Record<ConnShape, ConnShape>> = {
+  curved: 'straight',
+  straight: 'orthogonal',
+  orthogonal: 'curved',
 };
 
 /**
@@ -69,8 +83,6 @@ export class SelectionToolbarComponent {
   readonly refill = output<string | null>();
   /** Emits a partial style patch for the selected connector. */
   readonly connectionStyleChange = output<ConnectionPatch>();
-  /** Asks the board to open the selected connector's label editor. */
-  readonly editLabel = output<void>();
   /** Emits the alignment picked for the selected text cards. */
   readonly realign = output<TextAlign>();
   /** Emits the desired locked state (true = lock, false = unlock). */
@@ -88,13 +100,6 @@ export class SelectionToolbarComponent {
   protected readonly palette = BASE_COLORS;
   protected readonly paletteOpen = signal(false);
   protected readonly fillOpen = signal(false);
-  protected readonly linkOpen = signal(false);
-  protected readonly lineStyles: readonly ConnLineStyle[] = ['solid', 'dashed', 'dotted'];
-  protected readonly connShapes: readonly ConnShape[] = ['straight', 'curved', 'orthogonal'];
-  /** Cap shapes, minus `none` — absence is expressed by the direction cycle, not by a shape. */
-  protected readonly caps: readonly CapShape[] = ['arrow', 'triangle', 'circle', 'diamond'];
-  /** Remembers the shape so it can be restored after the cycle passes through "no arrow". */
-  private readonly lastShape = signal<CapShape>('arrow');
 
   /** Which ends carry a cap, derived from the two independent fields. */
   protected readonly arrowDir = computed<ArrowDir>(() => {
@@ -107,39 +112,25 @@ export class SelectionToolbarComponent {
     return start && end ? 'both' : end ? 'end' : start ? 'start' : 'none';
   });
 
-  /** Shape currently in use — the end's, else the start's, else the last one picked. */
-  protected readonly capShape = computed<CapShape>(() => {
-    const c = this.connection();
-    const inUse = c && c.endCap !== 'none' ? c.endCap : c && c.startCap !== 'none' ? c.startCap : null;
-    return (inUse as CapShape) ?? this.lastShape();
-  });
-
   /**
    * One button, four states — the icon *is* the state. Asked for as « une seule fleche, si on
    * reclique sur le btn ca change le sens ».
    */
   protected cycleArrow(): void {
     const next = ARROW_CYCLE[this.arrowDir()];
-    const shape = this.capShape();
-    this.lastShape.set(shape);
     this.connectionStyleChange.emit({
-      startCap: next === 'start' || next === 'both' ? shape : 'none',
-      endCap: next === 'end' || next === 'both' ? shape : 'none',
+      startCap: next === 'start' || next === 'both' ? 'arrow' : 'none',
+      endCap: next === 'end' || next === 'both' ? 'arrow' : 'none',
     });
   }
 
-  /** Picking a shape on an arrow-less connector creates the arrow rather than doing nothing. */
-  protected chooseCap(cap: CapShape): void {
-    this.lastShape.set(cap);
-    const dir = this.arrowDir() === 'none' ? 'end' : this.arrowDir();
-    this.connectionStyleChange.emit({
-      startCap: dir === 'start' || dir === 'both' ? cap : 'none',
-      endCap: dir === 'end' || dir === 'both' ? cap : 'none',
-    });
+  /** Line style cycles too — three values, one button, the icon is the state. */
+  protected cycleLineStyle(): void {
+    this.connectionStyleChange.emit({ lineStyle: LINE_STYLE_CYCLE[this.connection()?.lineStyle ?? 'solid'] });
   }
 
-  protected chooseShape(shape: ConnShape): void {
-    this.connectionStyleChange.emit({ shape });
+  protected cycleShape(): void {
+    this.connectionStyleChange.emit({ shape: SHAPE_CYCLE[this.connection()?.shape ?? 'curved'] });
   }
 
   /** Whether the selection holds at least one SHAPE — gates the fill swatch. */
@@ -154,10 +145,6 @@ export class SelectionToolbarComponent {
 
   protected chooseFill(fill: string | null): void {
     this.refill.emit(fill);
-  }
-
-  protected chooseLineStyle(lineStyle: ConnLineStyle): void {
-    this.connectionStyleChange.emit({ lineStyle });
   }
 
   /** SVG `stroke-dasharray` previewing a line style — `null` for a solid line. */

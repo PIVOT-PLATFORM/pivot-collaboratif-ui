@@ -62,3 +62,10 @@
   font-size: 11px;
   pointer-events: auto;
 }
+
+// Le double-clic ouvre l'éditeur ; sans ceci il surligne aussi le texte SVG en dessous, ce qui
+// donne une sélection bleue parasite par-dessus le champ.
+.wb-connection__label-text,
+.wb-connection__label {
+  user-select: none;
+}

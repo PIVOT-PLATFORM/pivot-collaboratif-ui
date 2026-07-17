@@ -58,6 +58,7 @@
     [attr.height]="labelBox().height + 8"
   >
     <input
+      #labelInput
       class="wb-connection__label-input"
       [value]="editValue()"
       [attr.aria-label]="'whiteboard.connector.style.labelFieldLabel' | transloco"
@@ -65,7 +66,6 @@
       (blur)="commitLabel()"
       (keydown.enter)="commitLabel()"
       (keydown.escape)="cancelLabel($event)"
-      autofocus
     />
   </svg:foreignObject>
 } @else if (label(); as text) {

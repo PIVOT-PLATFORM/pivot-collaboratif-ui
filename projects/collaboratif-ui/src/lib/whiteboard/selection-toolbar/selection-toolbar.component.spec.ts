@@ -24,7 +24,7 @@ const FR = {
     connector: {
       style: {
         cap: { arrow: 'Flèche', triangle: 'Triangle', circle: 'Cercle', diamond: 'Losange' },
-        shape: { straight: 'Droit', curved: 'Courbe', orthogonal: 'Angle droit' },
+        shape: { straight: 'Droit', curved: 'Courbe', orthogonal: 'Orthogonal' },
       },
     },
     toolbar: {
@@ -35,7 +35,7 @@ const FR = {
       lineStyle: { solid: 'Trait plein', dashed: 'Tirets', dotted: 'Pointillés' },
       labelAdd: 'Ajouter une étiquette',
       labelEdit: "Modifier l'étiquette",
-      arrowDir: { none: 'Aucune flèche', end: "Vers l'arrivée", start: 'Vers le départ', both: 'Les deux bouts' },
+      arrowDir: { none: 'Aucune flèche', end: "Flèche vers l'arrivée", start: 'Flèche vers le départ', both: 'Flèches aux deux bouts' },
       shapeGroup: 'Courbe',
     },
   },
@@ -269,131 +269,81 @@ describe('SelectionToolbarComponent — fill and link style', () => {
     expect(emitted).toEqual([null]);
   });
 
-  it('hides the link style button when no connector is selected', () => {
+  it('shows no link control when no connector is selected', () => {
     fixture.detectChanges();
 
-    expect(btn(fixture, 'Style du lien')).toBeUndefined();
-  });
-
-  it('emits a line style patch for the selected connector', () => {
-    const emitted: unknown[] = [];
-    fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p));
-    fixture.componentRef.setInput('connection', makeConnection());
-    fixture.detectChanges();
-    btn(fixture, 'Style du lien')!.click();
-    fixture.detectChanges();
-
-    btn(fixture, 'Pointillés')!.click();
-
-    expect(emitted).toEqual([{ lineStyle: 'dotted' }]);
+    expect(btn(fixture, 'Aucune flèche')).toBeUndefined();
+    expect(btn(fixture, 'Trait plein')).toBeUndefined();
   });
 
   /**
-   * One button, four states — asked for as « une seule fleche, si on reclique sur le btn ca change
-   * le sens ». Cycle: none → end → start → both → none.
+   * Every link control is a cycle: one button per property, the icon is the state. Asked for as
+   * « un seul bouton (…) qui basculera de l'un a l'autre » — and « supprime les différent type
+   * d'embout », so the arrow is an arrow, full stop.
    */
-  it('cycles the arrow direction on each click of the one arrow button', () => {
+  it('cycles the arrow direction: none -> end -> start -> both -> none', () => {
     const emitted: unknown[] = [];
     fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p));
-    fixture.componentRef.setInput('connection', makeConnection());
-    fixture.detectChanges();
-    btn(fixture, 'Style du lien')!.click();
-    fixture.detectChanges();
 
-    // none → end
-    btn(fixture, 'Aucune flèche')!.click();
-    expect(emitted[0]).toEqual({ startCap: 'none', endCap: 'arrow' });
-
-    // end → start
-    fixture.componentRef.setInput('connection', makeConnection({ startCap: 'none', endCap: 'arrow' }));
-    fixture.detectChanges();
-    btn(fixture, "Vers l'arrivée")!.click();
-    expect(emitted[1]).toEqual({ startCap: 'arrow', endCap: 'none' });
-
-    // start → both
-    fixture.componentRef.setInput('connection', makeConnection({ startCap: 'arrow', endCap: 'none' }));
-    fixture.detectChanges();
-    btn(fixture, 'Vers le départ')!.click();
-    expect(emitted[2]).toEqual({ startCap: 'arrow', endCap: 'arrow' });
-
-    // both → none
-    fixture.componentRef.setInput('connection', makeConnection({ startCap: 'arrow', endCap: 'arrow' }));
-    fixture.detectChanges();
-    btn(fixture, 'Les deux bouts')!.click();
-    expect(emitted[3]).toEqual({ startCap: 'none', endCap: 'none' });
+    const steps: [Partial<Connection>, string, unknown][] = [
+      [{ startCap: 'none', endCap: 'none' }, 'Aucune flèche', { startCap: 'none', endCap: 'arrow' }],
+      [{ startCap: 'none', endCap: 'arrow' }, "Flèche vers l'arrivée", { startCap: 'arrow', endCap: 'none' }],
+      [{ startCap: 'arrow', endCap: 'none' }, 'Flèche vers le départ', { startCap: 'arrow', endCap: 'arrow' }],
+      [{ startCap: 'arrow', endCap: 'arrow' }, 'Flèches aux deux bouts', { startCap: 'none', endCap: 'none' }],
+    ];
+    steps.forEach(([state, label, expected], i) => {
+      fixture.componentRef.setInput('connection', makeConnection(state));
+      fixture.detectChanges();
+      btn(fixture, label)!.click();
+      expect(emitted[i]).toEqual(expected);
+    });
   });
 
-  /** The cycle keeps the shape: turning the arrow off and on again must not lose the diamond. */
-  it('restores the last shape when the cycle comes back from "no arrow"', () => {
-    const emitted: { startCap: string; endCap: string }[] = [];
-    fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p as never));
-    fixture.componentRef.setInput('connection', makeConnection({ startCap: 'none', endCap: 'diamond' }));
-    fixture.detectChanges();
-    btn(fixture, 'Style du lien')!.click();
-    fixture.detectChanges();
-
-    // end → start keeps the diamond, it does not fall back to a plain arrow.
-    btn(fixture, "Vers l'arrivée")!.click();
-
-    expect(emitted[0]).toEqual({ startCap: 'diamond', endCap: 'none' });
-  });
-
-  /** Picking a shape on an arrow-less connector creates the arrow rather than doing nothing. */
-  it('creates an end arrow when a shape is picked on a connector that has none', () => {
+  it('cycles the line style: solid -> dashed -> dotted -> solid', () => {
     const emitted: unknown[] = [];
     fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p));
-    fixture.componentRef.setInput('connection', makeConnection());
-    fixture.detectChanges();
-    btn(fixture, 'Style du lien')!.click();
-    fixture.detectChanges();
 
-    btn(fixture, 'Triangle')!.click();
-
-    expect(emitted).toEqual([{ startCap: 'none', endCap: 'triangle' }]);
+    const steps: [string, string, unknown][] = [
+      ['solid', 'Trait plein', { lineStyle: 'dashed' }],
+      ['dashed', 'Tirets', { lineStyle: 'dotted' }],
+      ['dotted', 'Pointillés', { lineStyle: 'solid' }],
+    ];
+    steps.forEach(([lineStyle, label, expected], i) => {
+      fixture.componentRef.setInput('connection', makeConnection({ lineStyle: lineStyle as never }));
+      fixture.detectChanges();
+      btn(fixture, label)!.click();
+      expect(emitted[i]).toEqual(expected);
+    });
   });
 
-  it('emits the curve shape picked', () => {
+  it('cycles the curve shape: curved -> straight -> orthogonal -> curved', () => {
     const emitted: unknown[] = [];
     fixture.componentInstance.connectionStyleChange.subscribe((p) => emitted.push(p));
-    fixture.componentRef.setInput('connection', makeConnection());
-    fixture.detectChanges();
-    btn(fixture, 'Style du lien')!.click();
-    fixture.detectChanges();
 
-    btn(fixture, 'Angle droit')!.click();
-
-    expect(emitted).toEqual([{ shape: 'orthogonal' }]);
+    const steps: [string, string, unknown][] = [
+      ['curved', 'Courbe', { shape: 'straight' }],
+      ['straight', 'Droit', { shape: 'orthogonal' }],
+      ['orthogonal', 'Orthogonal', { shape: 'curved' }],
+    ];
+    steps.forEach(([shape, label, expected], i) => {
+      fixture.componentRef.setInput('connection', makeConnection({ shape: shape as never }));
+      fixture.detectChanges();
+      btn(fixture, label)!.click();
+      expect(emitted[i]).toEqual(expected);
+    });
   });
 
-  /** The label button says what it will do, and hands off to the connector's own inline editor. */
-  it('offers to add a label, or to edit it when the connector already has one', () => {
-    const asked = vi.fn();
-    fixture.componentInstance.editLabel.subscribe(asked);
+  /** The bar carries three link buttons, not a popover — « simplifie le bandeau en bas ». */
+  it('shows the three link controls straight in the bar, with no popover to open', () => {
     fixture.componentRef.setInput('connection', makeConnection());
     fixture.detectChanges();
-    btn(fixture, 'Style du lien')!.click();
-    fixture.detectChanges();
-    const action = fixture.nativeElement.querySelector('.wb-selbar__link-action') as HTMLButtonElement;
-    expect(action.textContent?.trim()).toBe('Ajouter une étiquette');
 
-    action.click();
-    expect(asked).toHaveBeenCalledTimes(1);
-
-    fixture.componentRef.setInput('connection', makeConnection({ label: 'dépend de' }));
-    fixture.detectChanges();
-    expect((fixture.nativeElement.querySelector('.wb-selbar__link-action') as HTMLElement).textContent?.trim()).toBe(
-      "Modifier l'étiquette",
-    );
-  });
-
-  it('reflects the connector current line style as pressed', () => {
-    fixture.componentRef.setInput('connection', makeConnection({ lineStyle: 'dashed' }));
-    fixture.detectChanges();
-    btn(fixture, 'Style du lien')!.click();
-    fixture.detectChanges();
-
-    expect(btn(fixture, 'Tirets')!.getAttribute('aria-pressed')).toBe('true');
-    expect(btn(fixture, 'Trait plein')!.getAttribute('aria-pressed')).toBe('false');
+    expect(btn(fixture, 'Aucune flèche')).toBeTruthy();
+    expect(btn(fixture, 'Trait plein')).toBeTruthy();
+    expect(btn(fixture, 'Courbe')).toBeTruthy();
+    // No cap-shape buttons, and no "add a label" button: the double-click on the line is the way.
+    expect(btn(fixture, 'Triangle')).toBeUndefined();
+    expect(fixture.nativeElement.querySelector('.wb-selbar__link-action')).toBeNull();
   });
 
   it('offers nothing on a read-only board', () => {
@@ -403,6 +353,6 @@ describe('SelectionToolbarComponent — fill and link style', () => {
     fixture.detectChanges();
 
     expect(btn(fixture, 'Couleur de remplissage')).toBeUndefined();
-    expect(btn(fixture, 'Style du lien')).toBeUndefined();
+    expect(btn(fixture, 'Aucune flèche')).toBeUndefined();
   });
 });

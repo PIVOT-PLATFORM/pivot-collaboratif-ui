@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import type { ConnAnchor, ConnCap, ConnLineStyle, Connection, ConnShape } from '../model/board.types';
 import { type EdgeSide, type Rect, edgeAnchor, edgeAnchorPoint } from '../model/board-geometry';
@@ -291,6 +291,7 @@ export class ConnectionLineComponent {
   /** Whether the label is being edited inline (double-click on the line or its label). */
   protected readonly editing = signal(false);
   protected readonly editValue = signal('');
+  private readonly labelInput = viewChild<ElementRef<HTMLInputElement>>('labelInput');
 
   /** Geometry of the label background box, centered on the path midpoint. */
   protected readonly labelBox = computed(() => {
@@ -345,6 +346,15 @@ export class ConnectionLineComponent {
     }
     this.editValue.set(this.connection().label ?? '');
     this.editing.set(true);
+    // Focus once the input exists — same `queueMicrotask` as the card editor. Without it the input
+    // shows but the focus stays on the document, so `Suppr` reaches the board's own handler and
+    // deletes the whole connector instead of typing in the field (recette 2026-07-17).
+    queueMicrotask(() => {
+      const el = this.labelInput()?.nativeElement;
+      el?.focus();
+      // Select the existing label: typing replaces it, which is what a double-click implies.
+      el?.select();
+    });
   }
 
   protected onLabelDblClick(event: Event): void {
