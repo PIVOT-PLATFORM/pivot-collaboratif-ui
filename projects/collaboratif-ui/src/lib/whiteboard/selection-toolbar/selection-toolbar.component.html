@@ -164,6 +164,33 @@
       </div>
     }
 
+    <!-- Text alignment — TEXT/LABEL only. The field existed and was rendered; no control ever
+         drove it (recette 2026-07-17). -->
+    @if (hasText()) {
+      <div class="wb-selbar__group" role="group" [attr.aria-label]="'whiteboard.selection.align' | transloco">
+        @for (a of aligns; track a) {
+          <button
+            type="button"
+            class="wb-selbar__btn"
+            [class.wb-selbar__btn--on]="textAlign() === a"
+            [attr.aria-pressed]="textAlign() === a"
+            [attr.aria-label]="('whiteboard.selection.align.' + a) | transloco"
+            [wbTooltip]="('whiteboard.selection.align.' + a) | transloco"
+            (click)="chooseAlign(a)"
+          >
+            <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+              <path d="M4 6h16" />
+              @switch (a) {
+                @case ('left') { <path d="M4 12h10M4 18h13" /> }
+                @case ('center') { <path d="M7 12h10M5 18h14" /> }
+                @case ('right') { <path d="M10 12h10M7 18h13" /> }
+              }
+            </svg>
+          </button>
+        }
+      </div>
+    }
+
     <button type="button" class="wb-selbar__btn" (click)="duplicate.emit()"
       [attr.aria-label]="'whiteboard.selection.duplicate' | transloco" [title]="'whiteboard.selection.duplicate' | transloco">
       <svg class="wb-selbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">

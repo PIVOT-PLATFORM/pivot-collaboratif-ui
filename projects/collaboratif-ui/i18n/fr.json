@@ -13,7 +13,12 @@
       "lock": "Verrouiller",
       "unlock": "Déverrouiller",
       "delete": "Supprimer (Suppr)",
-      "fill": "Couleur de remplissage"
+      "fill": "Couleur de remplissage",
+      "align": {
+        "left": "Aligner à gauche",
+        "center": "Centrer",
+        "right": "Aligner à droite"
+      }
     },
     "layer": {
       "bringToFront": "Passer au premier plan",

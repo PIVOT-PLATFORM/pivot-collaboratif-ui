@@ -13,7 +13,12 @@
       "lock": "Lock",
       "unlock": "Unlock",
       "delete": "Delete (Del)",
-      "fill": "Fill colour"
+      "fill": "Fill colour",
+      "align": {
+        "left": "Align left",
+        "center": "Center",
+        "right": "Align right"
+      }
     },
     "layer": {
       "bringToFront": "Bring to front",

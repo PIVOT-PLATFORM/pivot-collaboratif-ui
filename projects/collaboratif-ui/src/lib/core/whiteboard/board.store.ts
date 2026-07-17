@@ -8,6 +8,13 @@ import { ToastService } from '../toast/toast.service';
 import { DEFAULT_CARD_COLOR } from '../../whiteboard/model/colors';
 import { parseShape, serializeShape } from '../../whiteboard/model/shape';
 import {
+  parseLabelFmt,
+  parseTextFmt,
+  serializeLabelFmt,
+  serializeTextFmt,
+  type TextAlign,
+} from '../../whiteboard/model/card-format';
+import {
   HISTORY_LIMIT,
   CURSOR_THROTTLE_MS,
   DEFAULT_CARD_W,

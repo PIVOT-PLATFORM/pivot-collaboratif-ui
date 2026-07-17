@@ -11,6 +11,7 @@ const FR = {
       countPlural: '{{count}} sélectionnés',
       color: 'Couleur',
       fill: 'Couleur de remplissage',
+      align: { left: 'Aligner à gauche', center: 'Centrer', right: 'Aligner à droite' },
       duplicate: 'Dupliquer (Ctrl+D)',
       lock: 'Verrouiller',
       unlock: 'Déverrouiller',
@@ -198,6 +199,35 @@ describe('SelectionToolbarComponent — fill and link style', () => {
   });
 
   /** `undefined` means "no shape in the selection" — distinct from `null`, which means "no fill". */
+  /**
+   * `align` was already in the model and already rendered — no control ever drove it (recette
+   * 2026-07-17: « il faudrait rajouter en bas la justification / emplacement du texte »).
+   */
+  it('hides the alignment when the selection holds no text card', () => {
+    fixture.detectChanges();
+
+    expect(btn(fixture, 'Centrer')).toBeUndefined();
+  });
+
+  it('emits the alignment picked for the selected text', () => {
+    const emitted: string[] = [];
+    fixture.componentInstance.realign.subscribe((a) => emitted.push(a));
+    fixture.componentRef.setInput('textAlign', 'left');
+    fixture.detectChanges();
+
+    btn(fixture, 'Centrer')!.click();
+
+    expect(emitted).toEqual(['center']);
+  });
+
+  it('reflects the current alignment as pressed', () => {
+    fixture.componentRef.setInput('textAlign', 'right');
+    fixture.detectChanges();
+
+    expect(btn(fixture, 'Aligner à droite')!.getAttribute('aria-pressed')).toBe('true');
+    expect(btn(fixture, 'Aligner à gauche')!.getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('hides the fill swatch when the selection holds no shape', () => {
     fixture.detectChanges();
 

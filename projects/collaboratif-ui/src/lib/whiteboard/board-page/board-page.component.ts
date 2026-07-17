@@ -36,6 +36,7 @@ import type { Card, Connection, ConnectionPatch, ConnCap, ConnLineStyle } from '
 import { TOOL_SHORTCUTS, isShapeTool, type ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
 import { parseShape } from '../model/shape';
+import { parseLabelFmt, parseTextFmt, type TextAlign } from '../model/card-format';
 
 /** Delay (ms) within which a second click on the Reset button confirms the action (US08.2.4). */
 const RESET_CONFIRM_WINDOW_MS = 2000;
@@ -151,6 +152,20 @@ export class BoardPageComponent implements OnInit, OnDestroy {
    * fill swatch. Reads the first selected shape: with a mixed selection the swatch shows one of
    * them, and picking a colour applies to all, like the existing colour swatch.
    */
+  /**
+   * Alignment of the selected text cards, or `undefined` when there is none — which hides the
+   * control. Reads the first one: with a mixed selection the control shows one of them and picking
+   * an alignment applies to all, like the colour swatch.
+   */
+  protected readonly selectionAlign = computed<TextAlign | undefined>(() => {
+    const ids = this.store.selectedIds();
+    const card = this.store.cards().find((c) => ids.has(c.id) && (c.type === 'TEXT' || c.type === 'LABEL'));
+    if (!card) {
+      return undefined;
+    }
+    return card.type === 'LABEL' ? parseLabelFmt(card.content).align : parseTextFmt(card.content).align;
+  });
+
   protected readonly selectionFill = computed<string | null | undefined>(() => {
     const ids = this.store.selectedIds();
     const shape = this.store.cards().find((c) => ids.has(c.id) && c.type === 'SHAPE');

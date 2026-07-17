@@ -65,6 +65,8 @@
         <span
           class="wb-card__label"
           [class.wb-card__label--empty]="labelEmpty()"
+          [style.justifyContent]="labelJustify()"
+          [style.textAlign]="labelFmt().align"
           [style.fontSize.px]="labelFmt().size"
           [style.fontWeight]="labelFmt().bold ? '700' : '400'"
           [style.fontStyle]="labelFmt().italic ? 'italic' : 'normal'"

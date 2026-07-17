@@ -3,6 +3,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { BASE_COLORS } from '../model/colors';
 import { WbTooltipDirective } from '../tooltip/wb-tooltip.directive';
 import type { Connection, ConnectionPatch, ConnCap, ConnLineStyle, ConnShape } from '../model/board.types';
+import type { TextAlign } from '../model/card-format';
 
 /** Which ends of a connector carry a cap. */
 type ArrowDir = 'none' | 'end' | 'start' | 'both';
@@ -52,6 +53,12 @@ export class SelectionToolbarComponent {
    * the far corner (recette 2026-07-17).
    */
   readonly connection = input<Connection | null>(null);
+  /**
+   * Alignment of the selected text cards, or `undefined` when the selection holds none — which
+   * hides the control. `align` was already in the model and already rendered; nothing ever let a
+   * user change it (recette 2026-07-17).
+   */
+  readonly textAlign = input<TextAlign | undefined>(undefined);
   /** Hides the recolour/duplicate/lock affordances on a read-only board (delete already gated upstream). */
   readonly readOnly = input<boolean>(false);
 
@@ -64,6 +71,8 @@ export class SelectionToolbarComponent {
   readonly connectionStyleChange = output<ConnectionPatch>();
   /** Asks the board to open the selected connector's label editor. */
   readonly editLabel = output<void>();
+  /** Emits the alignment picked for the selected text cards. */
+  readonly realign = output<TextAlign>();
   /** Emits the desired locked state (true = lock, false = unlock). */
   readonly toggleLock = output<boolean>();
   /**
@@ -135,6 +144,13 @@ export class SelectionToolbarComponent {
 
   /** Whether the selection holds at least one SHAPE — gates the fill swatch. */
   protected readonly hasShape = computed(() => this.fillColor() !== undefined);
+  /** Whether the selection holds at least one TEXT/LABEL — gates the alignment control. */
+  protected readonly hasText = computed(() => this.textAlign() !== undefined);
+  protected readonly aligns: readonly TextAlign[] = ['left', 'center', 'right'];
+
+  protected chooseAlign(align: TextAlign): void {
+    this.realign.emit(align);
+  }
 
   protected chooseFill(fill: string | null): void {
     this.refill.emit(fill);
