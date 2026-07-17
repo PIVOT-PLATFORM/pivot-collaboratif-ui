@@ -34,7 +34,7 @@
     class="wb-toolbar__collapse"
     [attr.aria-label]="(collapsed() ? 'whiteboard.toolbar.expand' : 'whiteboard.toolbar.collapse') | transloco"
     [attr.aria-expanded]="!collapsed()"
-    [title]="(collapsed() ? 'whiteboard.toolbar.expand' : 'whiteboard.toolbar.collapse') | transloco"
+    [wbTooltip]="(collapsed() ? 'whiteboard.toolbar.expand' : 'whiteboard.toolbar.collapse') | transloco"
     (click)="toggleCollapsed()"
   >
     <svg class="wb-toolbar__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -58,7 +58,8 @@
           [disabled]="disabled()"
           [attr.aria-pressed]="tool() === t.mode"
           [attr.aria-label]="t.labelKey | transloco"
-          [title]="t.labelKey | transloco"
+          [wbTooltip]="t.labelKey | transloco"
+          [wbTooltipShortcut]="shortcutFor(t.mode)"
           (click)="pick(t.mode)"
         >
           <ng-container [ngTemplateOutlet]="toolIcon" [ngTemplateOutletContext]="{ mode: t.mode }" />
@@ -76,7 +77,8 @@
           [disabled]="disabled()"
           [attr.aria-pressed]="tool() === t.mode"
           [attr.aria-label]="t.labelKey | transloco"
-          [title]="t.labelKey | transloco"
+          [wbTooltip]="t.labelKey | transloco"
+          [wbTooltipShortcut]="shortcutFor(t.mode)"
           (click)="pick(t.mode)"
         >
           <ng-container [ngTemplateOutlet]="toolIcon" [ngTemplateOutletContext]="{ mode: t.mode }" />
@@ -87,7 +89,7 @@
         class="wb-toolbar__btn"
         [disabled]="disabled()"
         [attr.aria-label]="'whiteboard.card.image.insertButton' | transloco"
-        [title]="'whiteboard.card.image.insertButton' | transloco"
+        [wbTooltip]="'whiteboard.card.image.insertButton' | transloco"
         (click)="pickImageFile()"
       >
         <svg class="wb-toolbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -115,7 +117,8 @@
           [attr.aria-haspopup]="'menu'"
           [attr.aria-expanded]="openMenu() === 'shapes'"
           [attr.aria-label]="'whiteboard.toolbar.shapes' | transloco"
-          [title]="'whiteboard.toolbar.shapes' | transloco"
+          [wbTooltip]="'whiteboard.toolbar.shapes' | transloco"
+          [wbTooltipShortcut]="shortcutFor(shapeGlyph())"
           (click)="toggleShapes()"
         >
           <ng-container [ngTemplateOutlet]="toolIcon" [ngTemplateOutletContext]="{ mode: shapeGlyph() }" />
@@ -133,7 +136,8 @@
                 [attr.aria-checked]="tool() === s"
                 [disabled]="disabled()"
                 [attr.aria-label]="('whiteboard.toolbar.' + s) | transloco"
-                [title]="('whiteboard.toolbar.' + s) | transloco"
+                [wbTooltip]="('whiteboard.toolbar.' + s) | transloco"
+                [wbTooltipShortcut]="shortcutFor(s)"
                 (click)="pickShape(s)"
               >
                 <ng-container [ngTemplateOutlet]="toolIcon" [ngTemplateOutletContext]="{ mode: s }" />
@@ -151,7 +155,8 @@
           [disabled]="disabled()"
           [attr.aria-pressed]="tool() === t.mode"
           [attr.aria-label]="t.labelKey | transloco"
-          [title]="t.labelKey | transloco"
+          [wbTooltip]="t.labelKey | transloco"
+          [wbTooltipShortcut]="shortcutFor(t.mode)"
           (click)="pick(t.mode)"
         >
           <ng-container [ngTemplateOutlet]="toolIcon" [ngTemplateOutletContext]="{ mode: t.mode }" />
@@ -170,7 +175,7 @@
           [attr.aria-haspopup]="'dialog'"
           [attr.aria-expanded]="openMenu() === 'colors'"
           [attr.aria-label]="'whiteboard.toolbar.colorMenu' | transloco"
-          [title]="'whiteboard.toolbar.colorMenu' | transloco"
+          [wbTooltip]="'whiteboard.toolbar.colorMenu' | transloco"
           (click)="toggleColors()"
         >
           <span class="wb-toolbar__color-dot" [style.background]="color()"></span>
@@ -239,8 +244,11 @@
     </div>
 
     <!-- "Échap" hint — shown only when a modal tool is active (not on plain select). -->
-    @if (tool() !== 'select') {
-      <div class="wb-toolbar__hint" aria-hidden="true">{{ 'whiteboard.toolbar.escapeHint' | transloco }}</div>
+    @if (hintKey(); as key) {
+      <div class="wb-toolbar__hint" aria-hidden="true">
+        <span class="wb-toolbar__hint-text">{{ key | transloco }}</span>
+        <span class="wb-toolbar__hint-esc">{{ 'whiteboard.toolbar.escapeHint' | transloco }}</span>
+      </div>
     }
   }
 </div>

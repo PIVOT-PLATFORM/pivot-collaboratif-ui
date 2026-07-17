@@ -29,10 +29,11 @@ import { ActivitiesPanelComponent } from '../activities-panel/activities-panel.c
 import { TimerConfigDialogComponent } from '../timer-config-dialog/timer-config-dialog.component';
 import { VoteConfigDialogComponent, type VoteConfig } from '../vote-config-dialog/vote-config-dialog.component';
 import { BoardSettingsModalComponent } from '../board-settings-modal/board-settings-modal.component';
+import { ShortcutsPanelComponent } from '../shortcuts-panel/shortcuts-panel.component';
 import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import type { Board } from '../../core/whiteboard/board.model';
 import type { Card, Connection, ConnectionPatch } from '../model/board.types';
-import type { ToolMode } from '../model/tools';
+import { TOOL_SHORTCUTS, type ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
 
 /** Delay (ms) within which a second click on the Reset button confirms the action (US08.2.4). */
@@ -70,6 +71,7 @@ const RESET_CONFIRM_WINDOW_MS = 2000;
     TimerConfigDialogComponent,
     VoteConfigDialogComponent,
     BoardSettingsModalComponent,
+    ShortcutsPanelComponent,
     SelectionToolbarComponent,
   ],
   providers: [BoardStore, { provide: BoardTransport, useClass: StompBoardTransport }],
@@ -97,6 +99,8 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly colorPicked = signal(false);
   /** SHAPE fill colour (US08.6.3) — `null` means no fill (transparent), the SHAPE default. */
   protected readonly fillColor = signal<string | null>(null);
+  /** Whether the keyboard shortcut cheat-sheet is open (toggled by `?`). */
+  protected readonly showShortcuts = signal(false);
   protected readonly showGroups = signal(false);
   /** US08.10.1 — board custom-fields definition panel visibility. */
   protected readonly showFields = signal(false);
@@ -408,7 +412,13 @@ export class BoardPageComponent implements OnInit, OnDestroy {
         this.store.deleteSelected();
       }
     } else if (event.key === 'Escape') {
-      this.store.selectCards(new Set());
+      // The cheat-sheet is the topmost transient layer — Escape dismisses it first, and only a
+      // second press falls through to clearing the selection.
+      if (this.showShortcuts()) {
+        this.showShortcuts.set(false);
+      } else {
+        this.store.selectCards(new Set());
+      }
     } else if (event.key.startsWith('Arrow')) {
       const step = event.shiftKey ? 20 : 1;
       const map: Record<string, [number, number]> = {
@@ -421,6 +431,20 @@ export class BoardPageComponent implements OnInit, OnDestroy {
       if (delta && this.store.selectedIds().size > 0) {
         event.preventDefault();
         this.store.moveSelectedBy(delta[0], delta[1]);
+      }
+    } else if (!mod && !event.altKey) {
+      // Bare-letter tool shortcuts, and `?` for the cheat-sheet. Last in the chain so no modifier
+      // combination above can be shadowed, and skipped entirely when a modifier is held — `Ctrl+P`
+      // must stay the browser's print, not the pencil.
+      if (event.key === '?') {
+        event.preventDefault();
+        this.showShortcuts.update((v) => !v);
+        return;
+      }
+      const mode = TOOL_SHORTCUTS[event.key.toLowerCase()];
+      if (mode && !this.store.isReadonly()) {
+        event.preventDefault();
+        this.tool.set(mode);
       }
     }
   }

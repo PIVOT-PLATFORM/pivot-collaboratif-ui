@@ -10,6 +10,23 @@ import { BoardTransport } from '../../core/whiteboard/board-transport';
 import { ToastService } from '../../core/toast/toast.service';
 import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
 import type { Card } from '../model/board.types';
+import type { ToolMode } from '../model/tools';
+
+/** Inert transport for the shortcut suite — it never opens a room. */
+class NoopKeyTransport extends BoardTransport {
+  connect(): void {}
+  disconnect(): void {}
+  emit(): void {}
+  on<T = unknown>(_type: string, _handler: (data: T) => void): () => void {
+    return () => {};
+  }
+  onReconnect(): () => void {
+    return () => {};
+  }
+  getSessionId(): string {
+    return 'noop-key-transport';
+  }
+}
 
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 const FR_TRANSLATIONS = {
@@ -695,5 +712,140 @@ describe('BoardPageComponent — connector style panel wiring (US08.7.2)', () =>
     expect(emitted).toHaveLength(1);
     expect(emitted[0].data).toEqual({ id: 'conn-1', boardId: 'board-1', shape: 'orthogonal' });
     expect(store.connections().find((c) => c.id === 'conn-1')?.shape).toBe('orthogonal');
+  });
+});
+
+/**
+ * Bare-letter tool shortcuts + the `?` cheat-sheet.
+ *
+ * Reported in recette alongside the tooltip gap: the toolbar was reachable by mouse only. No bare
+ * letter was bound anywhere on the board before this, so the whole A–Z space was free to take.
+ */
+describe('BoardPageComponent — tool keyboard shortcuts', () => {
+  interface ShortcutApi {
+    onKeydown(event: KeyboardEvent): void;
+    tool: { (): ToolMode; set(v: ToolMode): void };
+    showShortcuts: { (): boolean; set(v: boolean): void };
+  }
+
+  function create() {
+    const fixture = TestBed.createComponent(BoardPageComponent);
+    const store = fixture.debugElement.injector.get(BoardStore);
+    return { cmp: fixture.componentInstance as unknown as ShortcutApi, store };
+  }
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [BoardPageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: new Map([['boardId', 'board-1']]) } },
+        },
+      ],
+    }).overrideComponent(BoardPageComponent, {
+      set: { providers: [BoardStore, { provide: BoardTransport, useClass: NoopKeyTransport }] },
+    });
+  });
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  /** A keydown whose target is a plain, non-editable element (see the sibling suite's note). */
+  function key(k: string, init: KeyboardEventInit = {}): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key: k, ...init });
+    Object.defineProperty(event, 'target', { value: document.createElement('div') });
+    return event;
+  }
+
+  it.each([
+    ['v', 'select'],
+    ['h', 'pan'],
+    ['n', 'sticky'],
+    ['t', 'text'],
+    ['c', 'frame'],
+    ['r', 'rect'],
+    ['o', 'circle'],
+    ['l', 'line'],
+    ['p', 'draw'],
+    ['f', 'link-cards'],
+  ])('«%s» activates the %s tool', (pressed, expected) => {
+    const { cmp } = create();
+    cmp.tool.set('select');
+
+    cmp.onKeydown(key(pressed));
+
+    expect(cmp.tool()).toBe(expected);
+  });
+
+  it('accepts an uppercase letter — Shift must not defeat the shortcut', () => {
+    const { cmp } = create();
+
+    cmp.onKeydown(key('N', { shiftKey: true }));
+
+    expect(cmp.tool()).toBe('sticky');
+  });
+
+  /** The whole point of gating on the modifier: Ctrl+P is the browser's print, not the pencil. */
+  it.each([
+    ['p', { ctrlKey: true }],
+    ['p', { metaKey: true }],
+    ['v', { ctrlKey: true }],
+    ['n', { altKey: true }],
+  ])('ignores «%s» when a modifier is held', (pressed, init) => {
+    const { cmp } = create();
+    cmp.tool.set('table');
+
+    cmp.onKeydown(key(pressed, init));
+
+    expect(cmp.tool()).toBe('table');
+  });
+
+  it('ignores a shortcut typed into an input, so text entry is never hijacked', () => {
+    const { cmp } = create();
+    cmp.tool.set('select');
+    const event = new KeyboardEvent('keydown', { key: 'n' });
+    Object.defineProperty(event, 'target', { value: document.createElement('input') });
+
+    cmp.onKeydown(event);
+
+    expect(cmp.tool()).toBe('select');
+  });
+
+  it('does not switch tool on a read-only board, where no tool can place anything', () => {
+    const { cmp, store } = create();
+    store.userRole.set('VIEWER');
+    cmp.tool.set('select');
+
+    cmp.onKeydown(key('n'));
+
+    expect(cmp.tool()).toBe('select');
+  });
+
+  it('« ? » toggles the cheat-sheet open, then closed', () => {
+    const { cmp } = create();
+
+    cmp.onKeydown(key('?'));
+    expect(cmp.showShortcuts()).toBe(true);
+
+    cmp.onKeydown(key('?'));
+    expect(cmp.showShortcuts()).toBe(false);
+  });
+
+  /** The cheat-sheet is the topmost layer: Escape must close it before touching the selection. */
+  it('Escape closes the cheat-sheet first, and only then clears the selection', () => {
+    const { cmp, store } = create();
+    store.selectCards(new Set(['card-1']));
+    cmp.showShortcuts.set(true);
+
+    cmp.onKeydown(key('Escape'));
+    expect(cmp.showShortcuts()).toBe(false);
+    expect(store.selectedIds().size).toBe(1);
+
+    cmp.onKeydown(key('Escape'));
+    expect(store.selectedIds().size).toBe(0);
   });
 });

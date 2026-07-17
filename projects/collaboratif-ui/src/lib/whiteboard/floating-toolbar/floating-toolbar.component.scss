@@ -305,14 +305,28 @@
 
 // ── "Échap" hint pill ───────────────────────────────────────────────────────
 .wb-toolbar__hint {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  // The bar is narrow; the hint is the one element allowed to be wider, so it can say something
+  // useful about the active tool rather than a single word.
+  width: max-content;
+  max-width: 180px;
   margin-top: var(--wb-space-1);
-  padding: 2px var(--wb-space-2);
-  border-radius: var(--wb-radius-pill);
+  padding: var(--wb-space-1) var(--wb-space-2);
+  border-radius: var(--wb-radius-chip);
   background: var(--wb-surface-sunken);
   color: var(--wb-ink-faint);
-  font-family: var(--wb-font-mono);
   font-size: var(--wb-text-hint);
   line-height: 1.4;
+}
+
+.wb-toolbar__hint-text {
+  color: var(--wb-ink-muted);
+}
+
+.wb-toolbar__hint-esc {
+  font-family: var(--wb-font-mono);
 }
 
 // ── Accessible-hidden file input (US08.6.4) ─────────────────────────────────

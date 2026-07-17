@@ -1,0 +1,118 @@
+.wb-shortcuts__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--wb-space-4);
+  background: rgb(0 0 0 / 45%);
+}
+
+.wb-shortcuts {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: 100%;
+  border-radius: var(--wb-radius-panel);
+  background: var(--wb-surface);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 30%);
+}
+
+.wb-shortcuts__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wb-space-2);
+  padding: var(--wb-space-3) var(--wb-space-4);
+  border-bottom: 1px solid var(--wb-border);
+}
+
+.wb-shortcuts__title {
+  margin: 0;
+  color: var(--wb-ink);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.wb-shortcuts__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--wb-radius-control);
+  background: transparent;
+  color: var(--wb-ink-muted);
+  cursor: pointer;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--wb-surface-sunken);
+    color: var(--wb-ink);
+  }
+}
+
+.wb-shortcuts__body {
+  // Three columns on a wide dialog, collapsing to one when the viewport cannot hold them —
+  // the sheet must stay readable on a laptop split-screen, where it is most likely consulted.
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--wb-space-4);
+  padding: var(--wb-space-4);
+  overflow-y: auto;
+}
+
+.wb-shortcuts__group-title {
+  margin: 0 0 var(--wb-space-2);
+  color: var(--wb-ink-muted);
+  font-size: var(--wb-text-hint);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wb-shortcuts__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.wb-shortcuts__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wb-space-2);
+  padding: 3px 0;
+}
+
+.wb-shortcuts__label {
+  color: var(--wb-ink);
+  font-size: 0.8125rem;
+}
+
+.wb-shortcuts__keys {
+  display: flex;
+  flex-shrink: 0;
+  gap: 3px;
+  margin: 0;
+}
+
+.wb-shortcuts__key {
+  padding: 1px 6px;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius-chip);
+  background: var(--wb-surface-sunken);
+  color: var(--wb-ink-muted);
+  font-family: var(--wb-font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}

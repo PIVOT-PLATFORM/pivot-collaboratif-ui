@@ -318,7 +318,17 @@
       "shapes": "Shapes",
       "shapesMenu": "Choose a shape",
       "colorMenu": "Colours (stroke and fill)",
-      "escapeHint": "Esc"
+      "escapeHint": "Esc",
+      "hint": {
+        "draw": "Drag to draw freehand.",
+        "frame": "Drag to draw a frame.",
+        "link-cards": "Drag from one card to another to link them.",
+        "pan": "Drag to move the board.",
+        "shape": "Drag to draw the shape.",
+        "sticky": "Click to drop a note.",
+        "table": "Click to drop a table.",
+        "text": "Click to write some text."
+      }
     },
     "card": {
       "editText": "Edit text",
@@ -544,6 +554,42 @@
           "name": "Retrospective",
           "desc": "Ready-made 3-column template"
         }
+      }
+    },
+    "shortcuts": {
+      "close": "Close shortcuts",
+      "copy": "Copy",
+      "cut": "Cut",
+      "delete": "Delete selection",
+      "duplicate": "Duplicate",
+      "escape": "Deselect / leave the tool",
+      "fromCenter": "Resize from the centre",
+      "groupCanvas": "Navigation and gestures",
+      "groupEdit": "Editing",
+      "groupTools": "Tools",
+      "move": "Move the selection",
+      "moveFast": "Move by steps of 20",
+      "multiSelect": "Add to the selection",
+      "open": "Show keyboard shortcuts",
+      "panGesture": "Move the board",
+      "paste": "Paste",
+      "ratio": "Keep the ratio while resizing",
+      "redo": "Redo",
+      "selectAll": "Select all",
+      "shortcuts": "Show these shortcuts",
+      "title": "Keyboard shortcuts",
+      "undo": "Undo",
+      "zoom": "Zoom",
+      "keys": {
+        "alt": "Alt",
+        "click": "click",
+        "ctrl": "Ctrl",
+        "del": "Del",
+        "drag": "drag",
+        "esc": "Esc",
+        "shift": "Shift",
+        "space": "Space",
+        "wheel": "wheel"
       }
     }
   }

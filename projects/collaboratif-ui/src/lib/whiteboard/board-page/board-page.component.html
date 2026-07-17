@@ -245,6 +245,10 @@
     ></wb-vote-config-dialog>
   }
 
+  @if (showShortcuts()) {
+    <wb-shortcuts-panel (closePanel)="showShortcuts.set(false)"></wb-shortcuts-panel>
+  }
+
   @if (showShare()) {
     <dialog class="wb-page__modal" open [attr.aria-label]="'whiteboard.share.panel.title' | transloco">
       <app-share-panel [boardId]="boardId" (closed)="showShare.set(false)"></app-share-panel>

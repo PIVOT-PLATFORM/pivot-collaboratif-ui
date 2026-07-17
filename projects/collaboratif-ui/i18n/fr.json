@@ -318,7 +318,17 @@
       "shapes": "Formes",
       "shapesMenu": "Choisir une forme",
       "colorMenu": "Couleurs (trait et remplissage)",
-      "escapeHint": "Échap"
+      "escapeHint": "Échap",
+      "hint": {
+        "draw": "Glissez pour dessiner à main levée.",
+        "frame": "Glissez pour tracer un cadre.",
+        "link-cards": "Glissez d'une carte à une autre pour les relier.",
+        "pan": "Glissez pour déplacer le tableau.",
+        "shape": "Glissez pour tracer la forme.",
+        "sticky": "Cliquez pour poser une note.",
+        "table": "Cliquez pour poser un tableau.",
+        "text": "Cliquez pour écrire un texte."
+      }
     },
     "card": {
       "editText": "Modifier le texte",
@@ -544,6 +554,42 @@
           "name": "Rétrospective",
           "desc": "Modèle 3 colonnes prêt à l’emploi"
         }
+      }
+    },
+    "shortcuts": {
+      "close": "Fermer les raccourcis",
+      "copy": "Copier",
+      "cut": "Couper",
+      "delete": "Supprimer la sélection",
+      "duplicate": "Dupliquer",
+      "escape": "Désélectionner / quitter l'outil",
+      "fromCenter": "Redimensionner depuis le centre",
+      "groupCanvas": "Navigation et gestes",
+      "groupEdit": "Édition",
+      "groupTools": "Outils",
+      "move": "Déplacer la sélection",
+      "moveFast": "Déplacer par pas de 20",
+      "multiSelect": "Ajouter à la sélection",
+      "open": "Afficher les raccourcis clavier",
+      "panGesture": "Déplacer le tableau",
+      "paste": "Coller",
+      "ratio": "Conserver le ratio au redimensionnement",
+      "redo": "Rétablir",
+      "selectAll": "Tout sélectionner",
+      "shortcuts": "Afficher ces raccourcis",
+      "title": "Raccourcis clavier",
+      "undo": "Annuler",
+      "zoom": "Zoomer",
+      "keys": {
+        "alt": "Alt",
+        "click": "clic",
+        "ctrl": "Ctrl",
+        "del": "Suppr",
+        "drag": "glisser",
+        "esc": "Échap",
+        "shift": "Maj",
+        "space": "Espace",
+        "wheel": "molette"
       }
     }
   }
