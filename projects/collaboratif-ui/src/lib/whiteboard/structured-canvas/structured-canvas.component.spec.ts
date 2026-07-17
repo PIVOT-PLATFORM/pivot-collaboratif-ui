@@ -1323,6 +1323,7 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
   let resizeCardBox: ReturnType<typeof vi.fn>;
   let resizeFrameBox: ReturnType<typeof vi.fn>;
   let updateCard: ReturnType<typeof vi.fn>;
+  let previewCardContent: ReturnType<typeof vi.fn>;
 
   /** A 200×100 card (ratio 2) — a non-square start box makes a broken ratio visible. */
   const CARD = { id: 'A', posX: 100, posY: 100, width: 200, height: 100, type: 'STICKY', text: '', color: '#FFF' } as unknown as Card;
@@ -1334,6 +1335,7 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
     resizeCardBox = vi.fn();
     resizeFrameBox = vi.fn();
     updateCard = vi.fn();
+    previewCardContent = vi.fn();
     const storeStub = {
       isReadonly: () => false,
       frames: () => [FRAME],
@@ -1356,6 +1358,7 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
       commitResizeCard: vi.fn(),
       commitResizeFrame: vi.fn(),
       updateCard,
+      previewCardContent,
       resizeCardBox,
       resizeFrameBox,
     };
@@ -1503,6 +1506,33 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
 
     expect(updateCard).toHaveBeenCalledTimes(1);
     expect(parseShape(updateCard.mock.calls[0][1]).diag).toBe('bltr');
+  });
+
+  /**
+   * Swinging an endpoint around the fixed one (recette: « si je prends une extremité et que
+   * j'essaie de faire le tour du point que l'on ne bouge pas, il se met a bouger également si on
+   * dépasse un certain angle »). The box was recomputed correctly, but the line is drawn along
+   * whichever diagonal `content` names — left stale until release, it was drawn on the wrong one
+   * past 90°, so *both* ends appeared to move. The repaint is local; nothing is emitted until the
+   * pointer is released.
+   */
+  it('repaints the diagonal live while an endpoint swings around the fixed one', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+
+    // Still below-right of the fixed end (100,100): same diagonal, nothing to repaint.
+    component['onPointerMove']({ clientX: 400, clientY: 300, pointerId: 1, shiftKey: false } as unknown as PointerEvent);
+    expect(previewCardContent).not.toHaveBeenCalled();
+
+    // Swung above the fixed end: the line now runs the other way.
+    component['onPointerMove']({ clientX: 400, clientY: 40, pointerId: 1, shiftKey: false } as unknown as PointerEvent);
+    expect(previewCardContent).toHaveBeenCalledTimes(1);
+    expect(parseShape(previewCardContent.mock.calls[0][1]).diag).toBe('bltr');
+    // Local only — the room hears about it once, on release.
+    expect(updateCard).not.toHaveBeenCalled();
   });
 
   /** Nothing to rewrite when the gesture kept the same orientation — no needless card:update. */

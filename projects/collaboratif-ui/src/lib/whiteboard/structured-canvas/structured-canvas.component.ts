@@ -66,7 +66,16 @@ type Gesture =
   | { kind: 'pan'; startX: number; startY: number; vpX: number; vpY: number }
   | { kind: 'marquee'; startX: number; startY: number }
   | { kind: 'drag-card'; id: string; startX: number; startY: number; startPos: { x: number; y: number } }
-  | { kind: 'resize-card'; id: string; dir: string; start: Rect; startX: number; startY: number; lineDiag?: ShapeDiag }
+  | {
+      kind: 'resize-card';
+      id: string;
+      dir: string;
+      start: Rect;
+      startX: number;
+      startY: number;
+      lineDiag?: ShapeDiag;
+      lineContent?: string;
+    }
   | { kind: 'drag-frame'; id: string; startX: number; startY: number; startPos: { x: number; y: number }; captured: string[] }
   | { kind: 'resize-frame'; id: string; dir: string; start: Rect; startX: number; startY: number }
   | { kind: 'connect'; fromId: string; fromSide: EdgeSide | null; x: number; y: number }
@@ -388,6 +397,9 @@ export class StructuredCanvasComponent {
           startY: pt.y,
           // Present only for a line — that is what routes the gesture to the endpoint logic.
           lineDiag: spec?.kind === 'line' ? spec.diag : undefined,
+          // The content as it was before the gesture: the undo target, and the reference that says
+          // whether the diagonal actually changed.
+          lineContent: spec?.kind === 'line' ? card.content : undefined,
         };
       }
       return;
@@ -639,7 +651,15 @@ export class StructuredCanvasComponent {
     const end = opts.ratio ? this.snapAngle(fx, fy, x, y) : { x, y };
     const box = this.normRect(fx, fy, end.x, end.y);
     // Both signs together → top-left→bottom-right; crossed → the other diagonal.
-    this.gesture = { ...g, lineDiag: (end.x - fx) * (end.y - fy) >= 0 ? 'tlbr' : 'bltr' };
+    const diag: ShapeDiag = (end.x - fx) * (end.y - fy) >= 0 ? 'tlbr' : 'bltr';
+    this.gesture = { ...g, lineDiag: diag };
+    const live = this.store.cards().find((c) => c.id === g.id);
+    if (live && parseShape(live.content).diag !== diag) {
+      // Repaint locally on every move: the line is drawn along whichever diagonal `content` names,
+      // so leaving it stale while swinging an endpoint around the fixed one draws it on the wrong
+      // diagonal, and *both* ends appear to move. Emitted once, on release.
+      this.store.previewCardContent(g.id, serializeShape({ ...parseShape(g.lineContent ?? ''), diag }));
+    }
     this.store.resizeCardBox(g.id, {
       posX: box.x,
       posY: box.y,
@@ -821,14 +841,16 @@ export class StructuredCanvasComponent {
    * is what moved during the drag; this is the one bit the box cannot carry.
    */
   private commitLineDiag(g: Extract<Gesture, { kind: 'resize-card' }>): void {
-    const card = this.store.cards().find((c) => c.id === g.id);
-    if (!g.lineDiag || !card) {
+    if (!g.lineDiag || !g.lineContent) {
       return;
     }
-    const spec = parseShape(card.content);
-    if (spec.diag !== g.lineDiag) {
-      this.store.updateCard(g.id, serializeShape({ ...spec, diag: g.lineDiag }));
+    const spec = parseShape(g.lineContent);
+    if (spec.diag === g.lineDiag) {
+      return;
     }
+    // `lineContent` is the pre-gesture value: the card itself already holds the previewed one, so
+    // it is passed explicitly as the undo target.
+    this.store.updateCard(g.id, serializeShape({ ...spec, diag: g.lineDiag }), g.lineContent);
   }
 
   /**
