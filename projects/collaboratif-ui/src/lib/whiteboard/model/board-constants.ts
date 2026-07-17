@@ -9,6 +9,18 @@ export const MIN_W = 150;
 export const MIN_H = 110;
 /** Minimum shape size. */
 export const SHAPE_MIN = 80;
+/**
+ * Minimum size of a `line` shape's box, on either axis.
+ *
+ * A line is the diagonal of its box, so a straight horizontal or vertical one needs a box that is
+ * flat on one axis — {@link SHAPE_MIN} on both axes makes that shape structurally impossible.
+ * Lines therefore get their own floor; every other shape keeps {@link SHAPE_MIN}.
+ */
+export const LINE_MIN = 1;
+/** Angle step (degrees) a line snaps to while Shift is held — Figma/Miro convention. */
+export const LINE_SNAP_DEG = 15;
+/** Below this drag length (canvas px), a line gesture commits nothing: it reads as a click. */
+export const LINE_MIN_DRAG = 4;
 /** Minimum label width — deterministic box so resize handles stay aligned. */
 export const MIN_LABEL_W = 60;
 

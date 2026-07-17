@@ -42,6 +42,20 @@
           stroke-linejoin="round"
         ></svg:path>
       }
+      <!-- Live line being dragged: shows the exact segment that will be committed, including the
+           Shift angle snap, rather than leaving the user to guess until release. -->
+      @if (linePreview(); as l) {
+        <svg:line
+          class="wb-line-preview"
+          [attr.x1]="l.x1"
+          [attr.y1]="l.y1"
+          [attr.x2]="l.x2"
+          [attr.y2]="l.y2"
+          [attr.stroke]="color()"
+          stroke-width="2"
+          stroke-linecap="round"
+        ></svg:line>
+      }
       @if (connectGhost(); as g) {
         <svg:line
           class="wb-connect-ghost"

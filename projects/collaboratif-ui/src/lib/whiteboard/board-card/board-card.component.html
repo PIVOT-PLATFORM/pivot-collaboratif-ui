@@ -83,7 +83,18 @@
             <polygon points="50,4 96,96 4,96" [attr.fill]="shape().fill || 'none'" [attr.stroke]="shape().stroke" stroke-width="2" vector-effect="non-scaling-stroke" />
           }
           @case ('line') {
-            <line x1="2" y1="50" x2="98" y2="50" [attr.stroke]="shape().stroke" stroke-width="2" vector-effect="non-scaling-stroke" />
+            <!-- The line IS the diagonal of its box (`diag` picks which one), so any angle is
+                 reachable by sizing the box. The SVG is `preserveAspectRatio="none"`, so these
+                 corner-to-corner coordinates land exactly on the box's corners. -->
+            <line
+              x1="0"
+              [attr.y1]="shape().diag === 'bltr' ? 100 : 0"
+              x2="100"
+              [attr.y2]="shape().diag === 'bltr' ? 0 : 100"
+              [attr.stroke]="shape().stroke"
+              stroke-width="2"
+              vector-effect="non-scaling-stroke"
+            />
           }
           @case ('star') {
             <polygon points="50,3 61,38 98,38 68,60 79,95 50,73 21,95 32,60 2,38 39,38" [attr.fill]="shape().fill || 'none'" [attr.stroke]="shape().stroke" stroke-width="2" vector-effect="non-scaling-stroke" />
