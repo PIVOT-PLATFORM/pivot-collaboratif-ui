@@ -10,6 +10,7 @@ import { DEFAULT_CARD_COLOR, DEFAULT_SHAPE_COLOR } from '../model/colors';
 import { BoardTransport } from '../../core/whiteboard/board-transport';
 import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
 import type { Card } from '../model/board.types';
+import { parseShape } from '../model/shape';
 
 /** Inert transport — this suite never opens the realtime room (`store.init` is never called). */
 class NoopTransport extends BoardTransport {
@@ -1294,6 +1295,8 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
 
   /** A 200×100 card (ratio 2) — a non-square start box makes a broken ratio visible. */
   const CARD = { id: 'A', posX: 100, posY: 100, width: 200, height: 100, type: 'STICKY', text: '', color: '#FFF' } as unknown as Card;
+  /** A line card — its box may flatten, unlike every other shape (see the per-type floor). */
+  const LINE = { id: 'L', posX: 100, posY: 100, width: 200, height: 100, type: 'SHAPE', content: 'line|#A5B4FC|none|1|0|tlbr', text: '', color: '#FFF' } as unknown as Card;
   const FRAME = { id: 'F', posX: 0, posY: 0, width: 400, height: 200, active: false };
 
   beforeEach(async () => {
@@ -1302,7 +1305,7 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
     const storeStub = {
       isReadonly: () => false,
       frames: () => [FRAME],
-      cards: () => [CARD],
+      cards: () => [CARD, LINE],
       connections: () => [],
       fields: () => [],
       selectedIds: () => new Set<string>(['A']),
@@ -1430,6 +1433,30 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
     expect(resizeCardBox).toHaveBeenLastCalledWith('A', { posX: 100, posY: 100, width: 300, height: 150 });
   });
 
+  /**
+   * A line is the diagonal of its box, so it must be allowed to go flat on an axis to stay
+   * straight. `SHAPE_MIN` (80) on both axes made a horizontal or vertical line structurally
+   * impossible — the floor is per-type now.
+   */
+  it('lets a line flatten to a straight horizontal, below the shape minimum', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'b');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: 0, clientY: -1000, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+
+    // Flat box → a genuinely horizontal line, which the 80px floor would have forbidden.
+    expect(resizeCardBox).toHaveBeenLastCalledWith('L', { posX: 100, posY: 100, width: 200, height: 1 });
+  });
+
+  it('still holds every other shape to the 80px minimum', () => {
+    resizeCard('b', 0, -1000);
+
+    const box = resizeCardBox.mock.lastCall?.[1] as { height: number };
+    expect(box.height).toBe(80);
+  });
+
   it('never shrinks a card below the minimum, even while holding the ratio', () => {
     resizeCard('br', -1000, -1000, { shiftKey: true });
 
@@ -1444,5 +1471,174 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
 
     // Frame ratio 400/200 = 2 — width 400→600 (×1.5) pulls the height to 300.
     expect(resizeFrameBox).toHaveBeenLastCalledWith('F', 0, 0, 600, 300);
+  });
+});
+
+/**
+ * Line tool — dragged, not clicked (recette: "les trait ne sont toujours pas utilisable en l'état.
+ * horizontal forcé + forme rectangulaire lors de la selection").
+ *
+ * The line used to be clicked into a fixed 120×120 box and rendered from a hard-coded
+ * `<line x1="2" y1="50" x2="98" y2="50">` — hence horizontal whatever the box, inside a square
+ * selection outline. It is now the *diagonal of its box*: the drag gives the box, and `diag` says
+ * which diagonal the pointer travelled, which together reproduce any segment.
+ */
+describe('StructuredCanvasComponent — line tool', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let addCard: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    addCard = vi.fn();
+    const storeStub = {
+      addCard,
+      isReadonly: () => false,
+      frames: () => [],
+      cards: () => [],
+      connections: () => [],
+      fields: () => [],
+      selectedIds: () => new Set<string>(),
+      remoteEditors: () => new Map<string, { name: string }>(),
+      autoEditCardId: () => null,
+      activeVoteSession: () => null,
+      voteTallyByCard: () => new Map<string, number>(),
+      myVoteTallyByCard: () => new Map<string, number>(),
+      voteBudgetRemaining: () => null,
+      emitCursor: vi.fn(),
+      selectCards: vi.fn(),
+      castVote: vi.fn(),
+      uncastVote: vi.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: storeStub }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    fixture.componentRef.setInput('tool', 'line');
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  function surface(): HTMLElement {
+    const el = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    el.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }) as unknown as typeof el.getBoundingClientRect;
+    (el as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
+    (el as unknown as { releasePointerCapture: (id: number) => void }).releasePointerCapture = vi.fn();
+    return el;
+  }
+
+  /** Drags a line from (x1,y1) to (x2,y2), optionally holding Shift for the angle snap. */
+  function dragLine(x1: number, y1: number, x2: number, y2: number, shiftKey = false): void {
+    const el = surface();
+    component['onPointerDown']({ button: 0, target: el, currentTarget: el, clientX: x1, clientY: y1, pointerId: 1 } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: x2, clientY: y2, pointerId: 1, shiftKey } as unknown as PointerEvent);
+    component['onPointerUp']({ target: el, currentTarget: el, clientX: x2, clientY: y2, pointerId: 1 } as unknown as PointerEvent);
+  }
+
+  /** The parsed spec + box of the single card the gesture committed. */
+  function committed() {
+    const [posX, posY, type, content, , width, height] = addCard.mock.calls[0];
+    return { posX, posY, type, spec: parseShape(content), width, height };
+  }
+
+  it('commits a line spanning the drag, as a SHAPE card', () => {
+    dragLine(100, 100, 300, 250);
+
+    expect(addCard).toHaveBeenCalledTimes(1);
+    const c = committed();
+    expect(c.type).toBe('SHAPE');
+    expect(c.spec.kind).toBe('line');
+    // The box is the drag's bounding box — top-left corner, then its extent.
+    expect([c.posX, c.posY, c.width, c.height]).toEqual([100, 100, 200, 150]);
+  });
+
+  /** Dragging down-right keeps the sign of dx and dy together: the top-left→bottom-right diagonal. */
+  it('records the top-left→bottom-right diagonal for a down-right drag', () => {
+    dragLine(100, 100, 300, 250);
+
+    expect(committed().spec.diag).toBe('tlbr');
+  });
+
+  /** Dragging up-right crosses the signs: the other diagonal of the very same box. */
+  it('records the bottom-left→top-right diagonal for an up-right drag', () => {
+    dragLine(100, 250, 300, 100);
+
+    const c = committed();
+    expect(c.spec.diag).toBe('bltr');
+    // Same box as the down-right drag above — only the diagonal differs.
+    expect([c.posX, c.posY, c.width, c.height]).toEqual([100, 100, 200, 150]);
+  });
+
+  /** A drag up-left is the same segment as down-right, entered from the other end. */
+  it('records the top-left→bottom-right diagonal for an up-left drag', () => {
+    dragLine(300, 250, 100, 100);
+
+    expect(committed().spec.diag).toBe('tlbr');
+  });
+
+  it('commits nothing for a click that never moved — no degenerate card to hunt down', () => {
+    dragLine(100, 100, 100, 100);
+
+    expect(addCard).not.toHaveBeenCalled();
+  });
+
+  it('commits nothing for a drag too short to be deliberate', () => {
+    dragLine(100, 100, 102, 101);
+
+    expect(addCard).not.toHaveBeenCalled();
+  });
+
+  /** Shift snaps the *angle*, which is what makes 15°/30°/45° reachable — not just the axes. */
+  it('snaps to the horizontal with Shift when the drag is nearly horizontal', () => {
+    dragLine(100, 100, 300, 108, true);
+
+    const c = committed();
+    // The 8px of vertical slop is snapped away: a flat box, hence a truly horizontal line.
+    expect(c.height).toBe(0);
+    // The snap rotates the gesture onto the nearest ray and keeps its length, so the width is the
+    // drag's full length (hypot(200, 8) ≈ 200.16), not its horizontal component.
+    expect(c.width).toBeCloseTo(Math.hypot(200, 8), 5);
+  });
+
+  it('snaps to 45° with Shift when the drag is nearly diagonal', () => {
+    // 43.5° from the horizontal — the nearest 15° multiple is 45°.
+    dragLine(100, 100, 300, 290, true);
+
+    const c = committed();
+    // On the 45° ray the box is square, so its diagonal is at exactly 45°.
+    expect(c.width).toBeCloseTo(c.height, 5);
+  });
+
+  /** The nearest ray wins — a 24° drag belongs to 30°, not to the 45° everyone assumes. */
+  it('snaps to 30° with Shift when the drag sits nearest that ray', () => {
+    dragLine(100, 100, 300, 190, true);
+
+    const c = committed();
+    expect(Math.atan2(c.height, c.width) * (180 / Math.PI)).toBeCloseTo(30, 5);
+  });
+
+  it('previews the line live while dragging, then clears it on release', () => {
+    const el = surface();
+    component['onPointerDown']({ button: 0, target: el, currentTarget: el, clientX: 100, clientY: 100, pointerId: 1 } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: 300, clientY: 250, pointerId: 1, shiftKey: false } as unknown as PointerEvent);
+
+    expect(component['linePreview']()).toEqual({ x1: 100, y1: 100, x2: 300, y2: 250 });
+
+    component['onPointerUp']({ target: el, currentTarget: el, clientX: 300, clientY: 250, pointerId: 1 } as unknown as PointerEvent);
+
+    expect(component['linePreview']()).toBeNull();
   });
 });

@@ -27,7 +27,7 @@ import {
   looksLikeImageFilename,
   readAsDataUrl,
 } from '../model/image-card';
-import { serializeShape, type ShapeKind } from '../model/shape';
+import { parseShape, serializeShape, type ShapeKind } from '../model/shape';
 import { serializeTable } from '../model/table';
 import { decideTablePaste } from '../model/table-clipboard';
 import type { ToolMode } from '../model/tools';
@@ -49,6 +49,9 @@ import {
   MIN_W,
   MIN_H,
   SHAPE_MIN,
+  LINE_MIN,
+  LINE_SNAP_DEG,
+  LINE_MIN_DRAG,
   MIN_ZOOM,
   MAX_ZOOM,
   DOT_SPACING,
@@ -67,7 +70,8 @@ type Gesture =
   | { kind: 'drag-frame'; id: string; startX: number; startY: number; startPos: { x: number; y: number }; captured: string[] }
   | { kind: 'resize-frame'; id: string; dir: string; start: Rect; startX: number; startY: number }
   | { kind: 'connect'; fromId: string; fromSide: EdgeSide | null; x: number; y: number }
-  | { kind: 'draw'; points: [number, number][] };
+  | { kind: 'draw'; points: [number, number][] }
+  | { kind: 'draw-line'; startX: number; startY: number; x: number; y: number };
 
 /**
  * Modifiers held during a resize gesture.
@@ -180,6 +184,12 @@ export class StructuredCanvasComponent {
    * DRAW card. The `gesture.points` array alone is not reactive, so it cannot drive rendering.
    */
   protected readonly drawPreview = signal<string | null>(null);
+  /**
+   * Live endpoints of the line currently being dragged, in canvas coordinates, or `null` when not
+   * drawing one. Same reason as {@link drawPreview}: the gesture object is not reactive, so the
+   * preview needs its own signal to render as the pointer moves.
+   */
+  protected readonly linePreview = signal<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   protected readonly layerTransform = computed(() => {
     const v = this.viewport();
@@ -397,6 +407,13 @@ export class StructuredCanvasComponent {
     }
 
     // Empty canvas.
+    // The line tool is dragged, not clicked (Figma/Miro/Klaxoon behaviour) — routed before the
+    // click-to-place branch that every other shape still takes. Clicking a line into a fixed
+    // 120×120 box was what made it "horizontal forcé" with a square selection outline.
+    if (!readOnly && this.tool() === 'line') {
+      this.gesture = { kind: 'draw-line', startX: pt.x, startY: pt.y, x: pt.x, y: pt.y };
+      return;
+    }
     const placing = this.placementKind(this.tool());
     if (!readOnly && placing) {
       if (placing === 'frame') {
@@ -464,6 +481,12 @@ export class StructuredCanvasComponent {
         // only once the pointer is released (the raw `g.points` array is not reactive).
         this.drawPreview.set(this.drawPath(g.points));
         break;
+      case 'draw-line': {
+        const end = event.shiftKey ? this.snapAngle(g.startX, g.startY, pt.x, pt.y) : pt;
+        this.gesture = { ...g, x: end.x, y: end.y };
+        this.linePreview.set({ x1: g.startX, y1: g.startY, x2: end.x, y2: end.y });
+        break;
+      }
       default:
         break;
     }
@@ -492,6 +515,10 @@ export class StructuredCanvasComponent {
         // Clear the live preview: from here the committed DRAW card renders the stroke.
         this.drawPreview.set(null);
         this.finishDraw(g.points);
+        break;
+      case 'draw-line':
+        this.linePreview.set(null);
+        this.finishLine(g);
         break;
       case 'marquee':
         this.marquee.set(null);
@@ -550,8 +577,18 @@ export class StructuredCanvasComponent {
   private resizeOpts(event: PointerEvent): ResizeOpts {
     return { ratio: event.shiftKey, fromCenter: event.altKey };
   }
+  /**
+   * Resize floor for a card. A `line` is the diagonal of its box, so it must be allowed to go flat
+   * on an axis to stay straight; {@link SHAPE_MIN} on both axes would forbid a horizontal or
+   * vertical line outright.
+   */
+  private minSizeFor(id: string): number {
+    const card = this.store.cards().find((c) => c.id === id);
+    return card?.type === 'SHAPE' && parseShape(card.content).kind === 'line' ? LINE_MIN : SHAPE_MIN;
+  }
   private applyCardResize(g: Extract<Gesture, { kind: 'resize-card' }>, x: number, y: number, opts: ResizeOpts = {}): void {
-    const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, SHAPE_MIN, SHAPE_MIN, opts);
+    const min = this.minSizeFor(g.id);
+    const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, min, min, opts);
     this.store.resizeCardBox(g.id, { posX: box.x, posY: box.y, width: box.width, height: box.height });
   }
   private applyFrameResize(g: Extract<Gesture, { kind: 'resize-frame' }>, x: number, y: number, opts: ResizeOpts = {}): void {
@@ -716,6 +753,56 @@ export class StructuredCanvasComponent {
       // carried by the creation itself, not patched in once the connector already exists.
       this.store.addConnection(g.fromId, toId, { arrow: this.connectorArrow(), dashed: this.connectorDashed() });
     }
+  }
+
+  /**
+   * Snaps the drag end-point to the nearest multiple of {@link LINE_SNAP_DEG}, keeping the gesture's
+   * length — Shift while drawing a line, the Figma/Miro convention. Snapping the *angle* rather
+   * than the axes is what makes 15°, 30° or 45° reachable, not just horizontal/vertical.
+   */
+  private snapAngle(startX: number, startY: number, x: number, y: number): { x: number; y: number } {
+    const dx = x - startX;
+    const dy = y - startY;
+    const step = (LINE_SNAP_DEG * Math.PI) / 180;
+    const angle = Math.round(Math.atan2(dy, dx) / step) * step;
+    const length = Math.hypot(dx, dy);
+    return { x: startX + Math.cos(angle) * length, y: startY + Math.sin(angle) * length };
+  }
+
+  /**
+   * Commits a dragged line as a SHAPE card: the box is the drag's bounding box, and `diag` records
+   * which of its diagonals the pointer travelled — together they reproduce the exact segment drawn.
+   *
+   * A drag too short to be a deliberate line (a plain click, or a slip of the pointer) commits
+   * nothing: it would leave a degenerate, near-invisible card the user cannot grab to delete.
+   */
+  private finishLine(g: Extract<Gesture, { kind: 'draw-line' }>): void {
+    const dx = g.x - g.startX;
+    const dy = g.y - g.startY;
+    if (Math.hypot(dx, dy) < LINE_MIN_DRAG) {
+      return;
+    }
+    // Both diagonals of a box are covered by these two cases: the pointer either kept the sign of
+    // dx and dy together (top-left→bottom-right) or crossed them (bottom-left→top-right).
+    const diag = dx * dy >= 0 ? 'tlbr' : 'bltr';
+    const content = serializeShape({
+      kind: 'line',
+      stroke: this.color(),
+      fill: null,
+      opacity: 1,
+      rotation: 0,
+      diag,
+    });
+    this.store.addCard(
+      Math.min(g.startX, g.x),
+      Math.min(g.startY, g.y),
+      'SHAPE',
+      content,
+      this.color(),
+      Math.abs(dx),
+      Math.abs(dy),
+    );
+    this.toolConsumed.emit();
   }
 
   /**
