@@ -6,6 +6,7 @@ import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StructuredCanvasComponent } from './structured-canvas.component';
 import { BoardStore } from '../../core/whiteboard/board.store';
+import { DEFAULT_CARD_COLOR, DEFAULT_SHAPE_COLOR } from '../model/colors';
 import { BoardTransport } from '../../core/whiteboard/board-transport';
 import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
 import type { Card } from '../model/board.types';
@@ -186,6 +187,84 @@ describe('StructuredCanvasComponent — LABEL placement tool (US08.6.2)', () => 
     expect(addCard).toHaveBeenCalledTimes(1);
     const [, , type] = addCard.mock.calls[0];
     expect(type).toBe('TEXT');
+  });
+});
+
+/**
+ * A colour the user actively picked must apply to whatever they create next, whatever its type —
+ * a recette finding: every type except SHAPE/DRAW hard-coded its default and silently ignored the
+ * pick. The `colorPicked` gate keeps an untouched board's defaults intact (`color` starts at the
+ * *shape* colour, so inheriting it unconditionally would turn fresh post-its indigo).
+ */
+describe('StructuredCanvasComponent — picked colour on card creation', () => {
+  let fixture: ComponentFixture<StructuredCanvasComponent>;
+  let component: StructuredCanvasComponent;
+  let addCard: ReturnType<typeof vi.fn>;
+
+  const PICKED = '#FCA5A5';
+
+  beforeEach(async () => {
+    addCard = vi.fn();
+    await TestBed.configureTestingModule({
+      imports: [
+        StructuredCanvasComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: {}, en: {} },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr', 'en'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [{ provide: BoardStore, useValue: { addCard } }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StructuredCanvasComponent);
+    component = fixture.componentInstance;
+  });
+
+  /** Colour is the 5th positional argument of `addCard(x, y, type, content, color, w, h)`. */
+  function colorOfLastCard(): string {
+    return addCard.mock.calls[0][4] as string;
+  }
+
+  it('keeps the post-it default while no colour has been picked', () => {
+    fixture.componentRef.setInput('color', DEFAULT_SHAPE_COLOR);
+    fixture.componentRef.setInput('colorPicked', false);
+    component['createCard']('sticky', 100, 50);
+    expect(colorOfLastCard()).toBe(DEFAULT_CARD_COLOR);
+  });
+
+  it('applies a picked colour to a new post-it', () => {
+    fixture.componentRef.setInput('color', PICKED);
+    fixture.componentRef.setInput('colorPicked', true);
+    component['createCard']('sticky', 100, 50);
+    expect(colorOfLastCard()).toBe(PICKED);
+  });
+
+  it('applies a picked colour to a new label', () => {
+    fixture.componentRef.setInput('color', PICKED);
+    fixture.componentRef.setInput('colorPicked', true);
+    component['createCard']('text', 100, 50);
+    expect(colorOfLastCard()).toBe(PICKED);
+  });
+
+  it('keeps the table default white while no colour has been picked, and honours a pick', () => {
+    fixture.componentRef.setInput('colorPicked', false);
+    component['createCard']('table', 100, 50);
+    expect(colorOfLastCard()).toBe('#FFFFFF');
+
+    addCard.mockClear();
+    fixture.componentRef.setInput('color', PICKED);
+    fixture.componentRef.setInput('colorPicked', true);
+    component['createCard']('table', 100, 50);
+    expect(colorOfLastCard()).toBe(PICKED);
+  });
+
+  it('leaves SHAPE on the active colour regardless of the gate (it never ignored the pick)', () => {
+    fixture.componentRef.setInput('tool', 'rect');
+    fixture.componentRef.setInput('color', PICKED);
+    fixture.componentRef.setInput('colorPicked', false);
+    component['createCard']('shape', 100, 50);
+    expect(colorOfLastCard()).toBe(PICKED);
   });
 });
 

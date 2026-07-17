@@ -136,6 +136,13 @@ export class StructuredCanvasComponent {
   readonly tool = input<ToolMode>('select');
   /** Active drawing colour (SHAPE stroke colour). */
   readonly color = input<string>(DEFAULT_SHAPE_COLOR);
+  /**
+   * True once the user actively picked a colour (toolbar swatch or selection recolour). A colour
+   * picked that way applies to whatever is created next, whatever its type; until then each card
+   * type keeps its own default — {@link color} defaults to the *shape* colour, so inheriting it
+   * unconditionally would turn fresh post-its indigo instead of soft yellow.
+   */
+  readonly colorPicked = input<boolean>(false);
   /** Active SHAPE fill colour, or `null` for no fill (US08.6.3). */
   readonly fillColor = input<string | null>(null);
 
@@ -500,7 +507,7 @@ export class StructuredCanvasComponent {
       pt.y - DEFAULT_CARD_H / 2,
       'TEXT',
       '',
-      DEFAULT_CARD_COLOR,
+      this.newCardColor(DEFAULT_CARD_COLOR),
       DEFAULT_CARD_W,
       DEFAULT_CARD_H,
     );
@@ -678,19 +685,37 @@ export class StructuredCanvasComponent {
     return null;
   }
 
+  /**
+   * Colour for a newly created card: the colour the user actively picked when there is one,
+   * otherwise the card type's own default. Keeps a fresh post-it soft yellow on an untouched
+   * board while honouring an explicit pick (recette finding — the pick was previously ignored by
+   * every type except SHAPE/DRAW).
+   */
+  private newCardColor(typeDefault: string): string {
+    return this.colorPicked() ? this.color() : typeDefault;
+  }
+
   private createCard(kind: 'sticky' | 'text' | 'table' | 'shape', x: number, y: number): void {
     const px = x - DEFAULT_CARD_W / 2;
     const py = y - DEFAULT_CARD_H / 2;
     if (kind === 'sticky') {
-      this.store.addCard(px, py, 'TEXT', '', DEFAULT_CARD_COLOR, DEFAULT_CARD_W, DEFAULT_CARD_H);
+      this.store.addCard(px, py, 'TEXT', '', this.newCardColor(DEFAULT_CARD_COLOR), DEFAULT_CARD_W, DEFAULT_CARD_H);
     } else if (kind === 'text') {
       // 'text' is the LABEL placement tool (US08.6.2) — a compact, persistent text label
       // distinct from the 'sticky' post-it (TEXT). Server-side defaults are unchanged
       // (192×128, #FFEB3B, EN08.4); only the client renders it without a post-it background
       // (see BoardCardComponent's `type === 'LABEL'` case).
-      this.store.addCard(px, py, 'LABEL', '', DEFAULT_CARD_COLOR, DEFAULT_CARD_W, DEFAULT_CARD_H);
+      this.store.addCard(px, py, 'LABEL', '', this.newCardColor(DEFAULT_CARD_COLOR), DEFAULT_CARD_W, DEFAULT_CARD_H);
     } else if (kind === 'table') {
-      this.store.addCard(px, py, 'TABLE', serializeTable([['', '', ''], ['', '', ''], ['', '', '']]), '#FFFFFF', 240, 140);
+      this.store.addCard(
+        px,
+        py,
+        'TABLE',
+        serializeTable([['', '', ''], ['', '', ''], ['', '', '']]),
+        this.newCardColor('#FFFFFF'),
+        240,
+        140,
+      );
     } else {
       const shapeKind = SHAPE_TOOLS[this.tool()] as ShapeKind;
       // Fill (US08.6.3, second colour picker) defaults to `null` (no fill, outline-only) —
