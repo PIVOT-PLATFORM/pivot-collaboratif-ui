@@ -435,6 +435,64 @@ describe('StructuredCanvasComponent — frame selection on header pointer-down',
     component = fixture.componentInstance;
   });
 
+  /**
+   * A connector emits its selection on `click`. Capturing the pointer on the surface routed the
+   * click there, so clicking a connector selected nothing — and with nothing selected the bottom
+   * bar never appeared, which is where its style now lives (recette 2026-07-17). Same cause as the
+   * frame header below.
+   */
+  it('starts no gesture at all when the pointer lands on a connector', () => {
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    const capture = vi.fn();
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = capture;
+    const hit = document.createElement('span');
+    hit.setAttribute('data-connection-hit', '');
+
+    component['onPointerDown']({
+      button: 0,
+      target: hit,
+      currentTarget: surfaceEl,
+      clientX: 40,
+      clientY: 40,
+      pointerId: 1,
+    } as unknown as PointerEvent);
+
+    expect(capture).not.toHaveBeenCalled();
+    // And no marquee either: the second pointerdown of a double-click would otherwise end with a
+    // degenerate rect that clears the selection before the dblclick fires.
+    expect(selectCards).not.toHaveBeenCalled();
+    expect(component['marquee']()).toBeNull();
+  });
+
+  /**
+   * The frame header is a drag zone, and its buttons (z-order, magnet, delete) and title live
+   * inside it. Starting a gesture on them captured the pointer on the surface, so their
+   * `click`/`dblclick` never fired — the delete button did nothing and the title could not be
+   * renamed (recette 2026-07-17). Both symptoms, one cause.
+   */
+  it('does not start a gesture when the pointer lands on a control inside the frame header', () => {
+    const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
+    const capture = vi.fn();
+    (surfaceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = capture;
+    const headerEl = fixture.nativeElement.querySelector('[data-frame-drag]') as HTMLElement;
+    const button = document.createElement('button');
+    headerEl.appendChild(button);
+
+    component['onPointerDown']({
+      button: 0,
+      target: button,
+      currentTarget: surfaceEl,
+      clientX: 40,
+      clientY: 10,
+      pointerId: 1,
+    } as unknown as PointerEvent);
+
+    // No pointer capture, no drag, no selection — the click is left to the button.
+    expect(capture).not.toHaveBeenCalled();
+    expect(startDragFrame).not.toHaveBeenCalled();
+    expect(selectCards).not.toHaveBeenCalled();
+  });
+
   /** Builds a pointer-down landing on the frame header (`[data-frame-drag]`). */
   function headerPointerDown(shiftKey = false): PointerEvent {
     const surfaceEl = fixture.nativeElement.querySelector('.wb-surface') as HTMLElement;
@@ -1293,6 +1351,8 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
   let component: StructuredCanvasComponent;
   let resizeCardBox: ReturnType<typeof vi.fn>;
   let resizeFrameBox: ReturnType<typeof vi.fn>;
+  let updateCard: ReturnType<typeof vi.fn>;
+  let previewCardContent: ReturnType<typeof vi.fn>;
 
   /** A 200×100 card (ratio 2) — a non-square start box makes a broken ratio visible. */
   const CARD = { id: 'A', posX: 100, posY: 100, width: 200, height: 100, type: 'STICKY', text: '', color: '#FFF' } as unknown as Card;
@@ -1303,6 +1363,8 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
   beforeEach(async () => {
     resizeCardBox = vi.fn();
     resizeFrameBox = vi.fn();
+    updateCard = vi.fn();
+    previewCardContent = vi.fn();
     const storeStub = {
       isReadonly: () => false,
       frames: () => [FRAME],
@@ -1322,6 +1384,10 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
       uncastVote: vi.fn(),
       startResizeCard: vi.fn(),
       startResizeFrame: vi.fn(),
+      commitResizeCard: vi.fn(),
+      commitResizeFrame: vi.fn(),
+      updateCard,
+      previewCardContent,
       resizeCardBox,
       resizeFrameBox,
     };
@@ -1435,20 +1501,96 @@ describe('StructuredCanvasComponent — resize modifiers (Shift = ratio, Alt = f
   });
 
   /**
-   * A line is the diagonal of its box, so it must be allowed to go flat on an axis to stay
-   * straight. `SHAPE_MIN` (80) on both axes made a horizontal or vertical line structurally
-   * impossible — the floor is per-type now.
+   * A line is two points, not a box: dragging an endpoint moves that point, the other staying put.
+   * Recette: « j'aimerai vraiment que les lignes soit vraiment une ligne et qu'il soit uniquement
+   * possible de modifier les extrémités. »
    */
-  it('lets a line flatten to a straight horizontal, below the shape minimum', () => {
+  it('moves the dragged endpoint of a line, keeping the other one fixed', () => {
     const el = surface();
     const handle = document.createElement('span');
-    handle.setAttribute('data-resize-dir', 'b');
+    handle.setAttribute('data-resize-dir', 'br');
     handle.setAttribute('data-card-id', 'L');
     component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
-    component['onPointerMove']({ clientX: 0, clientY: -1000, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+    // LINE spans (100,100)→(300,200); the fixed end is its top-left corner.
+    component['onPointerMove']({ clientX: 500, clientY: 400, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
 
-    // Flat box → a genuinely horizontal line, which the 80px floor would have forbidden.
-    expect(resizeCardBox).toHaveBeenLastCalledWith('L', { posX: 100, posY: 100, width: 200, height: 1 });
+    // The box now runs from the fixed end to the pointer — not a box-relative delta.
+    expect(resizeCardBox).toHaveBeenLastCalledWith('L', { posX: 100, posY: 100, width: 400, height: 300 });
+  });
+
+  /**
+   * Dragging one end past the other is a normal gesture — it simply turns the line over. Going
+   * through the box resize instead would clamp at the minimum and the line would refuse to flip.
+   */
+  it('flips the diagonal when an endpoint is dragged past the other', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    // Drag the bottom-right end above-right of the fixed top-left end: the line now runs bottom-
+    // left → top-right.
+    component['onPointerMove']({ clientX: 400, clientY: 20, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+    component['onPointerUp']({ target: el, currentTarget: el, clientX: 400, clientY: 20, pointerId: 1 } as unknown as PointerEvent);
+
+    expect(updateCard).toHaveBeenCalledTimes(1);
+    expect(parseShape(updateCard.mock.calls[0][1]).diag).toBe('bltr');
+  });
+
+  /**
+   * Swinging an endpoint around the fixed one (recette: « si je prends une extremité et que
+   * j'essaie de faire le tour du point que l'on ne bouge pas, il se met a bouger également si on
+   * dépasse un certain angle »). The box was recomputed correctly, but the line is drawn along
+   * whichever diagonal `content` names — left stale until release, it was drawn on the wrong one
+   * past 90°, so *both* ends appeared to move. The repaint is local; nothing is emitted until the
+   * pointer is released.
+   */
+  it('repaints the diagonal live while an endpoint swings around the fixed one', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+
+    // Still below-right of the fixed end (100,100): same diagonal, nothing to repaint.
+    component['onPointerMove']({ clientX: 400, clientY: 300, pointerId: 1, shiftKey: false } as unknown as PointerEvent);
+    expect(previewCardContent).not.toHaveBeenCalled();
+
+    // Swung above the fixed end: the line now runs the other way.
+    component['onPointerMove']({ clientX: 400, clientY: 40, pointerId: 1, shiftKey: false } as unknown as PointerEvent);
+    expect(previewCardContent).toHaveBeenCalledTimes(1);
+    expect(parseShape(previewCardContent.mock.calls[0][1]).diag).toBe('bltr');
+    // Local only — the room hears about it once, on release.
+    expect(updateCard).not.toHaveBeenCalled();
+  });
+
+  /** Nothing to rewrite when the gesture kept the same orientation — no needless card:update. */
+  it('leaves the content alone when the diagonal did not change', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    component['onPointerMove']({ clientX: 500, clientY: 400, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+    component['onPointerUp']({ target: el, currentTarget: el, clientX: 500, clientY: 400, pointerId: 1 } as unknown as PointerEvent);
+
+    expect(updateCard).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A line must be allowed to go flat on an axis to stay straight — a 0px-high box renders nothing
+   * at all, so the endpoint logic keeps a 1px floor rather than letting it collapse.
+   */
+  it('lets a line endpoint land on a straight horizontal without collapsing the box', () => {
+    const el = surface();
+    const handle = document.createElement('span');
+    handle.setAttribute('data-resize-dir', 'br');
+    handle.setAttribute('data-card-id', 'L');
+    component['onPointerDown']({ button: 0, target: handle, currentTarget: el, clientX: 0, clientY: 0, pointerId: 1 } as unknown as PointerEvent);
+    // Dead level with the fixed end (y = 100): a truly horizontal line.
+    component['onPointerMove']({ clientX: 400, clientY: 100, pointerId: 1, shiftKey: false, altKey: false } as unknown as PointerEvent);
+
+    expect(resizeCardBox).toHaveBeenLastCalledWith('L', { posX: 100, posY: 100, width: 300, height: LINE_MIN });
   });
 
   it('still holds every other shape to the 80px minimum', () => {

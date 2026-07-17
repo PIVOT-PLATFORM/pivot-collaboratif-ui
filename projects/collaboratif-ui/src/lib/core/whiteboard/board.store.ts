@@ -1257,8 +1257,25 @@ export class BoardStore {
     }
   }
 
-  updateCard(id: string, content: string): void {
-    const oldContent = this.cards().find((c) => c.id === id)?.content ?? '';
+  /**
+   * Repaints a card's `content` **locally only**, with no emission — for a live gesture that needs
+   * the card redrawn on every move but must not flood the room with one message per pixel. The
+   * gesture is responsible for calling {@link updateCard} on release to make it real.
+   *
+   * Same local-now / emit-on-commit split as {@link resizeCardBox} + {@link commitResizeCard}.
+   */
+  previewCardContent(id: string, content: string): void {
+    this.cards.update((prev) => prev.map((c) => (c.id === id ? { ...c, content } : c)));
+  }
+
+  /**
+   * @param previousContent The content to record as the undo target. Needed when a gesture already
+   *                        repainted the card locally through {@link previewCardContent}: the card
+   *                        now *holds* the new content, so reading it here would compare a value
+   *                        with itself and emit nothing.
+   */
+  updateCard(id: string, content: string, previousContent?: string): void {
+    const oldContent = previousContent ?? this.cards().find((c) => c.id === id)?.content ?? '';
     if (oldContent === content) {
       return;
     }

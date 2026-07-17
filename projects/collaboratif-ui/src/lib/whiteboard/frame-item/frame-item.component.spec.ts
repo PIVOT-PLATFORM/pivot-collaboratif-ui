@@ -54,6 +54,9 @@ describe('FrameItemComponent', () => {
     fixture = TestBed.createComponent(FrameItemComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('frame', makeFrame());
+    // Frame actions only render on a selected frame — showing them on every frame at all times
+    // turned each header into a permanent button strip (recette 2026-07-17).
+    fixture.componentRef.setInput('selected', true);
     fixture.detectChanges();
   });
 
@@ -82,6 +85,15 @@ describe('FrameItemComponent', () => {
     expect(btn('Supprimer le cadre')!.getAttribute('aria-label')).toContain('Zone Recette');
   });
 
+  it('hides every action while the frame is not selected', () => {
+    fixture.componentRef.setInput('selected', false);
+    fixture.detectChanges();
+
+    expect(btn('Supprimer le cadre')).toBeUndefined();
+    expect(btn('Premier plan')).toBeUndefined();
+    expect(btn('Emporter')).toBeUndefined();
+  });
+
   it('hides every action, including delete, in read-only mode', () => {
     fixture.componentRef.setInput('readOnly', true);
     fixture.detectChanges();
@@ -105,6 +117,10 @@ describe('FrameItemComponent', () => {
   });
 
   it('renders the resize handles only once the frame is selected (they are what makes it resizable)', () => {
+    // The suite selects the frame by default (that is where the actions live); this test is about
+    // the unselected state, so it says so explicitly.
+    fixture.componentRef.setInput('selected', false);
+    fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('[data-frame-resize-dir]').length).toBe(0);
 
     fixture.componentRef.setInput('selected', true);

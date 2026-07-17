@@ -10,10 +10,13 @@
       [attr.aria-label]="'whiteboard.frame.titleLabel' | transloco"
     />
   } @else {
-    <span class="wb-frame__title" (dblclick)="startEdit()">{{ frame().title || ('whiteboard.frame.untitled' | transloco) }}</span>
+    <span class="wb-frame__title" data-frame-title (dblclick)="startEdit()">{{ frame().title || ('whiteboard.frame.untitled' | transloco) }}</span>
   }
 
-  @if (!readOnly()) {
+  <!-- Frame options only once the frame is selected: they are actions *on this frame*, and showing
+       them on every frame at all times turned each header into a permanent button strip. Selecting
+       is what says "this is the one I'm working on". -->
+  @if (selected() && !readOnly()) {
     <button
       type="button"
       class="wb-frame__btn"

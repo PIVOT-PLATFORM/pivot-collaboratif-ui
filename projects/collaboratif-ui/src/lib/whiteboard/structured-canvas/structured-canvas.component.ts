@@ -27,7 +27,7 @@ import {
   looksLikeImageFilename,
   readAsDataUrl,
 } from '../model/image-card';
-import { parseShape, serializeShape, type ShapeKind } from '../model/shape';
+import { parseShape, serializeShape, type ShapeDiag, type ShapeKind } from '../model/shape';
 import { serializeTable } from '../model/table';
 import { decideTablePaste } from '../model/table-clipboard';
 import type { ToolMode } from '../model/tools';
@@ -66,7 +66,16 @@ type Gesture =
   | { kind: 'pan'; startX: number; startY: number; vpX: number; vpY: number }
   | { kind: 'marquee'; startX: number; startY: number }
   | { kind: 'drag-card'; id: string; startX: number; startY: number; startPos: { x: number; y: number } }
-  | { kind: 'resize-card'; id: string; dir: string; start: Rect; startX: number; startY: number }
+  | {
+      kind: 'resize-card';
+      id: string;
+      dir: string;
+      start: Rect;
+      startX: number;
+      startY: number;
+      lineDiag?: ShapeDiag;
+      lineContent?: string;
+    }
   | { kind: 'drag-frame'; id: string; startX: number; startY: number; startPos: { x: number; y: number }; captured: string[] }
   | { kind: 'resize-frame'; id: string; dir: string; start: Rect; startX: number; startY: number }
   | { kind: 'connect'; fromId: string; fromSide: EdgeSide | null; x: number; y: number }
@@ -340,7 +349,27 @@ export class StructuredCanvasComponent {
       return;
     }
     const target = event.target as HTMLElement;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    // A control is not a canvas gesture. The frame header carries `data-frame-drag`, and its
+    // buttons (z-order, magnet, delete) and title live inside it — starting a drag here captures
+    // the pointer on the surface, so the `click`/`dblclick` never reaches the control and it looks
+    // dead. Bail out before any gesture so the control gets its event.
+    if (target.closest('button, input, textarea, select, [contenteditable="true"]')) {
+      return;
+    }
+    // A connector owns its own pointer story: selection on `click`, label edit on `dblclick`. No
+    // canvas gesture may start here — a marquee born on the second `pointerdown` of a double-click
+    // ends with a degenerate rect that clears the selection right before the `dblclick` fires.
+    if (target.closest('[data-connection-hit], [data-connection-label]')) {
+      return;
+    }
+    // The frame title doubles as the frame's drag handle *and* as the rename target (double-click).
+    // Capturing routes every subsequent mouse event to the surface, so its `dblclick` never fires —
+    // measured: the span saw two `pointerdown` and no `click` at all. Dragging still works without
+    // the capture, since the surface spans the whole board and keeps receiving the moves; only a
+    // drag continued *outside the window* is lost, which is not worth an unrenamable frame.
+    if (!target.closest('[data-frame-title]')) {
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    }
     const pt = this.toCanvas(event.clientX, event.clientY);
 
     const resizeEl = target.closest<HTMLElement>('[data-resize-dir]');
@@ -363,7 +392,20 @@ export class StructuredCanvasComponent {
       const card = this.store.cards().find((c) => c.id === id);
       if (card) {
         this.store.startResizeCard(id);
-        this.gesture = { kind: 'resize-card', id, dir: resizeEl.getAttribute('data-resize-dir') ?? 'br', start: cardRect(card), startX: pt.x, startY: pt.y };
+        const spec = card.type === 'SHAPE' ? parseShape(card.content) : null;
+        this.gesture = {
+          kind: 'resize-card',
+          id,
+          dir: resizeEl.getAttribute('data-resize-dir') ?? 'br',
+          start: cardRect(card),
+          startX: pt.x,
+          startY: pt.y,
+          // Present only for a line — that is what routes the gesture to the endpoint logic.
+          lineDiag: spec?.kind === 'line' ? spec.diag : undefined,
+          // The content as it was before the gesture: the undo target, and the reference that says
+          // whether the diagonal actually changed.
+          lineContent: spec?.kind === 'line' ? card.content : undefined,
+        };
       }
       return;
     }
@@ -501,6 +543,7 @@ export class StructuredCanvasComponent {
         this.store.commitDragCard();
         break;
       case 'resize-card':
+        this.commitLineDiag(g);
         this.store.commitResizeCard(g.id);
         break;
       case 'drag-frame':
@@ -588,9 +631,47 @@ export class StructuredCanvasComponent {
     return card?.type === 'SHAPE' && parseShape(card.content).kind === 'line' ? LINE_MIN : SHAPE_MIN;
   }
   private applyCardResize(g: Extract<Gesture, { kind: 'resize-card' }>, x: number, y: number, opts: ResizeOpts = {}): void {
+    if (g.lineDiag) {
+      this.applyLineResize(g, x, y, opts);
+      return;
+    }
     const min = this.minSizeFor(g.id);
     const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, min, min, opts);
     this.store.resizeCardBox(g.id, { posX: box.x, posY: box.y, width: box.width, height: box.height });
+  }
+
+  /**
+   * Resizes a line by moving the endpoint being dragged, the other staying put — a line is two
+   * points, so box semantics do not apply to it. Dragging one end past the other is a normal
+   * gesture and simply flips the diagonal; going through {@link resizeRect} instead would clamp at
+   * the minimum and the line would refuse to turn over.
+   *
+   * The new diagonal is kept on the gesture and written to `content` once, on release
+   * ({@link onPointerUp}) — rewriting it on every move would emit a `card:update` per pixel.
+   */
+  private applyLineResize(g: Extract<Gesture, { kind: 'resize-card' }>, x: number, y: number, opts: ResizeOpts = {}): void {
+    // The fixed end is the corner opposite the handle being dragged.
+    const fx = g.dir.includes('l') ? g.start.x + g.start.width : g.start.x;
+    const fy = g.dir.includes('t') ? g.start.y + g.start.height : g.start.y;
+    const end = opts.ratio ? this.snapAngle(fx, fy, x, y) : { x, y };
+    const box = this.normRect(fx, fy, end.x, end.y);
+    // Both signs together → top-left→bottom-right; crossed → the other diagonal.
+    const diag: ShapeDiag = (end.x - fx) * (end.y - fy) >= 0 ? 'tlbr' : 'bltr';
+    this.gesture = { ...g, lineDiag: diag };
+    const live = this.store.cards().find((c) => c.id === g.id);
+    if (live && parseShape(live.content).diag !== diag) {
+      // Repaint locally on every move: the line is drawn along whichever diagonal `content` names,
+      // so leaving it stale while swinging an endpoint around the fixed one draws it on the wrong
+      // diagonal, and *both* ends appear to move. Emitted once, on release.
+      this.store.previewCardContent(g.id, serializeShape({ ...parseShape(g.lineContent ?? ''), diag }));
+    }
+    this.store.resizeCardBox(g.id, {
+      posX: box.x,
+      posY: box.y,
+      // Never zero on either axis: a flat box renders nothing at all (see LINE_MIN).
+      width: Math.max(LINE_MIN, box.width),
+      height: Math.max(LINE_MIN, box.height),
+    });
   }
   private applyFrameResize(g: Extract<Gesture, { kind: 'resize-frame' }>, x: number, y: number, opts: ResizeOpts = {}): void {
     const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, MIN_W, MIN_H, opts);
@@ -758,6 +839,23 @@ export class StructuredCanvasComponent {
         lineStyle: this.connectorLineStyle(),
       });
     }
+  }
+
+  /**
+   * Writes back a line's diagonal if the gesture turned it over. Once, on release — the box itself
+   * is what moved during the drag; this is the one bit the box cannot carry.
+   */
+  private commitLineDiag(g: Extract<Gesture, { kind: 'resize-card' }>): void {
+    if (!g.lineDiag || !g.lineContent) {
+      return;
+    }
+    const spec = parseShape(g.lineContent);
+    if (spec.diag === g.lineDiag) {
+      return;
+    }
+    // `lineContent` is the pre-gesture value: the card itself already holds the previewed one, so
+    // it is passed explicitly as the undo target.
+    this.store.updateCard(g.id, serializeShape({ ...spec, diag: g.lineDiag }), g.lineContent);
   }
 
   /**

@@ -398,6 +398,19 @@
   }
 }
 
+// ── Line selection halo ─────────────────────────────────────────────────────
+// Drawn along the line, exactly where the hit band is — so the highlight shows what is actually
+// grabbable. The card's own rectangular halo is suppressed for lines: it drew a box around a
+// diagonal and made people try to drag the empty rectangle around it.
+:host(.wb-card--line.wb-card--selected) .wb-card__body {
+  box-shadow: none;
+}
+
+.wb-card__line-halo {
+  stroke: var(--wb-accent);
+  opacity: 0.28;
+}
+
 // ── Line hit area ───────────────────────────────────────────────────────────
 // A line's box is a rectangle, but the line only occupies its diagonal. Letting that rectangle
 // catch pointers would make a diagonal line steal clicks across a large empty area — and would
@@ -412,7 +425,6 @@
 // …except the parts that must stay grabbable: the line itself, and the handles/anchors, which
 // live outside the body and are the only way to resize or connect it.
 :host(.wb-card--line) .wb-card__line-hit,
-:host(.wb-card--line) .wb-card__resize,
-:host(.wb-card--line) .wb-card__connect {
+:host(.wb-card--line) .wb-card__resize {
   pointer-events: auto;
 }
