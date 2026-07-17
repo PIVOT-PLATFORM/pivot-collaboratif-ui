@@ -69,6 +69,17 @@ type Gesture =
   | { kind: 'connect'; fromId: string; fromSide: EdgeSide | null; x: number; y: number }
   | { kind: 'draw'; points: [number, number][] };
 
+/**
+ * Modifiers held during a resize gesture.
+ *
+ * @property ratio      Shift — keep the gesture's start aspect ratio (corner handles only).
+ * @property fromCenter Alt — grow around the start centre instead of the opposite corner.
+ */
+interface ResizeOpts {
+  ratio?: boolean;
+  fromCenter?: boolean;
+}
+
 /** A single edge-anchor pastille shown on a hovered target card while linking (ITEM B). */
 interface AnchorPastille {
   side: EdgeSide;
@@ -426,13 +437,13 @@ export class StructuredCanvasComponent {
         this.store.moveCard(g.id, g.startPos.x + (pt.x - g.startX), g.startPos.y + (pt.y - g.startY));
         break;
       case 'resize-card':
-        this.applyCardResize(g, pt.x, pt.y);
+        this.applyCardResize(g, pt.x, pt.y, this.resizeOpts(event));
         break;
       case 'drag-frame':
         this.applyFrameDrag(g, pt.x, pt.y);
         break;
       case 'resize-frame':
-        this.applyFrameResize(g, pt.x, pt.y);
+        this.applyFrameResize(g, pt.x, pt.y, this.resizeOpts(event));
         break;
       case 'connect':
         this.gesture = { ...g, x: pt.x, y: pt.y };
@@ -531,12 +542,16 @@ export class StructuredCanvasComponent {
   }
 
   // ── Gesture application ───────────────────────────────────────────────────
-  private applyCardResize(g: Extract<Gesture, { kind: 'resize-card' }>, x: number, y: number): void {
-    const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, SHAPE_MIN, SHAPE_MIN);
+  /** Resize modifiers, read live on every move so they can be pressed or released mid-drag. */
+  private resizeOpts(event: PointerEvent): ResizeOpts {
+    return { ratio: event.shiftKey, fromCenter: event.altKey };
+  }
+  private applyCardResize(g: Extract<Gesture, { kind: 'resize-card' }>, x: number, y: number, opts: ResizeOpts = {}): void {
+    const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, SHAPE_MIN, SHAPE_MIN, opts);
     this.store.resizeCardBox(g.id, { posX: box.x, posY: box.y, width: box.width, height: box.height });
   }
-  private applyFrameResize(g: Extract<Gesture, { kind: 'resize-frame' }>, x: number, y: number): void {
-    const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, MIN_W, MIN_H);
+  private applyFrameResize(g: Extract<Gesture, { kind: 'resize-frame' }>, x: number, y: number, opts: ResizeOpts = {}): void {
+    const box = this.resizeRect(g.start, g.dir, x - g.startX, y - g.startY, MIN_W, MIN_H, opts);
     this.store.resizeFrameBox(g.id, box.x, box.y, box.width, box.height);
   }
   private applyFrameDrag(g: Extract<Gesture, { kind: 'drag-frame' }>, x: number, y: number): void {
@@ -550,23 +565,71 @@ export class StructuredCanvasComponent {
     this.store.moveFrame(g.id, nx, ny, captured.filter((c): c is NonNullable<typeof c> => c !== null).map((c) => ({ ...c, frameStartX: g.startPos.x, frameStartY: g.startPos.y })));
   }
 
-  private resizeRect(start: Rect, dir: string, dx: number, dy: number, minW: number, minH: number): Rect {
+  /**
+   * Geometry of a resize gesture.
+   *
+   * @param opts.ratio      Shift held — keep the start aspect ratio. Corner handles only: on a
+   *                        side handle (`t`/`b`/`l`/`r`) a locked ratio is undefined, so Shift is
+   *                        ignored there, as in Figma.
+   * @param opts.fromCenter Alt held — grow around the start centre instead of the opposite corner,
+   *                        so the drag delta applies to both sides at once.
+   */
+  private resizeRect(
+    start: Rect,
+    dir: string,
+    dx: number,
+    dy: number,
+    minW: number,
+    minH: number,
+    opts: ResizeOpts = {},
+  ): Rect {
+    // Resizing from the centre moves the opposite edge by the same amount, so one pointer unit
+    // changes the size by two.
+    const k = opts.fromCenter ? 2 : 1;
     let { x, y, width, height } = start;
     if (dir.includes('r')) {
-      width = Math.max(minW, start.width + dx);
+      width = Math.max(minW, start.width + dx * k);
     }
     if (dir.includes('l')) {
-      const w = Math.max(minW, start.width - dx);
+      const w = Math.max(minW, start.width - dx * k);
       x = start.x + (start.width - w);
       width = w;
     }
     if (dir.includes('b')) {
-      height = Math.max(minH, start.height + dy);
+      height = Math.max(minH, start.height + dy * k);
     }
     if (dir.includes('t')) {
-      const h = Math.max(minH, start.height - dy);
+      const h = Math.max(minH, start.height - dy * k);
       y = start.y + (start.height - h);
       height = h;
+    }
+
+    if (opts.ratio && dir.length === 2) {
+      // The ratio is the gesture's starting one, never recomputed mid-drag — recomputing from the
+      // live box would let rounding drift the shape a little more on every pointer move.
+      const ratio = start.width / start.height;
+      // The axis the pointer pushed furthest (relative to its own start) drives the scale, so the
+      // shape follows the dominant direction of the drag rather than one hard-coded axis.
+      const scale = Math.max(width / start.width, height / start.height);
+      let w = Math.max(minW, start.width * scale);
+      let h = Math.max(minH, start.height * scale);
+      // Restore the exact ratio after the min clamps, which may have moved only one axis.
+      if (w / h > ratio) {
+        h = w / ratio;
+      } else {
+        w = h * ratio;
+      }
+      // Re-anchor on the corner opposite the one being dragged.
+      x = dir.includes('l') ? start.x + start.width - w : start.x;
+      y = dir.includes('t') ? start.y + start.height - h : start.y;
+      width = w;
+      height = h;
+    }
+
+    if (opts.fromCenter) {
+      // Overrides the edge anchoring above: the start centre is what stays put.
+      x = start.x + start.width / 2 - width / 2;
+      y = start.y + start.height / 2 - height / 2;
     }
     return { x, y, width, height };
   }
