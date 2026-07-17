@@ -139,3 +139,63 @@ describe('StompBoardTransport — sender tagging on card:move/card:resize (fix/E
     expect(transport.isConnected()).toBe(false);
   });
 });
+
+/** Test-only view onto {@link StompBoardTransport}'s private `buildConnectHeaders()`. */
+interface TransportHeadersPrivate {
+  buildConnectHeaders(): Record<string, string>;
+}
+
+describe('StompBoardTransport — CONNECT auth headers (fix/72)', () => {
+  let transport: StompBoardTransport;
+  // Controls what the injected bearer-token accessor returns for the current test (reset to
+  // null before each) — mirrors whiteboard-sync.service.spec.ts's equivalent coverage for the
+  // sibling STOMP client.
+  let bearerTokenValue: string | null;
+
+  beforeEach(() => {
+    bearerTokenValue = null;
+    TestBed.configureTestingModule({
+      providers: [
+        StompBoardTransport,
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        { provide: COLLABORATIF_BEARER_TOKEN, useValue: (): string | null => bearerTokenValue },
+      ],
+    });
+    transport = TestBed.inject(StompBoardTransport);
+  });
+
+  function connectHeaders(): Record<string, string> {
+    return (transport as unknown as TransportHeadersPrivate).buildConnectHeaders();
+  }
+
+  it('sends no Authorization header when neither the accessor nor the E2E hook yields a token', () => {
+    expect(connectHeaders()).toEqual({});
+  });
+
+  it('carries the bearer token from the injected accessor', () => {
+    bearerTokenValue = 'tok-abc123';
+    expect(connectHeaders()).toEqual({ Authorization: 'Bearer tok-abc123' });
+  });
+
+  it('prefers the injected accessor over the E2E bearer-token hook when both are set (fix/72 — was reversed)', () => {
+    bearerTokenValue = 'tok-accessor';
+    const w = window as unknown as { __PIVOT_E2E_BEARER_TOKEN__?: string };
+    w.__PIVOT_E2E_BEARER_TOKEN__ = 'e2e-tok';
+    try {
+      expect(connectHeaders()).toEqual({ Authorization: 'Bearer tok-accessor' });
+    } finally {
+      delete w.__PIVOT_E2E_BEARER_TOKEN__;
+    }
+  });
+
+  it('falls back to the E2E bearer-token hook when the accessor returns null', () => {
+    bearerTokenValue = null;
+    const w = window as unknown as { __PIVOT_E2E_BEARER_TOKEN__?: string };
+    w.__PIVOT_E2E_BEARER_TOKEN__ = 'e2e-tok';
+    try {
+      expect(connectHeaders()).toEqual({ Authorization: 'Bearer e2e-tok' });
+    } finally {
+      delete w.__PIVOT_E2E_BEARER_TOKEN__;
+    }
+  });
+});
