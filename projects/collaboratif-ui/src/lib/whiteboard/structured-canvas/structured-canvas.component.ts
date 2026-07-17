@@ -943,6 +943,11 @@ export class StructuredCanvasComponent {
   protected onFrameSendToBack(id: string): void {
     this.store.setFrameLayer(id, this.store.backLayer());
   }
+
+  /** US08.8.1 — delete the frame from its header button; the cards it contains are kept. */
+  protected onFrameRemove(id: string): void {
+    this.store.deleteFrame(id);
+  }
   protected onConnectionSelect(id: string): void {
     this.store.selectCards(new Set([id]));
   }

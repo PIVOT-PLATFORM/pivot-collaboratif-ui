@@ -360,7 +360,8 @@
     "frame": {
       "titleLabel": "Frame title",
       "untitled": "Untitled frame",
-      "carryCards": "Carry the frame's cards"
+      "carryCards": "Carry the frame's cards",
+      "delete": "Delete the frame «{{title}}» (the cards it contains are kept)"
     },
     "connection": {
       "untitledCard": "untitled card",

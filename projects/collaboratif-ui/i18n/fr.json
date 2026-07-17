@@ -360,7 +360,8 @@
     "frame": {
       "titleLabel": "Titre du cadre",
       "untitled": "Cadre sans titre",
-      "carryCards": "Emporter les cartes du cadre"
+      "carryCards": "Emporter les cartes du cadre",
+      "delete": "Supprimer le cadre « {{title}} » (les cartes qu'il contient sont conservées)"
     },
     "connection": {
       "untitledCard": "carte sans titre",
