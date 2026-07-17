@@ -165,6 +165,16 @@
       (toolConsumed)="onToolConsumed()"
     ></wb-structured-canvas>
 
+    <!-- Contextual hint for the active tool. Bottom-left of the board, not inside the toolbar:
+         the bar is ~50px wide, and a 180px hint stretched it. Same vertical axis as the bar, so
+         it stays where the eye already is after picking a tool. -->
+    @if (hintKey(); as key) {
+      <div class="wb-page__hint" aria-hidden="true">
+        <span>{{ key | transloco }}</span>
+        <span class="wb-page__hint-esc">{{ 'whiteboard.toolbar.escapeHint' | transloco }}</span>
+      </div>
+    }
+
     @if (showGroups()) {
       <aside class="wb-page__panel wb-page__panel--groups" [attr.aria-label]="'whiteboard.groups.title' | transloco">
         <wb-groups-panel
