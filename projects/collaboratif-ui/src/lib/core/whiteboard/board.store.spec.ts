@@ -533,6 +533,11 @@ class FakeBoardTransport extends BoardTransport {
     return 'fake-board-transport-session';
   }
 
+  /** Fires every handler registered for `type`, simulating an inbound broadcast from the server. */
+  dispatch<T>(type: string, data: T): void {
+    this.handlers.get(type)?.forEach((h) => h(data));
+  }
+
   /** Simulates the server broadcasting `type` with `data` to every registered handler. */
   trigger<T>(type: string, data: T): void {
     this.handlers.get(type)?.forEach((h) => h(data));
@@ -639,6 +644,46 @@ describe('BoardStore — connections (US08.7.1)', () => {
     const emitted = transport.emitted.filter((e) => e.type === 'connection:create');
     expect(emitted).toHaveLength(1);
     expect(emitted[0].data).toEqual({ boardId: BOARD_ID, fromId: 'card-a', toId: 'card-b' });
+  });
+
+  /**
+   * The style is picked in the toolbar before the connector is drawn, so it must ride along with
+   * the creation. A follow-up `connection:update` would be visible: the board is
+   * server-authoritative with no optimistic rendering, so everyone would see a default-styled
+   * connector first, then watch it correct itself (collaboratif-core#101).
+   */
+  it('addConnection carries the pre-drawing style in the create message itself', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+
+    store.addConnection('card-a', 'card-b', { arrow: 'both', dashed: true });
+
+    const emitted = transport.emitted.filter((e) => e.type === 'connection:create');
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].data).toEqual({
+      boardId: BOARD_ID,
+      fromId: 'card-a',
+      toId: 'card-b',
+      arrow: 'both',
+      dashed: true,
+    });
+  });
+
+  /** Redo replays history — it must re-create the connector with the style it was born with, not
+   *  whatever the toolbar happens to hold now. */
+  it('redo re-creates the connector with its original style', async () => {
+    store.init(BOARD_ID);
+    await flushInitRequests();
+
+    store.addConnection('card-a', 'card-b', { arrow: 'end', dashed: false });
+    // The server echo is what closes the pending-history entry and registers the undo/redo pair.
+    transport.dispatch('connection:created', makeConnection('conn-1', 'card-a', 'card-b'));
+    store.undo();
+    store.redo();
+
+    const created = transport.emitted.filter((e) => e.type === 'connection:create');
+    expect(created).toHaveLength(2);
+    expect(created[1].data).toEqual(created[0].data);
   });
 
   it('deleteConnection emits connection:delete with the connection id, only for a known connection', async () => {

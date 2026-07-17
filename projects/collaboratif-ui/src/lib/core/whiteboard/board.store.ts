@@ -1467,14 +1467,26 @@ export class BoardStore {
     });
   }
 
-  addConnection(fromId: string, toId: string): void {
-    this.transport.emit('connection:create', { boardId: this.boardId, fromId, toId });
+  /**
+   * @param style Style picked in the toolbar before the connector was drawn (arrow, dashed…).
+   *              Sent with the creation itself rather than patched in afterwards: the board is
+   *              server-authoritative with no optimistic rendering, so a follow-up
+   *              `connection:update` would show every participant a default-styled connector
+   *              first, then visibly correct it. The server applies each field through the same
+   *              whitelist as an update and ignores what it does not know, so an older backend
+   *              simply creates the connector with its defaults (collaboratif-core#101).
+   */
+  addConnection(fromId: string, toId: string, style: ConnectionPatch = {}): void {
+    const payload = { boardId: this.boardId, fromId, toId, ...style };
+    this.transport.emit('connection:create', payload);
     this.pendingConnHistory.push((created: Connection) => {
       let trackedId = created.id;
       this.pushHistory({
         undo: () => this.transport.emit('connection:delete', { id: trackedId, boardId: this.boardId }),
         redo: () => {
-          this.transport.emit('connection:create', { boardId: this.boardId, fromId, toId });
+          // Redo re-creates the connector with the same style it was born with, not the current
+          // toolbar preset — undo/redo must replay history, not re-read live UI state.
+          this.transport.emit('connection:create', payload);
           this.pendingConnHistory.push((again: Connection) => (trackedId = again.id));
         },
       });

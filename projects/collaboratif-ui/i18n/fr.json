@@ -328,6 +328,15 @@
         "sticky": "Cliquez pour poser une note.",
         "table": "Cliquez pour poser un tableau.",
         "text": "Cliquez pour écrire un texte."
+      },
+      "connectorStyle": "Style du lien (flèche, pointillés)",
+      "arrowGroup": "Flèche",
+      "lineGroup": "Trait",
+      "dashed": "Pointillés",
+      "arrow": {
+        "none": "Aucune flèche",
+        "end": "Flèche à l'arrivée",
+        "both": "Flèche aux deux bouts"
       }
     },
     "card": {

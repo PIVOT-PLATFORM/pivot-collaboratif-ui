@@ -328,6 +328,15 @@
         "sticky": "Click to drop a note.",
         "table": "Click to drop a table.",
         "text": "Click to write some text."
+      },
+      "connectorStyle": "Link style (arrow, dashed)",
+      "arrowGroup": "Arrow",
+      "lineGroup": "Line",
+      "dashed": "Dashed",
+      "arrow": {
+        "none": "No arrow",
+        "end": "Arrow at the end",
+        "both": "Arrow at both ends"
       }
     },
     "card": {
