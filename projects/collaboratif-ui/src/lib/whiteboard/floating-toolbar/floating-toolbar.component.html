@@ -320,13 +320,5 @@
         }
       </div>
     </div>
-
-    <!-- "Échap" hint — shown only when a modal tool is active (not on plain select). -->
-    @if (hintKey(); as key) {
-      <div class="wb-toolbar__hint" aria-hidden="true">
-        <span class="wb-toolbar__hint-text">{{ key | transloco }}</span>
-        <span class="wb-toolbar__hint-esc">{{ 'whiteboard.toolbar.escapeHint' | transloco }}</span>
-      </div>
-    }
   }
 </div>

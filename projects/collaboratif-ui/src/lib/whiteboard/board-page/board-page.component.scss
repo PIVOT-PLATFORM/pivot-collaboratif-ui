@@ -283,7 +283,64 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wb-page__timer-pill--ending {
+  .wb-page__timer-pill--ending,
+  .wb-page__hint {
     animation: none;
+  }
+}
+
+// ── Hint contextuel de l'outil actif ────────────────────────────────────────
+// Coin bas-gauche : même axe vertical que la barre d'outils (donc dans la trajectoire du regard
+// qui vient de descendre la colonne), mais hors de son flux — dans la barre, un hint de ~180px
+// élargissait une colonne de ~50px. Zone libre : les panneaux occupent la droite, la
+// selection-toolbar le bas-centre, et le canvas est infini (le coin est du chrome, par convention).
+.wb-page__hint {
+  position: absolute;
+  left: var(--wb-space-4);
+  bottom: var(--wb-space-4);
+  z-index: var(--wb-z-chrome); // sous les panneaux/drawer/selection-toolbar : il ne masque jamais
+  display: flex;
+  align-items: center;
+  gap: var(--wb-space-2);
+  max-width: min(360px, calc(100% - var(--wb-space-8)));
+  padding: var(--wb-space-1) var(--wb-space-3);
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius-pill);
+  background: var(--wb-surface);
+  box-shadow: var(--wb-elev-2);
+  color: var(--wb-ink-muted);
+  font-size: var(--wb-text-sm); // 12px, pas 10px : il est désormais loin de la barre
+  line-height: var(--wb-lh-body);
+  pointer-events: none; // n'intercepte jamais un geste sur le canvas
+  animation: wb-page__hint-in var(--wb-dur-base) var(--wb-ease-out) both;
+}
+
+.wb-page__hint-esc {
+  flex-shrink: 0;
+  padding: 2px var(--wb-space-1);
+  border-radius: var(--wb-radius-chip);
+  background: var(--wb-surface-sunken);
+  color: var(--wb-ink-faint);
+  font-family: var(--wb-font-mono);
+  font-size: var(--wb-text-hint);
+  white-space: nowrap;
+}
+
+@keyframes wb-page__hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// Sous 640px, la selection-toolbar (centrée, bottom: 24px) mord sur ce coin.
+@media (max-width: 640px) {
+  .wb-page__hint {
+    display: none;
   }
 }

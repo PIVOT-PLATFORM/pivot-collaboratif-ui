@@ -60,6 +60,15 @@ export const SHORTCUT_BY_TOOL: Readonly<Partial<Record<ToolMode, string>>> = Obj
   Object.entries(TOOL_SHORTCUTS).map(([key, mode]) => [mode, key.toUpperCase()]),
 );
 
+/**
+ * Whether a tool places a SHAPE card. Lives here rather than in a component: both the toolbar (to
+ * gate the fill picker) and the board container (to pick the tool's hint) need it, and duplicating
+ * it would let the two drift apart.
+ */
+export function isShapeTool(mode: ToolMode): boolean {
+  return !!SHAPE_TOOLS[mode];
+}
+
 /** Numeric stroke width per named size. */
 export const STROKE_WIDTH: Readonly<Record<StrokeSize, number>> = {
   thin: 2,

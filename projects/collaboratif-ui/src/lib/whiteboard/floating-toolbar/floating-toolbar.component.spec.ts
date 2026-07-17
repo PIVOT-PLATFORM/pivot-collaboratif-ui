@@ -369,13 +369,13 @@ describe('FloatingToolbarComponent — image insertion (US08.6.4)', () => {
 });
 
 /**
- * Tooltips + contextual hint (recette: "pourquoi le tool tip ne s'affiche pas ?").
+ * Tooltips (recette: "pourquoi le tool tip ne s'affiche pas ?").
  *
  * The native `title` is gone from every button: it duplicated the `aria-label` for screen-reader
  * users, and its delay and content were the browser's to decide. `wbTooltip` replaces it and can
  * carry the tool's shortcut.
  */
-describe('FloatingToolbarComponent — tooltips and contextual hint', () => {
+describe('FloatingToolbarComponent — tooltips', () => {
   let fixture: ComponentFixture<FloatingToolbarComponent>;
 
   beforeEach(async () => {
@@ -406,33 +406,6 @@ describe('FloatingToolbarComponent — tooltips and contextual hint', () => {
     }
   });
 
-  /** Before this, the bar only ever said "Échap": it told the user how to leave a tool, never
-   *  what the tool they had just picked would do. */
-  it('describes the active tool, on top of the Échap reminder', () => {
-    fixture.componentRef.setInput('tool', 'frame');
-    fixture.detectChanges();
-
-    const hint = fixture.nativeElement.querySelector('.wb-toolbar__hint');
-    expect(hint.querySelector('.wb-toolbar__hint-text').textContent.trim()).toBe('whiteboard.toolbar.hint.frame');
-    expect(hint.querySelector('.wb-toolbar__hint-esc').textContent.trim()).toBe('whiteboard.toolbar.escapeHint');
-  });
-
-  /** Every shape shares one hint — "drag to draw the shape" holds for all six. */
-  it('uses the shared shape hint for any SHAPE tool', () => {
-    fixture.componentRef.setInput('tool', 'triangle');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.wb-toolbar__hint-text').textContent.trim()).toBe(
-      'whiteboard.toolbar.hint.shape',
-    );
-  });
-
-  it('shows no hint for the select tool, which needs no explanation', () => {
-    fixture.componentRef.setInput('tool', 'select');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.wb-toolbar__hint')).toBeNull();
-  });
 });
 
 /**

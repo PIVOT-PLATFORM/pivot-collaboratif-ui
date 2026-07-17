@@ -849,3 +849,84 @@ describe('BoardPageComponent — tool keyboard shortcuts', () => {
     expect(store.selectedIds().size).toBe(0);
   });
 });
+
+/**
+ * Contextual hint for the active tool.
+ *
+ * Moved out of the toolbar (recette: « wb-toolbar__hint je pense que ca n'a rien a faire la (…)
+ * dans cet espace cela élargi la bar d'outil et ce n'est pas tres beau ») — the bar is ~50px wide
+ * and the hint needs ~180px. It is board chrome, so it lives on the board.
+ */
+describe('BoardPageComponent — contextual tool hint', () => {
+  interface HintApi {
+    tool: { set(v: ToolMode): void };
+    hintKey(): string | null;
+  }
+
+  function create() {
+    const fixture = TestBed.createComponent(BoardPageComponent);
+    return { fixture, cmp: fixture.componentInstance as unknown as HintApi };
+  }
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      // The only suite here that renders the template — hence Transloco, for the `| transloco` pipe.
+      imports: [
+        BoardPageComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { fr: FR_TRANSLATIONS },
+          translocoConfig: { defaultLang: 'fr', availableLangs: ['fr'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: COLLABORATIF_API_URL, useValue: TEST_API_URL },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: new Map([['boardId', 'board-1']]) } },
+        },
+      ],
+    }).overrideComponent(BoardPageComponent, {
+      set: { providers: [BoardStore, { provide: BoardTransport, useClass: NoopKeyTransport }] },
+    });
+  });
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('names what the active tool does', () => {
+    const { cmp } = create();
+    cmp.tool.set('frame');
+
+    expect(cmp.hintKey()).toBe('whiteboard.toolbar.hint.frame');
+  });
+
+  /** Every shape shares one hint — "drag to draw the shape" holds for all six. */
+  it('uses the shared shape hint for any SHAPE tool', () => {
+    const { cmp } = create();
+    cmp.tool.set('triangle');
+
+    expect(cmp.hintKey()).toBe('whiteboard.toolbar.hint.shape');
+  });
+
+  it('shows no hint on select, which needs no explanation', () => {
+    const { cmp } = create();
+    cmp.tool.set('select');
+
+    expect(cmp.hintKey()).toBeNull();
+  });
+
+  /** It must never eat a pointer gesture aimed at the canvas underneath. */
+  it('renders outside the toolbar and never intercepts pointer events', () => {
+    const { fixture, cmp } = create();
+    cmp.tool.set('draw');
+    fixture.detectChanges();
+
+    const hint = fixture.nativeElement.querySelector('.wb-page__hint') as HTMLElement;
+    expect(hint).toBeTruthy();
+    expect(hint.closest('.wb-toolbar')).toBeNull();
+    expect(getComputedStyle(hint).pointerEvents).toBe('none');
+  });
+});

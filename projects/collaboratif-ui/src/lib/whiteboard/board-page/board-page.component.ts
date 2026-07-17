@@ -34,7 +34,7 @@ import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolba
 import { ImportKlaxoonModalComponent } from '../import-klaxoon-modal/import-klaxoon-modal.component';
 import type { Board } from '../../core/whiteboard/board.model';
 import type { Card, Connection, ConnectionPatch, ConnCap, ConnLineStyle } from '../model/board.types';
-import { TOOL_SHORTCUTS, type ToolMode } from '../model/tools';
+import { TOOL_SHORTCUTS, isShapeTool, type ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
 
 /** Delay (ms) within which a second click on the Reset button confirms the action (US08.2.4). */
@@ -132,6 +132,20 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly highlightedGroup = signal<string | null>(null);
 
   protected readonly isOwner = computed(() => this.store.userRole() === 'OWNER');
+
+  /**
+   * i18n key of the contextual hint: what the *active* tool does, or `null` on plain select.
+   *
+   * Lives on the board rather than inside the toolbar: the bar is ~50px wide and the hint needs
+   * ~180px, so sitting in it stretched it out of shape. It is board chrome, not a bar control.
+   */
+  protected readonly hintKey = computed<string | null>(() => {
+    const current = this.tool();
+    if (current === 'select') {
+      return null;
+    }
+    return `whiteboard.toolbar.hint.${isShapeTool(current) ? 'shape' : current}`;
+  });
 
   /** Count of selected items (cards + connections) — drives the floating selection toolbar. */
   protected readonly selectionCount = computed(() => this.store.selectedIds().size);
