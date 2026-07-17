@@ -9,6 +9,7 @@ import { BoardStore } from '../../core/whiteboard/board.store';
 import { BoardTransport } from '../../core/whiteboard/board-transport';
 import { ToastService } from '../../core/toast/toast.service';
 import { COLLABORATIF_API_URL } from '../../core/whiteboard/config/tokens';
+import type { Card } from '../model/board.types';
 
 const TEST_API_URL = 'http://localhost:8083/api/collaboratif';
 const FR_TRANSLATIONS = {
@@ -501,6 +502,57 @@ describe('BoardPageComponent — US08.7.1 keyboard delete of a selected connecto
     expect(transport.emitted.some((e) => e.type === 'connection:delete' && (e.data as { id: string }).id === 'conn-1')).toBe(
       true,
     );
+  });
+
+  /** Same as {@link keydownEvent} with the Ctrl modifier — `onKeydown` treats Ctrl and Meta alike. */
+  function modKeydownEvent(key: string): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key, ctrlKey: true });
+    Object.defineProperty(event, 'target', { value: document.createElement('div') });
+    return event;
+  }
+
+  function cutCard(id: string): Card {
+    return {
+      id,
+      boardId: 'board-1',
+      type: 'TEXT',
+      content: 'a',
+      color: '#FEF08A',
+      posX: 0,
+      posY: 0,
+      width: 192,
+      height: 128,
+      layer: 1,
+      locked: false,
+      groupId: null,
+      groupColor: null,
+    } as Card;
+  }
+
+  // Ctrl+X was the one clipboard shortcut missing next to Ctrl+C / Ctrl+V / Ctrl+D.
+  it('Ctrl+X puts the selection on the clipboard and removes it from the board', () => {
+    const { cmp, store, transport } = create();
+    localStorage.clear();
+    store.cards.set([cutCard('card-1')]);
+    store.selectCards(new Set(['card-1']));
+
+    cmp.onKeydown(modKeydownEvent('x'));
+
+    expect(store.clipboard()).toHaveLength(1);
+    expect(transport.emitted.some((e) => e.type === 'card:delete' && (e.data as { id: string }).id === 'card-1')).toBe(true);
+  });
+
+  it('Ctrl+X does nothing when the selection is empty', () => {
+    const { cmp, store, transport } = create();
+    localStorage.clear();
+    store.clipboard.set([]);
+    store.selectCards(new Set());
+    const before = transport.emitted.length;
+
+    cmp.onKeydown(modKeydownEvent('x'));
+
+    expect(store.clipboard()).toHaveLength(0);
+    expect(transport.emitted).toHaveLength(before);
   });
 });
 

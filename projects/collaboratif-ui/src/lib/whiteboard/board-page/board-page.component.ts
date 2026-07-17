@@ -389,6 +389,11 @@ export class BoardPageComponent implements OnInit, OnDestroy {
         event.preventDefault();
         this.store.copySelected();
       }
+    } else if (mod && event.key.toLowerCase() === 'x') {
+      if (this.store.selectedIds().size > 0) {
+        event.preventDefault();
+        this.store.cutSelected();
+      }
     } else if (mod && event.key.toLowerCase() === 'v') {
       event.preventDefault();
       this.store.pasteFromClipboard();

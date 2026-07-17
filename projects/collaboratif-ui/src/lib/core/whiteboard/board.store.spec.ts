@@ -417,6 +417,30 @@ describe('BoardStore — card:moved/card:resized sender exclusion (fix/EN08.4)',
     expect(store.canPaste()).toBe(false);
   });
 
+  // Cut (Ctrl+X) — copy then delete, so the cut cards stay pasteable and undo restores them.
+  it('cutSelected copies the selection to the clipboard and deletes it', () => {
+    localStorage.clear();
+    store.cards.set([baseCard({ id: 'card-1' }), baseCard({ id: 'card-2', posX: 300 })]);
+    store.selectCards(new Set(['card-1']));
+
+    expect(store.cutSelected()).toBe(1);
+
+    expect(store.clipboard()).toHaveLength(1);
+    expect(store.canPaste()).toBe(true);
+    expect(transport.emitted.some((e) => e.type === 'card:delete' && (e.data as { id: string }).id === 'card-1')).toBe(true);
+    expect(store.selectedIds().size).toBe(0);
+  });
+
+  it('cutSelected is a no-op when nothing is selected', () => {
+    localStorage.clear();
+    store.clipboard.set([]);
+    store.selectCards(new Set());
+    const emittedBefore = transport.emitted.length;
+
+    expect(store.cutSelected()).toBe(0);
+    expect(transport.emitted).toHaveLength(emittedBefore);
+  });
+
   it('pasteFromClipboard emits a card:create for each clipboard card', () => {
     store.selectCards(new Set(['card-1']));
     store.copySelected();

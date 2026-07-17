@@ -2157,6 +2157,23 @@ export class BoardStore {
   }
 
   /**
+   * Cut (Ctrl+X): copies the selection to the clipboard, then removes it — plain
+   * {@link copySelected} followed by {@link deleteSelected}, so both keep their existing
+   * semantics and undo restores everything.
+   *
+   * <p>Only cards are clipboard-portable ({@link ClipboardCard}): a connection or a frame caught
+   * in the selection is removed with it but cannot be pasted back — undo is the way back. Cutting
+   * a frame never removes the cards it visually contains (containment is geometric).
+   *
+   * @return the number of cards placed on the clipboard
+   */
+  cutSelected(): number {
+    const copied = this.copySelected();
+    this.deleteSelected();
+    return copied;
+  }
+
+  /**
    * Pastes the clipboard cards onto the board, cascading each successive paste by
    * {@link PASTE_OFFSET_STEP} so they don't stack exactly. Falls back to the localStorage mirror
    * when the in-memory clipboard is empty (e.g. after a board switch). No-op when both are empty.
