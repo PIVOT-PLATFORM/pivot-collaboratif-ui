@@ -434,3 +434,81 @@ describe('FloatingToolbarComponent — tooltips and contextual hint', () => {
     expect(fixture.nativeElement.querySelector('.wb-toolbar__hint')).toBeNull();
   });
 });
+
+/**
+ * Connector presets (recette: "les lien … possiblité d'ajouter une fleche aux bouts / pointillé").
+ *
+ * Styling a connector already existed (US08.7.2) but only *after* drawing one and selecting it —
+ * so users never found it. These presets let the style be chosen before drawing, mirroring how the
+ * SHAPE fill picker is gated on `isShapeTool()`.
+ */
+describe('FloatingToolbarComponent — connector presets', () => {
+  let fixture: ComponentFixture<FloatingToolbarComponent>;
+
+  beforeEach(async () => {
+    await configure();
+    fixture = TestBed.createComponent(FloatingToolbarComponent);
+    fixture.componentRef.setInput('tool', 'link-cards');
+    fixture.detectChanges();
+  });
+
+  function openPresets(): void {
+    byLabel(fixture, 'whiteboard.toolbar.connectorStyle').click();
+    fixture.detectChanges();
+  }
+
+  it('shows the connector presets button only while the connector tool is active', () => {
+    expect(byLabel(fixture, 'whiteboard.toolbar.connectorStyle')).toBeTruthy();
+
+    fixture.componentRef.setInput('tool', 'sticky');
+    fixture.detectChanges();
+
+    expect(byLabel(fixture, 'whiteboard.toolbar.connectorStyle')).toBeNull();
+  });
+
+  it('emits the chosen arrowhead preset', () => {
+    const emitted: string[] = [];
+    fixture.componentInstance.connectorArrowChange.subscribe((a) => emitted.push(a));
+    openPresets();
+
+    byLabel(fixture, 'whiteboard.toolbar.arrow.both').click();
+
+    expect(emitted).toEqual(['both']);
+  });
+
+  it('reflects the active arrowhead preset with aria-pressed', () => {
+    fixture.componentRef.setInput('connectorArrow', 'end');
+    fixture.detectChanges();
+    openPresets();
+
+    expect(byLabel(fixture, 'whiteboard.toolbar.arrow.end').getAttribute('aria-pressed')).toBe('true');
+    expect(byLabel(fixture, 'whiteboard.toolbar.arrow.none').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  /** The dashed preset is a toggle: it emits the opposite of what is currently applied. */
+  it('toggles the dashed preset off when it is already on', () => {
+    fixture.componentRef.setInput('connectorDashed', true);
+    fixture.detectChanges();
+    const emitted: boolean[] = [];
+    fixture.componentInstance.connectorDashedChange.subscribe((d) => emitted.push(d));
+    openPresets();
+
+    byLabel(fixture, 'whiteboard.toolbar.dashed').click();
+
+    expect(emitted).toEqual([false]);
+  });
+
+  it('emits nothing on a read-only board', () => {
+    fixture.componentRef.setInput('disabled', true);
+    fixture.detectChanges();
+    const emitted: string[] = [];
+    fixture.componentInstance.connectorArrowChange.subscribe((a) => emitted.push(a));
+
+    byLabel(fixture, 'whiteboard.toolbar.connectorStyle').click();
+    fixture.detectChanges();
+
+    // The popover never opens, so no preset can be picked.
+    expect(byLabel(fixture, 'whiteboard.toolbar.arrow.both')).toBeNull();
+    expect(emitted).toEqual([]);
+  });
+});

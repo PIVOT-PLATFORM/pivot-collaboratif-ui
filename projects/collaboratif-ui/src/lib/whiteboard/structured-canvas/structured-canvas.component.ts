@@ -15,7 +15,7 @@ import { BoardStore } from '../../core/whiteboard/board.store';
 import { BoardCardComponent } from '../board-card/board-card.component';
 import { FrameItemComponent } from '../frame-item/frame-item.component';
 import { ConnectionLineComponent } from '../connection-line/connection-line.component';
-import type { Card, Connection } from '../model/board.types';
+import type { Card, Connection, ConnArrow } from '../model/board.types';
 import { DEFAULT_CARD_COLOR, DEFAULT_SHAPE_COLOR } from '../model/colors';
 import { cardDisplayText } from '../model/card-format';
 import { isUrlOnlyPaste } from '../model/link-preview';
@@ -156,6 +156,10 @@ export class StructuredCanvasComponent {
   readonly colorPicked = input<boolean>(false);
   /** Active SHAPE fill colour, or `null` for no fill (US08.6.3). */
   readonly fillColor = input<string | null>(null);
+  /** Arrowhead preset picked in the toolbar, applied to the next connector drawn (US08.7.2). */
+  readonly connectorArrow = input<ConnArrow>('none');
+  /** Dashed-line preset picked in the toolbar, applied to the next connector drawn. */
+  readonly connectorDashed = input<boolean>(false);
 
   /** Emitted after a placement tool creates a card, so the container can reset to select. */
   readonly toolConsumed = output<void>();
@@ -708,7 +712,9 @@ export class StructuredCanvasComponent {
     const target = dropEl instanceof Element ? dropEl.closest<HTMLElement>('[data-card-id]') : null;
     const toId = target?.getAttribute('data-card-id') ?? null;
     if (toId && toId !== g.fromId) {
-      this.store.addConnection(g.fromId, toId);
+      // The style is chosen before the connector is drawn, like a card's colour — so it must be
+      // carried by the creation itself, not patched in once the connector already exists.
+      this.store.addConnection(g.fromId, toId, { arrow: this.connectorArrow(), dashed: this.connectorDashed() });
     }
   }
 

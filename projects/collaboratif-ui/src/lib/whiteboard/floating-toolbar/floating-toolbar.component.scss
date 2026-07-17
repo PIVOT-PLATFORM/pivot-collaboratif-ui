@@ -351,3 +351,51 @@
     transition: none;
   }
 }
+
+// ── Connector presets (arrow / dashed) ──────────────────────────────────────
+.wb-toolbar__flyout--connector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-2);
+}
+
+.wb-toolbar__preset-row {
+  display: flex;
+  gap: var(--wb-space-1);
+}
+
+.wb-toolbar__preset {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--wb-radius-chip);
+  background: var(--wb-surface);
+  color: var(--wb-ink-muted);
+  cursor: pointer;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    border-color: var(--wb-border-strong);
+    color: var(--wb-ink);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--active {
+    border-color: var(--wb-accent);
+    background: var(--wb-surface-sunken);
+    color: var(--wb-ink);
+  }
+}

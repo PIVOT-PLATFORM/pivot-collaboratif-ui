@@ -32,7 +32,7 @@ import { BoardSettingsModalComponent } from '../board-settings-modal/board-setti
 import { ShortcutsPanelComponent } from '../shortcuts-panel/shortcuts-panel.component';
 import { SelectionToolbarComponent } from '../selection-toolbar/selection-toolbar.component';
 import type { Board } from '../../core/whiteboard/board.model';
-import type { Card, Connection, ConnectionPatch } from '../model/board.types';
+import type { Card, Connection, ConnectionPatch, ConnArrow } from '../model/board.types';
 import { TOOL_SHORTCUTS, type ToolMode } from '../model/tools';
 import { DEFAULT_SHAPE_COLOR } from '../model/colors';
 
@@ -101,6 +101,10 @@ export class BoardPageComponent implements OnInit, OnDestroy {
   protected readonly fillColor = signal<string | null>(null);
   /** Whether the keyboard shortcut cheat-sheet is open (toggled by `?`). */
   protected readonly showShortcuts = signal(false);
+  /** Arrowhead preset applied to the next connector drawn (US08.7.2 — chosen before drawing). */
+  protected readonly connectorArrow = signal<ConnArrow>('none');
+  /** Dashed preset applied to the next connector drawn. */
+  protected readonly connectorDashed = signal(false);
   protected readonly showGroups = signal(false);
   /** US08.10.1 — board custom-fields definition panel visibility. */
   protected readonly showFields = signal(false);

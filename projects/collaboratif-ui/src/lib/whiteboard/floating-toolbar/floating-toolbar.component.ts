@@ -15,6 +15,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { SHAPE_TOOLS, SHORTCUT_BY_TOOL, type ToolMode } from '../model/tools';
 import { BASE_COLORS } from '../model/colors';
+import type { ConnArrow } from '../model/board.types';
 import { WbTooltipDirective } from '../tooltip/wb-tooltip.directive';
 
 /** A single-tool button (non-shape) in the palette. */
@@ -48,7 +49,15 @@ const DRAW_TOOLS: readonly ToolButton[] = [
 ];
 
 /** Which transient fly-out / popover is open, if any. */
-type OpenMenu = 'shapes' | 'colors' | null;
+type OpenMenu = 'shapes' | 'colors' | 'connector' | null;
+
+/**
+ * Arrowhead presets offered before drawing a connector. `start` is deliberately absent: it is the
+ * mirror of `end` (drawing the link the other way round gives it), and the style panel still
+ * offers the full set once a connector is selected. Keeping the pre-draw choice to three keeps the
+ * narrow bar readable.
+ */
+const ARROW_PRESETS: readonly ConnArrow[] = ['none', 'end', 'both'];
 
 const COLLAPSE_STORAGE_KEY = 'wb-toolbar-collapsed';
 
@@ -98,6 +107,10 @@ export class FloatingToolbarComponent {
    * non-SHAPE tool.
    */
   readonly fillColor = input<string | null>(null);
+  /** Arrowhead preset applied to the next connector drawn (US08.7.2 — chosen before drawing). */
+  readonly connectorArrow = input<ConnArrow>('none');
+  /** Dashed-line preset applied to the next connector drawn. */
+  readonly connectorDashed = input<boolean>(false);
   /** Whether the palette is disabled (read-only board). */
   readonly disabled = input<boolean>(false);
 
@@ -107,6 +120,10 @@ export class FloatingToolbarComponent {
   readonly colorChange = output<string>();
   /** Emits when the user picks a fill colour, or `null` for "no fill". */
   readonly fillColorChange = output<string | null>();
+  /** Emits when the user picks an arrowhead preset. */
+  readonly connectorArrowChange = output<ConnArrow>();
+  /** Emits when the user toggles the dashed preset. */
+  readonly connectorDashedChange = output<boolean>();
   /** Emits the selected file once the user picks one via the "insert image" button
    *  (US08.6.4 — accessible upload entry point, not only drag-and-drop/paste). */
   readonly insertImage = output<File>();
@@ -115,6 +132,7 @@ export class FloatingToolbarComponent {
   protected readonly contentTools = CONTENT_TOOLS;
   protected readonly drawTools = DRAW_TOOLS;
   protected readonly shapes = SHAPES;
+  protected readonly arrowPresets = ARROW_PRESETS;
   protected readonly palette = BASE_COLORS;
 
   /** Whether the retractable bar is collapsed to just its expand handle (session-persisted). */
@@ -126,6 +144,12 @@ export class FloatingToolbarComponent {
 
   /** Whether the active tool places a SHAPE card — gates the fill colour picker's visibility. */
   protected readonly isShapeTool = computed(() => isShapeMode(this.tool()));
+  /**
+   * Whether the connector tool is active — gates the arrow/dashed presets, mirroring how
+   * {@link isShapeTool} gates the fill picker. Styling a connector was only reachable *after*
+   * drawing one and selecting it, so users never found it (recette).
+   */
+  protected readonly isConnectorTool = computed(() => this.tool() === 'link-cards');
   /** The glyph shown on the grouped "Formes" button (active shape, else last used). */
   protected readonly shapeGlyph = computed<ShapeMode>(() => {
     const current = this.tool();
@@ -208,6 +232,21 @@ export class FloatingToolbarComponent {
     }
     this.lastShape.set(shape);
     this.toolChange.emit(shape);
+  }
+
+  /** Toggles the connector presets popover. */
+  protected toggleConnector(): void {
+    if (!this.disabled()) {
+      this.openMenu.update((m) => (m === 'connector' ? null : 'connector'));
+    }
+  }
+
+  protected chooseArrow(arrow: ConnArrow): void {
+    this.connectorArrowChange.emit(arrow);
+  }
+
+  protected toggleDashed(): void {
+    this.connectorDashedChange.emit(!this.connectorDashed());
   }
 
   /** Toggles the colour popover. */

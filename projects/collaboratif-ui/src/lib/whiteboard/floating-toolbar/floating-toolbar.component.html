@@ -164,6 +164,82 @@
       }
     </div>
 
+    <!-- Group 3b — connector presets, shown only while the connector tool is active. Same gating
+         pattern as the SHAPE fill picker: styling a connector existed (US08.7.2) but only *after*
+         drawing and selecting one, so users never found it. -->
+    @if (isConnectorTool()) {
+      <div class="wb-toolbar__group">
+        <div class="wb-toolbar__slot">
+          <button
+            type="button"
+            class="wb-toolbar__btn"
+            [class.wb-toolbar__btn--active]="openMenu() === 'connector'"
+            [disabled]="disabled()"
+            [attr.aria-haspopup]="'dialog'"
+            [attr.aria-expanded]="openMenu() === 'connector'"
+            [attr.aria-label]="'whiteboard.toolbar.connectorStyle' | transloco"
+            [wbTooltip]="'whiteboard.toolbar.connectorStyle' | transloco"
+            (click)="toggleConnector()"
+          >
+            <svg class="wb-toolbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path [attr.stroke-dasharray]="connectorDashed() ? '3 3' : null" d="M3 12h13" />
+              @if (connectorArrow() === 'end' || connectorArrow() === 'both') { <path d="M12 8l5 4-5 4" /> }
+              @if (connectorArrow() === 'both') { <path d="M8 8l-5 4 5 4" /> }
+            </svg>
+            <svg class="wb-toolbar__caret" viewBox="0 0 8 8" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 8H3l5-5z" /></svg>
+          </button>
+
+          @if (openMenu() === 'connector') {
+            <div class="wb-toolbar__flyout wb-toolbar__flyout--connector" role="dialog" [attr.aria-label]="'whiteboard.toolbar.connectorStyle' | transloco">
+              <div class="wb-toolbar__swatch-group" role="group" [attr.aria-label]="'whiteboard.toolbar.arrowGroup' | transloco">
+                <span class="wb-toolbar__flyout-label">{{ 'whiteboard.toolbar.arrowGroup' | transloco }}</span>
+                <div class="wb-toolbar__preset-row">
+                  @for (a of arrowPresets; track a) {
+                    <button
+                      type="button"
+                      class="wb-toolbar__preset"
+                      [class.wb-toolbar__preset--active]="connectorArrow() === a"
+                      [disabled]="disabled()"
+                      [attr.aria-pressed]="connectorArrow() === a"
+                      [attr.aria-label]="('whiteboard.toolbar.arrow.' + a) | transloco"
+                      [wbTooltip]="('whiteboard.toolbar.arrow.' + a) | transloco"
+                      (click)="chooseArrow(a)"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <path d="M3 12h13" />
+                        @if (a === 'end' || a === 'both') { <path d="M12 8l5 4-5 4" /> }
+                        @if (a === 'both') { <path d="M8 8l-5 4 5 4" /> }
+                      </svg>
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <div class="wb-toolbar__swatch-group" role="group" [attr.aria-label]="'whiteboard.toolbar.lineGroup' | transloco">
+                <span class="wb-toolbar__flyout-label">{{ 'whiteboard.toolbar.lineGroup' | transloco }}</span>
+                <div class="wb-toolbar__preset-row">
+                  <button
+                    type="button"
+                    class="wb-toolbar__preset"
+                    [class.wb-toolbar__preset--active]="connectorDashed()"
+                    [disabled]="disabled()"
+                    [attr.aria-pressed]="connectorDashed()"
+                    [attr.aria-label]="'whiteboard.toolbar.dashed' | transloco"
+                    [wbTooltip]="'whiteboard.toolbar.dashed' | transloco"
+                    (click)="toggleDashed()"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" focusable="false">
+                      <path stroke-dasharray="3 3" d="M3 12h18" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
     <!-- Group 4 — colours popover -->
     <div class="wb-toolbar__group">
       <div class="wb-toolbar__slot">
