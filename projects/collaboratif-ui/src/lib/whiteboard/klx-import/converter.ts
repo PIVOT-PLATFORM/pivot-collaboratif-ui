@@ -36,13 +36,27 @@ function cColor(code: string): string {
   return C_MAP[code] ?? '#9ca3af';
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+  '&lt;': '<', '&gt;': '>', '&amp;': '&', '&#39;': "'", '&quot;': '"',
+};
+const HTML_ENTITY_RE = /&lt;|&gt;|&amp;|&#39;|&quot;/g;
+const HTML_TAG_RE = /<[^>]+>/g;
+
+// Single-pass entity decode (one regex, one replacer call) — chaining separate sequential
+// `.replace()` calls per entity lets an earlier replacement's output feed the next pattern
+// (e.g. `&amp;#39;` -> `&#39;` -> `'`, silently double-unescaping input that should decode to
+// the literal text `&#39;` once, not twice).
+function decodeHtmlEntities(text: string): string {
+  return text.replace(HTML_ENTITY_RE, (entity) => HTML_ENTITIES[entity]);
+}
+
 function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-    .replace(/&#39;/g, "'").replace(/&quot;/g, '"')
-    .trim();
+  const withoutTags = html.replace(/<br\s*\/?>/gi, '\n').replace(HTML_TAG_RE, '');
+  const decoded = decodeHtmlEntities(withoutTags);
+  // Decoding can reconstitute literal '<'/'>' characters (e.g. a postit whose visible text was
+  // "<script>", HTML-escaped by Klaxoon as "&lt;script&gt;") — strip tag-shaped substrings again
+  // so the returned plain text can never look like markup, however it decoded.
+  return decoded.replace(HTML_TAG_RE, '').trim();
 }
 
 // The effective font-size / weight / color of a Klaxoon text live as inline

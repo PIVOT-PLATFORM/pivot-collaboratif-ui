@@ -73,6 +73,32 @@ describe('convertKlaxoon', () => {
     expect(cards[0].content).toBe('Bold\nLine2');
   });
 
+  it('does not double-unescape a doubly-encoded entity (CodeQL js/double-escaping regression)', () => {
+    // "&amp;#39;" must decode once to the literal text "&#39;" -- a naive chain of sequential
+    // .replace() calls would decode &amp; first, producing "&#39;", which the *next* .replace in
+    // the same chain then decodes a second time into "'" (silent double-unescape).
+    const data: KlxRawData = {
+      colors: [],
+      ideas: [makeIdea({ content_html: '<p>caf&amp;#39;e</p>' })],
+      state: [], links: [], groups: [],
+    };
+    const { cards } = convertKlaxoon(data);
+    expect(cards[0].content).toBe('caf&#39;e');
+  });
+
+  it('never leaves a tag-shaped substring after decoding entities (CodeQL incomplete-sanitization regression)', () => {
+    // Klaxoon escapes literal "<script>" typed as visible text into "&lt;script&gt;" in
+    // content_html. Decoding entities after the tag-strip pass must not reconstitute it as a
+    // real-looking tag in the plain-text output.
+    const data: KlxRawData = {
+      colors: [],
+      ideas: [makeIdea({ content_html: '&lt;script&gt;alert(1)&lt;/script&gt;' })],
+      state: [], links: [], groups: [],
+    };
+    const { cards } = convertKlaxoon(data);
+    expect(cards[0].content).not.toMatch(/<[^>]+>/);
+  });
+
   it('skips inactive ideas', () => {
     const data: KlxRawData = {
       colors: [],
