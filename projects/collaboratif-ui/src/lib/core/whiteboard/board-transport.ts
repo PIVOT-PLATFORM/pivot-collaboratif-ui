@@ -235,10 +235,19 @@ export class StompBoardTransport extends BoardTransport {
     return `${scheme}://${window.location.host}${apiUrl}/ws/whiteboard`;
   }
 
+  /**
+   * Token source, in order: the accessor supplied by the consuming app via
+   * `provideCollaboratifUi({ bearerToken })` (bridged from the shell's `AuthService`), then the
+   * E2E test hook `window.__PIVOT_E2E_BEARER_TOKEN__` (set only by the Playwright harness). When
+   * neither yields a token the CONNECT is sent unauthenticated and the server rejects it — see
+   * {@link import('./whiteboard-sync.service').WhiteboardSyncService} `buildConnectHeaders` for
+   * the sibling STOMP client this mirrors (fix/72).
+   */
   private buildConnectHeaders(): Record<string, string> {
     const token =
+      this.bearerToken() ??
       (window as unknown as { __PIVOT_E2E_BEARER_TOKEN__?: string }).__PIVOT_E2E_BEARER_TOKEN__ ??
-      this.bearerToken();
+      null;
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 }
